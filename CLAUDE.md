@@ -4,7 +4,8 @@ You are building the Enterprise Fine-Tuning Pipeline from the specs in `docs/`. 
 
 ## Read this first
 
-- Your task comes from [docs/07-build-plan.md](docs/07-build-plan.md). Do exactly one task per session; its "Accept" + "Verify" lines are the definition of done, together with tests and clean lint.
+- Your task comes from [docs/07-build-plan.md](docs/07-build-plan.md). Do exactly one task per session; its "Accept" + "Verify" lines are the definition of done, together with its test suite from [docs/08-test-specs/](docs/08-test-specs/README.md) and clean lint.
+- Tests are specified, not improvised: implement every case in your task's suite exactly as listed in [docs/08-test-specs/](docs/08-test-specs/README.md), docstring-tagged with its case ID. Coverage gates: ≥90 % branch globally, 100 % on the listed pure-logic modules.
 - Before touching **any** record, manifest, or schema code, read [docs/02-data-contracts.md](docs/02-data-contracts.md). It wins over code.
 - All canonical names (buckets, env vars, config keys, run-ID format, exit codes) live in [docs/01-architecture.md §4](docs/01-architecture.md). Never invent a name variant.
 
@@ -16,6 +17,14 @@ You are building the Enterprise Fine-Tuning Pipeline from the specs in `docs/`. 
 4. **Stages are stateless and idempotent:** delete own output prefix for the run ID, rewrite, write the manifest last. Never write outside your stage's output bucket (the IAM matrix will reject it anyway).
 5. **Validate inputs fail-fast** with the pydantic models in `eftp/core/schemas.py`; exit codes: 0 ok / 1 error / 2 config-or-validation / 3 zero-records.
 6. **Model specifics live only in model adapters** (`docs/04-model-adapters.md`). A stage branching on an adapter's name is a bug.
+7. **Never weaken a test to make it pass.** A test that looks wrong is a spec question — check [docs/08-test-specs/](docs/08-test-specs/README.md) and the component spec, and flag conflicts instead of editing the test.
+
+## Git (full rules: [docs/09-git-workflow.md](docs/09-git-workflow.md))
+
+- Never commit to `main`. One branch per build task (`feat/tNN-<slug>`), branched from up-to-date `main`.
+- Atomic commits, Conventional Commits format (`feat(cleaner): ...`), code + its tests in the same commit, unit tests passing at every commit.
+- Merge to `main` only after the full gate is green: ruff check + format, unit, integration, traceability + coverage scripts. Merge `--no-ff`, delete the branch.
+- Gate red and unfixable this session ⇒ leave the branch, report honestly. Never merge-then-fix, never force-push shared branches.
 
 ## Tooling (fixed — do not churn)
 

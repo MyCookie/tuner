@@ -2,13 +2,13 @@
 
 Ordered task breakdown for the MVP slice, sized for one-task-per-session execution by Sonnet-class implementers. Each task is independently completable and verifiable; no task depends on a later one. Read [CLAUDE.md](../CLAUDE.md) before any task; the referenced spec sections are normative.
 
-**Definition of done for every task:** the listed files exist, the task's tests pass (`pytest` + listed marker), ruff is clean, and the verification command runs as stated.
+**Definition of done for every task:** the listed files exist, the task's test-spec suite ([08-test-specs](08-test-specs/README.md), see the suite→task table there) is fully implemented and green, ruff is clean, and the verification command runs as stated. Every task is executed on its own branch and merged only through the gate in [09-git-workflow.md](09-git-workflow.md).
 
 ---
 
 ### T01 — Repo scaffold & core config
 **Goal:** installable `eftp` package with config loading.
-**Files:** `pyproject.toml` (uv-managed; deps: pydantic, boto3, pyyaml, click; extras `train`, `dev`), `src/eftp/core/config.py`, `src/eftp/core/ids.py`, `src/eftp/cli.py` (subcommand skeleton, all stages stubbed exit 1 "not implemented"), `configs/pipeline.yaml` (defaults from [01 §6](01-architecture.md)), `tests/unit/test_config.py`, `tests/unit/test_ids.py`.
+**Files:** `pyproject.toml` (uv-managed; deps: pydantic, boto3, pyyaml, click; extras `train`, `dev` incl. pytest-cov; coverage config per [08 README](08-test-specs/README.md)), `.gitignore` + `scripts/pre-commit` hook ([09 §6](09-git-workflow.md)), `src/eftp/core/config.py`, `src/eftp/core/ids.py`, `src/eftp/cli.py` (subcommand skeleton, all stages stubbed exit 1 "not implemented"), `configs/pipeline.yaml` (defaults from [01 §6](01-architecture.md)), `tests/unit/test_config.py`, `tests/unit/test_ids.py`.
 **Spec:** [01 §3, §4.2, §4.4, §6](01-architecture.md).
 **Accept:** config file round-trips through the pydantic model; unknown key rejected; run-ID/record-ID formats match §4.2 regexes.
 **Verify:** `uv run eftp --help` lists all subcommands; `uv run pytest tests/unit`.
@@ -82,8 +82,8 @@ Ordered task breakdown for the MVP slice, sized for one-task-per-session executi
 **Verify:** `uv run eftp run --config configs/pipeline.e2e.yaml` completes end-to-end; `uv run eftp registry list` shows the new candidate.
 
 ### T14 — E2E steel thread + CI
-**Files:** `tests/e2e/test_steel_thread.py`, `configs/pipeline.e2e.yaml`, CI workflow (lint, unit, integration-with-services, pickle-ban grep).
-**Spec:** [06 §5–§6](06-testing.md).
+**Files:** `tests/e2e/test_steel_thread.py`, `configs/pipeline.e2e.yaml`, `scripts/check_test_ids.py` + `scripts/check_coverage.py` ([08 README](08-test-specs/README.md)), CI workflow (lint, unit, integration-with-services, pickle-ban grep, both check scripts).
+**Spec:** [06 §5–§6](06-testing.md), [08 e2e.md](08-test-specs/e2e.md).
 **Verify:** `uv run pytest -m e2e` passes within budget; CI green on a PR.
 
 ### T15 — MVP hardening pass

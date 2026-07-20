@@ -2,7 +2,9 @@
 
 Testing philosophy: the pipeline's value is **auditability and determinism**, so tests assert contracts (schemas, manifests, counts, lineage) more than implementations. Every build-plan task lands with its tests; the E2E steel-thread test is the MVP's definition of done.
 
-Test layout: `tests/unit/` (no services), `tests/integration/` (requires compose MinIO + mock judge), `tests/e2e/` (full pipeline). Runner: `pytest`; markers `integration` and `e2e` keep default runs fast (`pytest` alone runs unit only).
+Test layout: `tests/unit/` (no services), `tests/integration/` (requires compose MinIO + mock judge), `tests/e2e/` (full pipeline). Runner: `pytest`; markers `integration`, `e2e`, and `gpu` keep default runs fast (`pytest` alone runs unit only).
+
+This document is the strategy. The **normative, case-by-case test specifications** — including the coverage policy (≥90 % branch globally, 100 % on pure-logic modules) and the spec↔test traceability scheme — live in [08-test-specs/](08-test-specs/README.md); implementers work from those.
 
 ---
 
