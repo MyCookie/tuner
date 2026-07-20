@@ -5,15 +5,15 @@
 ## CLI
 
 ```
-eftp ingest --run-id <RUN_ID> [--config configs/pipeline.yaml]
+tuner ingest --run-id <RUN_ID> [--config configs/pipeline.yaml]
 ```
 
-Env: `EFTP_S3_*` ([01-architecture.md §4.3](../01-architecture.md)). Exit codes per [01 §4.4](../01-architecture.md); exit 3 if all configured sources yield zero records.
+Env: `TUNER_S3_*` ([01-architecture.md §4.3](../01-architecture.md)). Exit codes per [01 §4.4](../01-architecture.md); exit 3 if all configured sources yield zero records.
 
 ## Input / Output
 
 - **Input:** sources listed under config `ingest.sources`. MVP source types: `csv`, `jsonl` (local file paths or `s3://` URIs readable via `StorageClient`).
-- **Output:** `eftp-bronze/{run_id}/records-*.jsonl` + `manifest.json` (tier manifest with `input: null`).
+- **Output:** `tuner-bronze/{run_id}/records-*.jsonl` + `manifest.json` (tier manifest with `input: null`).
 
 ## The `Source` interface
 
@@ -33,7 +33,7 @@ Registered by `type` string: `csv` → `CsvSource`, `jsonl` → `JsonlSource` (M
 ## Core logic
 
 1. Load and validate config; instantiate each configured `Source`.
-2. Delete `eftp-bronze/{run_id}/` if present (idempotency, [01 §5.3](../01-architecture.md)).
+2. Delete `tuner-bronze/{run_id}/` if present (idempotency, [01 §5.3](../01-architecture.md)).
 3. For each source, for each `(locator, raw)`: build a Bronze envelope — new UUIDv4 `id`, `source` block, `content_hash` over canonical `raw`.
 4. Stream envelopes to `records-{NNNNN}.jsonl` shards of ≤ 50 000 records.
 5. Write the tier manifest last (commit marker). `counts.read` = records yielded; `dropped` = 0 always in MVP (the Ingestor preserves, never filters).
@@ -56,7 +56,7 @@ Registered by `type` string: `csv` → `CsvSource`, `jsonl` → `JsonlSource` (M
 
 ## Future phases
 
-- **`SqlSource`** (Phase 2+): connection string via env `EFTP_SQL_DSN`, query in config; locator `offset:{n}`.
+- **`SqlSource`** (Phase 2+): connection string via env `TUNER_SQL_DSN`, query in config; locator `offset:{n}`.
 - **`PdfSource`** (Phase 2+): per-page text extraction; locator `page:{n}`; extraction library choice deferred to its own build task.
 - **`ApiSource`** (Phase 3): paginated HTTP pulls with cursor persistence.
-- **Multimodal assets** (Phase 4): binary files are copied to `eftp-assets/{run_id}/media/{asset_id}.{ext}`; the Bronze `raw` stores the asset URI, never inline bytes.
+- **Multimodal assets** (Phase 4): binary files are copied to `tuner-assets/{run_id}/media/{asset_id}.{ext}`; the Bronze `raw` stores the asset URI, never inline bytes.

@@ -16,7 +16,7 @@ clean:
   pii: [email, phone]           # enabled scrubbers
 
 judge:
-  model: ""                     # judge model name at EFTP_JUDGE_BASE_URL (empty => fail at startup)
+  model: ""                     # judge model name at TUNER_JUDGE_BASE_URL (empty => fail at startup)
   threshold: 0.7                # min normalized score for Gold promotion
   max_concurrency: 4
   max_retries: 3
@@ -28,7 +28,7 @@ tokenize:
 train:
   method: qlora                 # qlora | full (full only if adapter allows, 04 §2)
   hyperparameters: {}           # overrides merged onto adapter defaults (04 §3)
-  mlflow_experiment: eftp
+  mlflow_experiment: tuner
 
 smoke:
   num_prompts: 8                # eval-split prompts to run

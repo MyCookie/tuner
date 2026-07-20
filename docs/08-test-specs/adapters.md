@@ -1,6 +1,6 @@
 # Test Suite: Model Adapters (`ADP`)
 
-Spec under test: [04-model-adapters.md](../04-model-adapters.md). File: `tests/unit/test_adapters.py`. Coverage target: **100 %** of `eftp/models/*` (HF download calls stubbed).
+Spec under test: [04-model-adapters.md](../04-model-adapters.md). File: `tests/unit/test_adapters.py`. Coverage target: **100 %** of `tuner/models/*` (HF download calls stubbed).
 
 ## Interface compliance (parametrized over every entry in `ADAPTERS` — new adapters get these for free)
 

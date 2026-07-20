@@ -29,4 +29,4 @@ Unit cases use temp files. Integration cases use compose MinIO + `fixtures/`.
 | ING-I-015 | Unreadable source URI | Exit 2 **before** any object is written (bucket prefix empty) |
 | ING-I-016 | Induced failure mid-write (monkeypatch shard write to raise on shard 2, shard size 10) | No `manifest.json` in the prefix → CORE-I-031 behavior downstream |
 | ING-I-017 | Shard boundary: 25 records, shard size injected to 10 | Shards `00000..00002` with 10/10/5; manifest `files` lists all three in order |
-| ING-I-018 | IAM: ingestor credentials attempt a write to `eftp-gold` | Denied by policy (AccessDenied) — [05 §5](../05-infrastructure.md) |
+| ING-I-018 | IAM: ingestor credentials attempt a write to `tuner-gold` | Denied by policy (AccessDenied) — [05 §5](../05-infrastructure.md) |

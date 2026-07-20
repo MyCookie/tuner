@@ -6,10 +6,10 @@ Tests for the tooling *around* the pipeline: MinIO bootstrap + IAM, the MLflow s
 
 | ID | Scenario | Expected |
 | :--- | :--- | :--- |
-| INF-I-001 | `bootstrap_minio.py` against fresh MinIO | All 7 buckets exist (`eftp-bronze/silver/gold/artifacts/registry/assets/mlflow`); every per-stage user from the [05 §5](../05-infrastructure.md) matrix exists with its policy attached |
+| INF-I-001 | `bootstrap_minio.py` against fresh MinIO | All 7 buckets exist (`tuner-bronze/silver/gold/artifacts/registry/assets/mlflow`); every per-stage user from the [05 §5](../05-infrastructure.md) matrix exists with its policy attached |
 | INF-I-002 | Bootstrap re-run on an initialized store | Exit 0, idempotent: no duplicate policies, existing bucket contents untouched |
 | INF-I-003 | **Full IAM matrix sweep** — parametrized over every principal×bucket cell of 05 §5, both directions | Every granted op succeeds and every ungranted op raises AccessDenied, per the 05 §5 legend (R = list+get; W = R + put+delete). The test's expectation table is a literal transcription of the doc table, so doc↔policy drift fails here |
-| INF-I-004 | MLflow server round-trip (real compose `mlflow`, not file-backed) | Param/metric/artifact logged via `MLFLOW_TRACKING_URI` are readable back; artifact bytes appear under `eftp-mlflow` (proxied artifacts working); a stage credential attempting direct `eftp-mlflow` access is denied |
+| INF-I-004 | MLflow server round-trip (real compose `mlflow`, not file-backed) | Param/metric/artifact logged via `MLFLOW_TRACKING_URI` are readable back; artifact bytes appear under `tuner-mlflow` (proxied artifacts working); a stage credential attempting direct `tuner-mlflow` access is denied |
 | INF-I-005 | Object store unreachable (endpoint pointed at a closed port) | Any stage CLI fails fast with exit 1 and a connection-error message — no hang (bounded retries/timeout), no partial manifest |
 
 ## Static config checks (unit)
@@ -31,5 +31,5 @@ Tests for the tooling *around* the pipeline: MinIO bootstrap + IAM, the MLflow s
 
 | ID | Scenario | Expected |
 | :--- | :--- | :--- |
-| INF-S-020 | Container structure: build `base` and `trainer` images | Both run as uid 1000 non-root (`whoami` ≠ root); `eftp --help` works as the container entrypoint; Python ≥3.11; image has no `.env` or credential files baked in |
+| INF-S-020 | Container structure: build `base` and `trainer` images | Both run as uid 1000 non-root (`whoami` ≠ root); `tuner --help` works as the container entrypoint; Python ≥3.11; image has no `.env` or credential files baked in |
 | INF-S-021 | Scale smoke: 120 000 synthetic records through ingest → clean | Sharding kicks in at 50 000 (3 Bronze shards); counts conserve exactly; peak RSS of each stage stays bounded (streaming, no full-tier load into memory — assert a generous cap) |

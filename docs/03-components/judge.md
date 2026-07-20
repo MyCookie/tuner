@@ -5,15 +5,15 @@
 ## CLI
 
 ```
-eftp judge --run-id <RUN_ID> [--config configs/pipeline.yaml]
+tuner judge --run-id <RUN_ID> [--config configs/pipeline.yaml]
 ```
 
-Env: `EFTP_S3_*`, `EFTP_JUDGE_BASE_URL`, `EFTP_JUDGE_API_KEY`, `MLFLOW_TRACKING_URI`. Exit 3 if zero records reach Gold.
+Env: `TUNER_S3_*`, `TUNER_JUDGE_BASE_URL`, `TUNER_JUDGE_API_KEY`, `MLFLOW_TRACKING_URI`. Exit 3 if zero records reach Gold.
 
 ## Input / Output
 
-- **Input:** `eftp-silver/{run_id}/`.
-- **Output:** `eftp-gold/{run_id}/records-*.jsonl` + tier manifest; an MLflow run (experiment `train.mlflow_experiment`, tag `eftp.run_id`) logging score distribution and promotion rate.
+- **Input:** `tuner-silver/{run_id}/`.
+- **Output:** `tuner-gold/{run_id}/records-*.jsonl` + tier manifest; an MLflow run (experiment `train.mlflow_experiment`, tag `tuner.run_id`) logging score distribution and promotion rate.
 
 ## Config (`judge.*`)
 
@@ -26,7 +26,7 @@ Env: `EFTP_S3_*`, `EFTP_JUDGE_BASE_URL`, `EFTP_JUDGE_API_KEY`, `MLFLOW_TRACKING_
 
 ## Scoring protocol
 
-One API call per record. The request renders the record's conversation into a rubric prompt (`src/eftp/judge/prompts.py`, versioned constant `RUBRIC_V1`) that instructs the judge to return **only** a JSON object:
+One API call per record. The request renders the record's conversation into a rubric prompt (`src/tuner/judge/prompts.py`, versioned constant `RUBRIC_V1`) that instructs the judge to return **only** a JSON object:
 
 ```json
 {"score": 7, "reasoning": "..."}
@@ -40,15 +40,15 @@ One API call per record. The request renders the record's conversation into a ru
 ## Core logic
 
 1. Read Silver manifest + records; validate schema.
-2. Delete `eftp-gold/{run_id}/` (idempotency).
+2. Delete `tuner-gold/{run_id}/` (idempotency).
 3. Score records with a worker pool of `max_concurrency`; retries with exponential backoff + jitter (base 2 s, cap 60 s); HTTP 429/5xx and timeouts are retryable, 4xx (other than 429) is not.
 4. A record that exhausts retries is dropped with reason `judge_error`. If `judge_error` drops exceed **10 %** of records read, abort with exit 1 (endpoint is unhealthy; partial Gold would silently bias the dataset).
 5. Records with `score >= threshold` are written to Gold with `evaluation` populated; below ⇒ drop `below_threshold`.
-6. Write tier manifest (drop reasons: `below_threshold`, `judge_error`), then log to MLflow (own run, tags `eftp.run_id` + `eftp.stage: judge` per [01 §7](../01-architecture.md)): `params` (judge model, threshold, rubric version), `metrics` (mean/median score, promotion_rate, judge_error_rate), and a score histogram artifact.
+6. Write tier manifest (drop reasons: `below_threshold`, `judge_error`), then log to MLflow (own run, tags `tuner.run_id` + `tuner.stage: judge` per [01 §7](../01-architecture.md)): `params` (judge model, threshold, rubric version), `metrics` (mean/median score, promotion_rate, judge_error_rate), and a score histogram artifact.
 
 ## Error handling
 
-- Missing `EFTP_JUDGE_BASE_URL` or empty `judge.model` ⇒ exit 2 before reading data.
+- Missing `TUNER_JUDGE_BASE_URL` or empty `judge.model` ⇒ exit 2 before reading data.
 - Determinism caveat: judge output is inherently nondeterministic across endpoints; the manifest records rubric version and judge model so Gold tiers are comparable, not reproducible bit-for-bit.
 
 ## Acceptance criteria
@@ -56,7 +56,7 @@ One API call per record. The request renders the record's conversation into a ru
 - With the mock judge server ([06-testing.md §4](../06-testing.md)) returning canned scores, promotion matches the threshold exactly and `evaluation` blocks are fully populated.
 - A mock returning garbage for one record drops exactly that record as `judge_error` after `max_retries` attempts.
 - A mock failing 50 % of records aborts with exit 1.
-- MLflow run exists with `eftp.run_id` tag and the specified metrics.
+- MLflow run exists with `tuner.run_id` tag and the specified metrics.
 
 ## MVP scope
 

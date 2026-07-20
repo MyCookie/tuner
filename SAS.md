@@ -1,4 +1,4 @@
-# System Architecture Specification: Enterprise Fine-Tuning Pipeline (EFTP)
+# System Architecture Specification: Enterprise Fine-Tuning Pipeline (Tuner)
 
 **Project Goal:** To build a modular, cloud-native pipeline for the ingestion, refinement, and fine-tuning of Large Language Models (LLMs), starting with text and expanding to multimodal (image/audio) capabilities.
 

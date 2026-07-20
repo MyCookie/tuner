@@ -6,13 +6,13 @@
 
 ## Engine choice
 
-- **Primary: vLLM** — PagedAttention/continuous batching, native OpenAI-compatible server, first-class **LoRA adapter serving** (`--enable-lora`), which matches EFTP's QLoRA output: serve the base model once and hot-load adapters, rather than merging weights per fine-tune.
+- **Primary: vLLM** — PagedAttention/continuous batching, native OpenAI-compatible server, first-class **LoRA adapter serving** (`--enable-lora`), which matches Tuner's QLoRA output: serve the base model once and hot-load adapters, rather than merging weights per fine-tune.
 - **Alternative: NVIDIA Triton** (with TensorRT-LLM backend) where the platform team standardizes on it; the deployment contract below is engine-agnostic.
 
 ## Deployment contract
 
 - Serves only registry versions with `status: "promoted"` ([registry.md](registry.md)); resolves `weights_uri` from the manifest and downloads via `StorageClient` at pod start.
-- Exposes the OpenAI-compatible API; the served model name is the EFTP `model_version` string.
+- Exposes the OpenAI-compatible API; the served model name is the Tuner `model_version` string.
 - Stateless pods; K8s Deployment + HPA; readiness gate = model fully loaded and one warm-up generation completed.
 
 ## Release strategy (SAS §5)
