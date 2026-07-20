@@ -57,7 +57,7 @@ Ordered task breakdown for the MVP slice, sized for one-task-per-session executi
 **Verify:** integration run promotes exactly the `[[score>=threshold]]` fixtures; MLflow shows the judge run.
 
 ### T09 — Model-adapter layer
-**Files:** `src/eftp/models/` (`base.py`, `registry.py`, `gemma_e4b.py`, `tiny_test.py` — the E2E stub adapter, [06 §5](06-testing.md)), `tests/unit/test_adapters.py`.
+**Files:** `src/eftp/models/` (`base.py`, `registry.py`, `gemma_e4b.py`, `tiny_test.py` — SmolLM2-135M-Instruct test adapter, [06 §5](06-testing.md)), `tests/unit/test_adapters.py`.
 **Spec:** [04](04-model-adapters.md) — confirm the real Gemma E4B HF repo id available to the team and set it in `gemma_e4b.py`.
 **Verify:** `uv run pytest tests/unit/test_adapters.py`.
 

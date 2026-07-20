@@ -44,7 +44,7 @@ One API call per record. The request renders the record's conversation into a ru
 3. Score records with a worker pool of `max_concurrency`; retries with exponential backoff + jitter (base 2 s, cap 60 s); HTTP 429/5xx and timeouts are retryable, 4xx (other than 429) is not.
 4. A record that exhausts retries is dropped with reason `judge_error`. If `judge_error` drops exceed **10 %** of records read, abort with exit 1 (endpoint is unhealthy; partial Gold would silently bias the dataset).
 5. Records with `score >= threshold` are written to Gold with `evaluation` populated; below ⇒ drop `below_threshold`.
-6. Write tier manifest (drop reasons: `below_threshold`, `judge_error`), then log to MLflow: `params` (judge model, threshold, rubric version), `metrics` (mean/median score, promotion_rate, judge_error_rate), and a score histogram artifact.
+6. Write tier manifest (drop reasons: `below_threshold`, `judge_error`), then log to MLflow (own run, tags `eftp.run_id` + `eftp.stage: judge` per [01 §7](../01-architecture.md)): `params` (judge model, threshold, rubric version), `metrics` (mean/median score, promotion_rate, judge_error_rate), and a score histogram artifact.
 
 ## Error handling
 

@@ -19,6 +19,7 @@ Spec under test: [tokenizer.md](../03-components/tokenizer.md). Files: `tests/un
 | TOK-U-011 | Multi-turn: `[user, assistant, user, assistant]` | **Both** assistant spans unmasked, both user spans masked (the incremental-prefix method's key case) |
 | TOK-U-012 | Padding | Padded tail: `attention_mask` 0, `labels` −100 |
 | TOK-U-013 | Every label is either −100 or its `input_ids` value; ≥1 non-masked token per record | Structural invariant, run over all integration outputs too (asserted in TOK-I-024) |
+| TOK-U-014 | Stub tokenizer engineered to violate the prefix property (merges a token across the turn boundary) | `MaskingMismatch` raised → record dropped `masking_mismatch`; >1 % such drops ⇒ stage exit 1 ([tokenizer.md step 6](../03-components/tokenizer.md)) |
 
 ## Pipeline behavior (integration, `tiny-test` adapter)
 
@@ -34,3 +35,4 @@ Spec under test: [tokenizer.md](../03-components/tokenizer.md). Files: `tests/un
 | TOK-I-027 | Eval split empties (2 records, fraction 0.1, both hash to train) | Proceeds; `eval.safetensors` present with 0 rows; SMK-I-007 covers the downstream exit-3 |
 | TOK-I-028 | Re-run same run ID | `tokens/` prefix rebuilt cleanly; `index_map.json` written last (spy-order assert, mirrors CORE-I-032) |
 | TOK-I-029 | Unknown `model.adapter` in config | Exit 2 via ADP-U-011 path |
+| TOK-I-030 | **Real-tokenizer masking** (tiny-test's actual HF tokenizer, offline cache): all fixture conversations incl. multi-turn | Prefix properties hold for every record (zero `masking_mismatch`); every assistant span non-empty; decoding the unmasked positions yields the assistant text (+ end-of-turn token); all generation-prompt positions are −100 — the stub-tokenizer suite cannot catch real boundary-merge effects, this case can |

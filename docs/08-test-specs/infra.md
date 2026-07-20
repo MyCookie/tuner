@@ -8,7 +8,7 @@ Tests for the tooling *around* the pipeline: MinIO bootstrap + IAM, the MLflow s
 | :--- | :--- | :--- |
 | INF-I-001 | `bootstrap_minio.py` against fresh MinIO | All 7 buckets exist (`eftp-bronze/silver/gold/artifacts/registry/assets/mlflow`); every per-stage user from the [05 §5](../05-infrastructure.md) matrix exists with its policy attached |
 | INF-I-002 | Bootstrap re-run on an initialized store | Exit 0, idempotent: no duplicate policies, existing bucket contents untouched |
-| INF-I-003 | **Full IAM matrix sweep** — parametrized over every principal×bucket cell of 05 §5, both directions | Every granted op (R: list+get, W: put+delete under own run prefix) succeeds; every ungranted op raises AccessDenied. The test's expectation table is a literal transcription of the doc table, so doc↔policy drift fails here |
+| INF-I-003 | **Full IAM matrix sweep** — parametrized over every principal×bucket cell of 05 §5, both directions | Every granted op succeeds and every ungranted op raises AccessDenied, per the 05 §5 legend (R = list+get; W = R + put+delete). The test's expectation table is a literal transcription of the doc table, so doc↔policy drift fails here |
 | INF-I-004 | MLflow server round-trip (real compose `mlflow`, not file-backed) | Param/metric/artifact logged via `MLFLOW_TRACKING_URI` are readable back; artifact bytes appear under `eftp-mlflow` (proxied artifacts working); a stage credential attempting direct `eftp-mlflow` access is denied |
 | INF-I-005 | Object store unreachable (endpoint pointed at a closed port) | Any stage CLI fails fast with exit 1 and a connection-error message — no hang (bounded retries/timeout), no partial manifest |
 

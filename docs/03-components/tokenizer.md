@@ -26,8 +26,31 @@ Env: `EFTP_S3_*`, `HF_TOKEN`. Exit 3 if the train split ends up empty.
 3. Delete `eftp-artifacts/{run_id}/tokens/` (idempotency).
 4. **Split assignment** (before any tokenization, deterministic): record goes to eval iff `int(sha256(record_id)[:8], 16) / 0xFFFFFFFF < eval_fraction`, else train. No shuffling anywhere — ordering is Gold file order.
 5. Per record: `messages = adapter.to_chat_messages(conversation)`; tokenize with `tokenizer.apply_chat_template(messages, tokenize=True)`.
-6. **Label masking:** `labels` copies `input_ids` with every token outside assistant-generated spans set to `-100`. Assistant spans are located by tokenizing the conversation incrementally (prefix up to each assistant turn vs. prefix including it) — the generic method in `src/eftp/tokenizer/masking.py`; adapters may override if their template supports assistant-only masks natively.
-7. Records longer than `max_seq_len` are dropped (`index_map.dropped`, reason `over_max_len`) — no truncation in MVP, truncation silently destroys assistant answers. Records with non-text parts under a text-only adapter drop as `unsupported_modality`.
+6. **Label masking:** `labels` copies `input_ids` with every token outside assistant-generated spans set to `-100`. The generic method in `src/eftp/tokenizer/masking.py` locates assistant spans by incremental prefix tokenization:
+
+   ```python
+   def build_labels(messages, tokenizer) -> list[int]:
+       T = lambda msgs, gen: tokenizer.apply_chat_template(
+               msgs, tokenize=True, add_generation_prompt=gen)
+       ids_full = T(messages, gen=False)
+       labels = [-100] * len(ids_full)
+       for k, msg in enumerate(messages):
+           if msg["role"] != "assistant":
+               continue
+           ids_before = T(messages[:k], gen=True)     # prefix + the template's
+                                                      # generation-prompt tokens
+           ids_with   = T(messages[:k + 1], gen=False)
+           # Prefix properties — MUST hold, or the span boundaries are wrong:
+           if ids_with[:len(ids_before)] != ids_before \
+                   or ids_full[:len(ids_with)] != ids_with:
+               raise MaskingMismatch(k)
+           labels[len(ids_before):len(ids_with)] = \
+               ids_full[len(ids_before):len(ids_with)]
+       return labels
+   ```
+
+   Semantics this fixes: the template's generation-prompt tokens (e.g. `<start_of_turn>model\n`) stay **masked**; the assistant's content tokens **and** its end-of-turn token(s) are **unmasked** (the model must learn to stop). The two prefix-property assertions are the guard against tokenizer merge effects at turn boundaries — a record raising `MaskingMismatch` is dropped with reason `masking_mismatch`, and if more than 1 % of records drop this way the stage exits 1 (the adapter's template interaction is broken, not the data; the adapter should override the masking method). Adapters whose template natively supports assistant-only masks (`return_assistant_tokens_mask`) may override with that instead.
+7. Records longer than `max_seq_len` are dropped (`index_map.dropped`, reason `over_max_len`) — no truncation in MVP, truncation silently destroys assistant answers. Records with non-text parts under a text-only adapter drop as `unsupported_modality`; prefix-property failures drop as `masking_mismatch` (step 6).
 8. Pad all sequences to the longest sequence in the split with the tokenizer's pad token (`attention_mask` 0, `labels` -100); stack to int64 tensors; write SafeTensors.
 9. Write `index_map.json` last (commit marker for this prefix): adapter name, `tokenizer_id` = adapter `hf_model_id`, effective `max_seq_len`, Gold manifest URI, row→record-ID lists per split, drops.
 

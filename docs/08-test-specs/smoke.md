@@ -6,7 +6,7 @@ Spec under test: [smoke-test.md](../03-components/smoke-test.md). File: `tests/i
 | :--- | :--- | :--- |
 | SMK-I-001 | Happy path, `num_prompts: 4` | Exit 0; `transcript.json` at `eftp-artifacts/{run_id}/smoke/`; validates: run_id, model_version, generation block, exactly 4 samples |
 | SMK-I-002 | Sample integrity | Every sample: `record_id` ∈ eval split of `index_map.json` (never train); `prompt_messages` = conversation minus final assistant turn; `reference` = that turn's text; `base_output`/`tuned_output` non-empty |
-| SMK-I-003 | MLflow | Transcript attached as artifact `smoke/transcript.json` on the **trainer's** run (matched via `eftp.run_id` tag), not a new run |
+| SMK-I-003 | MLflow | Transcript attached as artifact `smoke/transcript.json` on the **trainer's** run (matched via `eftp.run_id` + `eftp.stage: trainer` tag pair — with the judge's run for the same run ID present, proving the pair-filter discriminates), not a new run |
 | SMK-I-004 | Determinism | Two runs over the same artifacts → identical transcripts (greedy decoding) |
 | SMK-I-005 | Missing adapter/model dir | Exit 2 with "trainer has not completed" message |
 | SMK-I-006 | `num_prompts: 50` with only 3 eval records | Uses all 3, logs a warning, exit 0 |

@@ -38,7 +38,7 @@ One test module per stage, each following the pattern: seed the input tier by wr
 
 `tests/e2e/test_steel_thread.py`, config `configs/pipeline.e2e.yaml`:
 
-- Adapter `tiny-test` — a permanently registered adapter over a tiny open model (e.g. a ≤160M-parameter chat-templated model), `supports_full_ft: True`, kept **out of docs as a product model but in code as test infrastructure**.
+- Adapter `tiny-test` — a permanently registered adapter over **`HuggingFaceTB/SmolLM2-135M-Instruct`** (135M params, chat-templated, ungated; pin `hf_revision` to its current commit at implementation time), `supports_full_ft: True`. Test infrastructure, not a product model — it exists so CPU-runnable tests exercise real tokenizer/trainer code paths. This is also the model whose cache CI pre-seeds for offline mode (INF-I-012).
 - Runs `eftp run` end-to-end against fixtures + mock judge: asserts the full lineage chain — Bronze→Silver→Gold manifest links resolve, every Gold id maps to a tensor row or a recorded drop, adapter dir exists, registry manifest validates, MLflow run has params/metrics/transcript, smoke transcript has the configured sample count.
 - Budget: ≤10 min on the dev-box GPU; also runnable on CPU (tiny model) for a slow nightly.
 

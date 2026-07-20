@@ -38,7 +38,7 @@ Integration cases mount the `mock_judge` fixture (in-process ASGI, `EFTP_JUDGE_B
 | JDG-I-023 | 6 of 10 records `[[fail=500]]` (>10 % judge_error) | Exit 1, no Gold manifest written |
 | JDG-I-024 | One `[[fail=429]]` record that succeeds on 2nd attempt (mock: fail once then score) | Promoted; retry path proven end-to-end |
 | JDG-I-025 | `max_concurrency: 3` with a mock that records concurrent in-flight count | Peak in-flight ≤ 3 |
-| JDG-I-026 | MLflow: run exists tagged `eftp.run_id`; params judge model/threshold/rubric version; metrics mean/median/promotion_rate/judge_error_rate; histogram artifact present | Per [judge.md core logic 6](../03-components/judge.md) |
+| JDG-I-026 | MLflow: run exists tagged `eftp.run_id` **and** `eftp.stage: judge`; params judge model/threshold/rubric version; metrics mean/median/promotion_rate/judge_error_rate; histogram artifact present | Per [judge.md core logic 6](../03-components/judge.md) |
 | JDG-I-027 | Empty `judge.model` / unset `EFTP_JUDGE_BASE_URL` (parametrized) | Exit 2 before any Silver read (mock records zero calls) |
 | JDG-I-028 | All records score below threshold | Exit 3 |
 | JDG-I-029 | Re-run same run ID | Gold prefix rebuilt; single manifest (idempotency) |

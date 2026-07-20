@@ -41,7 +41,9 @@ Trainer/smoke need the NVIDIA container toolkit. If Docker GPU passthrough is a 
 
 ## 5. IAM matrix (SAS §4.2)
 
-Enforced locally with per-stage MinIO users + bucket policies (created by `bootstrap_minio.py`), and in cloud with per-stage IAM roles carrying the same statements. `R` = read/list, `W` = write/delete under own run prefix.
+Enforced locally with per-stage MinIO users + policies (created by `bootstrap_minio.py`), and in cloud with per-stage IAM roles carrying the same statements.
+
+Legend — `R` = `s3:ListBucket` + `s3:GetObject`; `W` = `R` **plus** `s3:PutObject` + `s3:DeleteObject` (a producer must list, read back, and delete its own tier for the idempotent rewrite contract, so W always implies R on the same bucket). Enforcement is **bucket-level** (per the SAS); confinement to the *own run prefix* is the code-level idempotency contract ([01 §5.3](01-architecture.md)), not policy — run IDs are dynamic and can't be enumerated in static policy.
 
 | Principal | bronze | silver | gold | artifacts | registry | assets⁴ | mlflow bkt |
 | :--- | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
@@ -57,7 +59,22 @@ Enforced locally with per-stage MinIO users + bucket policies (created by `boots
 
 ¹ trainer needs no Gold access: tensors suffice, and the Gold-manifest URI it logs is copied from `index_map.json` — the grant stays omitted until a real need appears. ² smoke reads Gold to fetch prompt text. ⁴ Phase 4 bucket.
 
-Written as actual policy JSON in `scripts/bootstrap_minio.py`; the deny-by-default shape is the point — e.g. **Ingestor cannot write Gold; Trainer cannot read Bronze** (SAS §4.2 verbatim).
+**Mechanics:** `bootstrap_minio.py` uses the `minio` Python package — `Minio` client for bucket creation, `MinioAdmin` for users, canned policies, and policy attachment (one user + one policy per principal, named `eftp-<stage>`). Each policy is AWS-syntax JSON generated from a single table literal in the script that mirrors the matrix above. Shape, using cleaner (R bronze, W silver) as the template:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {"Effect": "Allow", "Action": ["s3:ListBucket", "s3:GetObject"],
+     "Resource": ["arn:aws:s3:::eftp-bronze", "arn:aws:s3:::eftp-bronze/*"]},
+    {"Effect": "Allow",
+     "Action": ["s3:ListBucket", "s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+     "Resource": ["arn:aws:s3:::eftp-silver", "arn:aws:s3:::eftp-silver/*"]}
+  ]
+}
+```
+
+(Bucket-level actions like `s3:ListBucket` attach to the bucket ARN; object-level actions to `bucket/*` — both lines are needed.) The deny-by-default shape is the point — e.g. **Ingestor cannot write Gold; Trainer cannot read Bronze** (SAS §4.2 verbatim); INF-I-003 sweeps every cell in both directions.
 
 ## 6. Security posture summary
 

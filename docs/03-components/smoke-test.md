@@ -13,7 +13,7 @@ Env: `EFTP_S3_*`, `HF_TOKEN`, `MLFLOW_TRACKING_URI`. Requires CUDA (same fallbac
 ## Input / Output
 
 - **Input:** `eftp-artifacts/{run_id}/adapter/` and `{run_id}/tokens/index_map.json`; `eftp-gold/{run_id}/` (to fetch prompt text for eval-split record IDs).
-- **Output:** `eftp-artifacts/{run_id}/smoke/transcript.json`; the same file attached as an artifact to the Trainer's MLflow run (matched by tag `eftp.run_id`).
+- **Output:** `eftp-artifacts/{run_id}/smoke/transcript.json`; the same file attached as an artifact to the Trainer's MLflow run — located by filtering on **both** tags `eftp.run_id == {run_id}` and `eftp.stage == "trainer"` ([01 §7](../01-architecture.md)); exactly one run must match, else exit 2.
 
 ## Config (`smoke.*`)
 

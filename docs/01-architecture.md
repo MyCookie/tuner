@@ -75,7 +75,7 @@ tuner/
 │   │   ├── storage.py         # StorageClient — the only S3/MinIO access path (§5.1)
 │   │   ├── schemas.py         # pydantic models for all contracts (02-data-contracts.md)
 │   │   ├── manifest.py        # tier-manifest read/write helpers
-│   │   └── ids.py             # run-ID + record-ID generation (§5.2)
+│   │   └── ids.py             # run-ID/record-ID generation + canonical_hash() (02 §general rules)
 │   ├── models/
 │   │   ├── base.py            # ModelAdapter interface (04-model-adapters.md)
 │   │   ├── registry.py        # adapter lookup by short name
@@ -204,7 +204,8 @@ Precedence: adapter defaults < config file < CLI flags. Secrets never appear in 
 
 ## 7. MLflow integration
 
-- One MLflow **run** per pipeline run, created by the Trainer, named by run ID, tagged `eftp.run_id`, `eftp.model_version`, `eftp.adapter`.
+- One MLflow **run** per pipeline run, created by the Trainer, named by run ID, tagged `eftp.run_id`, `eftp.model_version`, `eftp.adapter`, `eftp.stage: trainer`.
+- **Every** EFTP-created MLflow run carries `eftp.run_id` and `eftp.stage` (`judge` | `trainer`); since multiple stages share a run ID, the pair `(eftp.run_id, eftp.stage)` is the unique lookup key — anything that must find a specific stage's run (e.g. the Smoke-test attaching to the Trainer's run) filters on **both** tags, never on `eftp.run_id` alone.
 - Trainer logs: all effective hyperparameters, loss curve, Gold manifest URI (dataset version), adapter artifact path.
 - Judge logs (to the same experiment, as its own run tagged with the run ID): score distribution, promotion rate, judge model name.
 - Smoke-test appends its transcript as an artifact to the Trainer's run.

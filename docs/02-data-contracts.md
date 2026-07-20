@@ -6,7 +6,7 @@ General rules:
 
 - All records are JSONL (one JSON object per line, UTF-8, `\n` line endings).
 - All timestamps are ISO-8601 UTC with `Z` suffix (`2026-07-20T14:22:01Z`).
-- All content hashes are `"sha256:<64 lowercase hex>"`.
+- All content hashes are `"sha256:<64 lowercase hex>"`, computed over **canonical JSON**: `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")`. This one definition (implemented once in `eftp/core/ids.py` as `canonical_hash()`) is used everywhere a hash of a JSON object is taken — Bronze `content_hash`, the Cleaner's dedup key, manifest `records_hash` inputs.
 - **Validation is fail-fast:** every stage validates each input record against the upstream schema on read; the first invalid record aborts the stage with exit code 2 and the offending record ID and error in the log.
 - Fields marked *(Phase 4)* are reserved now — present in the schema, valid to populate — but MVP producers write only the MVP subset.
 
@@ -41,7 +41,7 @@ Bucket `eftp-bronze`, objects `{run_id}/records-{NNNNN}.jsonl` + `{run_id}/manif
 | `source.locator` | string | position within the source: `row:{n}` (csv), `line:{n}` (jsonl), `page:{n}` (pdf), query offset (sql) |
 | `source.ingested_at` | timestamp | envelope creation time |
 | `source.ingestor_version` | string | eftp package version |
-| `content_hash` | string | sha256 of the canonical JSON serialization of `raw` (sorted keys, no whitespace) |
+| `content_hash` | string | `canonical_hash(raw)` per the canonical-JSON rule above |
 | `raw` | object | source record exactly as read; keys are source-defined |
 
 ---
@@ -159,6 +159,8 @@ Bucket `eftp-artifacts`, prefix `{run_id}/tokens/`. Producer: Tokenizer.
   "dropped": [{"record_id": "c0ffee12-...", "reason": "over_max_len"}]
 }
 ```
+
+Allowed `dropped[].reason` values: `over_max_len`, `unsupported_modality`, `masking_mismatch` ([tokenizer.md](03-components/tokenizer.md)).
 
 ---
 
