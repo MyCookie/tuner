@@ -1,0 +1,35 @@
+model:
+  adapter: gemma-e4b            # model-adapter registry key (04-model-adapters.md)
+
+ingest:
+  sources:                      # list; each item is one source
+    - type: csv                 # csv | jsonl (MVP); sql | pdf | api (later phases)
+      uri: fixtures/support_dialogs.csv
+      mapping:                  # csv only: column -> conversation role
+        prompt_column: question
+        response_column: answer
+        system_column: null     # optional
+
+clean:
+  min_chars: 20                 # drop conversations with fewer total text chars
+  max_chars: 32000
+  pii: [email, phone]           # enabled scrubbers
+
+judge:
+  model: ""                     # judge model name at EFTP_JUDGE_BASE_URL (empty => fail at startup)
+  threshold: 0.7                # min normalized score for Gold promotion
+  max_concurrency: 4
+  max_retries: 3
+
+tokenize:
+  max_seq_len: null             # null => use adapter default
+  eval_fraction: 0.1            # deterministic split by record-ID hash
+
+train:
+  method: qlora                 # qlora | full (full only if adapter allows, 04 §2)
+  hyperparameters: {}           # overrides merged onto adapter defaults (04 §3)
+  mlflow_experiment: eftp
+
+smoke:
+  num_prompts: 8                # eval-split prompts to run
+  max_new_tokens: 256

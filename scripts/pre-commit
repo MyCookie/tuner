@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Pre-commit gate (09-git-workflow.md §6): ruff, unit tests, and hard blocks on
+# .env and pickle/torch-save-load references in staged content.
+set -euo pipefail
+
+staged_files() {
+    git diff --cached --name-only --diff-filter=ACM
+}
+
+if staged_files | grep -qx '\.env'; then
+    echo "pre-commit: refusing to commit .env" >&2
+    exit 1
+fi
+
+banned=0
+while IFS= read -r file; do
+    case "$file" in
+        *.py)
+            if git show ":$file" | grep -nE 'pickle\.(dump|load)|torch\.(save|load)\(' >&2; then
+                echo "pre-commit: $file references a banned pickle/torch.save/load call" >&2
+                banned=1
+            fi
+            ;;
+    esac
+done < <(staged_files)
+
+if [ "$banned" -ne 0 ]; then
+    exit 1
+fi
+
+uv run ruff check .
+uv run ruff format --check .
+uv run pytest
