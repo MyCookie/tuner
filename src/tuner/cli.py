@@ -1,4 +1,4 @@
-"""`eftp` entrypoint — subcommand skeleton (01-architecture.md §4.4).
+"""`tuner` entrypoint — subcommand skeleton (01-architecture.md §4.4).
 
 Stage logic lands in later build-plan tasks; every stage here is a stub that
 exits 1 until its task implements it.
@@ -10,14 +10,14 @@ import sys
 
 import click
 
-from eftp.core.config import DEFAULT_CONFIG_PATH
+from tuner.core.config import DEFAULT_CONFIG_PATH
 
 STAGES = ("ingest", "clean", "judge", "tokenize", "train", "smoke")
 
 
 @click.group()
 def cli() -> None:
-    """EFTP — Enterprise Fine-Tuning Pipeline."""
+    """Tuner — Enterprise Fine-Tuning Pipeline."""
 
 
 def _make_stage_stub(stage: str) -> click.Command:

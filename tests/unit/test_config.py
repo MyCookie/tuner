@@ -1,4 +1,4 @@
-"""Unit tests for eftp.core.config (CORE suite, docs/08-test-specs/core.md)."""
+"""Unit tests for tuner.core.config (CORE suite, docs/08-test-specs/core.md)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from eftp.core.config import (
+from tuner.core.config import (
     DEFAULT_CONFIG_PATH,
     ConfigError,
     load_config,
@@ -35,7 +35,7 @@ def _base_config_dict() -> dict:
         "clean": {"min_chars": 20, "max_chars": 32000, "pii": ["email", "phone"]},
         "judge": {"model": "", "threshold": 0.7, "max_concurrency": 4, "max_retries": 3},
         "tokenize": {"max_seq_len": None, "eval_fraction": 0.1},
-        "train": {"method": "qlora", "hyperparameters": {}, "mlflow_experiment": "eftp"},
+        "train": {"method": "qlora", "hyperparameters": {}, "mlflow_experiment": "tuner"},
         "smoke": {"num_prompts": 8, "max_new_tokens": 256},
     }
 
@@ -69,7 +69,7 @@ def test_shipped_config_round_trips_with_documented_defaults():
     assert config.tokenize.eval_fraction == 0.1
     assert config.train.method == "qlora"
     assert config.train.hyperparameters == {}
-    assert config.train.mlflow_experiment == "eftp"
+    assert config.train.mlflow_experiment == "tuner"
     assert config.smoke.num_prompts == 8
     assert config.smoke.max_new_tokens == 256
 

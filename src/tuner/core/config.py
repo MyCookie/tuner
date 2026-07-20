@@ -62,7 +62,7 @@ class TokenizeConfig(_Strict):
 class TrainConfig(_Strict):
     method: Literal["qlora", "full"] = "qlora"
     hyperparameters: dict[str, Any] = Field(default_factory=dict)
-    mlflow_experiment: str = "eftp"
+    mlflow_experiment: str = "tuner"
 
 
 class SmokeConfig(_Strict):

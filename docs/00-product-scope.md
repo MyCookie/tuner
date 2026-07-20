@@ -1,6 +1,6 @@
-# EFTP Product Scope & Phased Delivery
+# Tuner Product Scope & Phased Delivery
 
-Entry point to the EFTP engineering document set. The product is defined by [SAS.md](../SAS.md); this doc set turns the SAS into buildable specifications and fixes the delivery phasing. Start here, then read in order: [01-architecture](01-architecture.md) → [02-data-contracts](02-data-contracts.md) → the [component specs](03-components/) → [04-model-adapters](04-model-adapters.md) → [05-infrastructure](05-infrastructure.md) → [06-testing](06-testing.md) → [07-build-plan](07-build-plan.md).
+Entry point to the Tuner engineering document set. The product is defined by [SAS.md](../SAS.md); this doc set turns the SAS into buildable specifications and fixes the delivery phasing. Start here, then read in order: [01-architecture](01-architecture.md) → [02-data-contracts](02-data-contracts.md) → the [component specs](03-components/) → [04-model-adapters](04-model-adapters.md) → [05-infrastructure](05-infrastructure.md) → [06-testing](06-testing.md) → [07-build-plan](07-build-plan.md).
 
 ## 1. Product definition
 
@@ -10,16 +10,16 @@ A modular, cloud-native pipeline that turns raw enterprise data into fine-tuned 
 
 | Phase | Content | Exit gate |
 | :--- | :--- | :--- |
-| **1+2 — MVP slice** (current) | Full local pipeline: Ingest(CSV/JSONL) → Clean → Judge → Tokenize → Train(QLoRA) → Smoke-test, on Docker Compose + MinIO, with MLflow tracking, SafeTensors everywhere, IAM-scoped buckets, candidate registry manifests | `eftp run` takes fixture data to a trained adapter + before/after transcript, run visible in MLflow, E2E test green ([07 T14–T15](07-build-plan.md)) |
+| **1+2 — MVP slice** (current) | Full local pipeline: Ingest(CSV/JSONL) → Clean → Judge → Tokenize → Train(QLoRA) → Smoke-test, on Docker Compose + MinIO, with MLflow tracking, SafeTensors everywhere, IAM-scoped buckets, candidate registry manifests | `tuner run` takes fixture data to a trained adapter + before/after transcript, run visible in MLflow, E2E test green ([07 T14–T15](07-build-plan.md)) |
 | **2′ — Enterprise completion** | Registry promote/rollback, smoke regression scoring, checkpoint resume, SQL/PDF sources | promote→rollback cycle demonstrated; regression score produced per run |
 | **3 — Cloud-native** | K8s + Kubeflow Pipelines, cloud object store, shared MLflow, Inference Engine with canary + base-model fallback | one canary release executed end-to-end in the cluster |
-| **4 — Multimodal** | Asset ingestion (`eftp-assets`), multimodal contract parts live, modality evaluators (CLIP), multimodal adapter + fine-tune | a multimodal fine-tune passes its smoke gate |
+| **4 — Multimodal** | Asset ingestion (`tuner-assets`), multimodal contract parts live, modality evaluators (CLIP), multimodal adapter + fine-tune | a multimodal fine-tune passes its smoke gate |
 
 The MVP is a **slice, not a fork**: every spec covers the full feature with an explicit "MVP scope" section, so later phases extend documents rather than replace them.
 
 ### MVP success criteria (verbatim commitment)
 
-One command (`eftp run`) ingests fixture data and ends with a trained adapter plus a smoke-test transcript, with the run logged in MLflow — reproducibly, under the IAM matrix, with zero pickle artifacts.
+One command (`tuner run`) ingests fixture data and ends with a trained adapter plus a smoke-test transcript, with the run logged in MLflow — reproducibly, under the IAM matrix, with zero pickle artifacts.
 
 ## 3. Out of MVP scope (explicit)
 

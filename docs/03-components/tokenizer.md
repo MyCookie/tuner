@@ -5,15 +5,15 @@
 ## CLI
 
 ```
-eftp tokenize --run-id <RUN_ID> [--config configs/pipeline.yaml]
+tuner tokenize --run-id <RUN_ID> [--config configs/pipeline.yaml]
 ```
 
-Env: `EFTP_S3_*`, `HF_TOKEN`. Exit 3 if the train split ends up empty.
+Env: `TUNER_S3_*`, `HF_TOKEN`. Exit 3 if the train split ends up empty.
 
 ## Input / Output
 
-- **Input:** `eftp-gold/{run_id}/`.
-- **Output:** `eftp-artifacts/{run_id}/tokens/` — `train.safetensors`, `eval.safetensors`, `index_map.json` per [02-data-contracts.md §4](../02-data-contracts.md).
+- **Input:** `tuner-gold/{run_id}/`.
+- **Output:** `tuner-artifacts/{run_id}/tokens/` — `train.safetensors`, `eval.safetensors`, `index_map.json` per [02-data-contracts.md §4](../02-data-contracts.md).
 
 ## Config (`tokenize.*` + `model.adapter`)
 
@@ -23,10 +23,10 @@ Env: `EFTP_S3_*`, `HF_TOKEN`. Exit 3 if the train split ends up empty.
 
 1. Resolve adapter via `get_adapter(config.model.adapter)`; load its tokenizer.
 2. Read Gold manifest + records; validate schema (every record must have non-null `evaluation` — a null one is exit 2, it means a non-Gold tier was pointed at).
-3. Delete `eftp-artifacts/{run_id}/tokens/` (idempotency).
+3. Delete `tuner-artifacts/{run_id}/tokens/` (idempotency).
 4. **Split assignment** (before any tokenization, deterministic): record goes to eval iff `int(sha256(record_id)[:8], 16) / 0xFFFFFFFF < eval_fraction`, else train. No shuffling anywhere — ordering is Gold file order.
 5. Per record: `messages = adapter.to_chat_messages(conversation)`; tokenize with `tokenizer.apply_chat_template(messages, tokenize=True)`.
-6. **Label masking:** `labels` copies `input_ids` with every token outside assistant-generated spans set to `-100`. The generic method in `src/eftp/tokenizer/masking.py` locates assistant spans by incremental prefix tokenization:
+6. **Label masking:** `labels` copies `input_ids` with every token outside assistant-generated spans set to `-100`. The generic method in `src/tuner/tokenizer/masking.py` locates assistant spans by incremental prefix tokenization:
 
    ```python
    def build_labels(messages, tokenizer) -> list[int]:

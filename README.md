@@ -1,4 +1,4 @@
-# EFTP — Enterprise Fine-Tuning Pipeline
+# Tuner — Enterprise Fine-Tuning Pipeline
 
 A modular, cloud-native pipeline that turns raw enterprise data into fine-tuned LLMs with full auditability: every model version traces back to the exact scored dataset, cleaning rules, and experiment that produced it. Text-first, multimodal-ready. The fine-tune target model is pluggable via a model-adapter layer; the initial default is Google Gemma E4B.
 
@@ -32,14 +32,14 @@ The original architecture spec this doc set derives from is [SAS.md](SAS.md).
 
 ## MVP scope
 
-One command, `eftp run`, will ingest fixture data and end with a trained QLoRA adapter plus a smoke-test transcript, with the run logged in MLflow — reproducibly, under the IAM matrix, with zero pickle artifacts. Out of MVP scope: model serving/canary, Kubernetes/Kubeflow, registry lifecycle beyond `candidate`, SQL/PDF/API ingestion, multimodal. See [docs/00-product-scope.md §3](docs/00-product-scope.md) for the full exclusion list.
+One command, `tuner run`, will ingest fixture data and end with a trained QLoRA adapter plus a smoke-test transcript, with the run logged in MLflow — reproducibly, under the IAM matrix, with zero pickle artifacts. Out of MVP scope: model serving/canary, Kubernetes/Kubeflow, registry lifecycle beyond `candidate`, SQL/PDF/API ingestion, multimodal. See [docs/00-product-scope.md §3](docs/00-product-scope.md) for the full exclusion list.
 
 ## Quick start (once implemented)
 
 ```bash
 cp .env.example .env                 # fill in HF_TOKEN, judge endpoint
 docker compose up -d minio minio-init mlflow
-uv run eftp run --config configs/pipeline.yaml     # full pipeline, prints run ID
+uv run tuner run --config configs/pipeline.yaml     # full pipeline, prints run ID
 # MinIO console: http://localhost:9001  ·  MLflow: http://localhost:5000
 ```
 

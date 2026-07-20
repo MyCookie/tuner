@@ -1,11 +1,11 @@
-"""Unit tests for eftp.core.ids (CORE suite, docs/08-test-specs/core.md)."""
+"""Unit tests for tuner.core.ids (CORE suite, docs/08-test-specs/core.md)."""
 
 from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
 
-from eftp.core import ids
+from tuner.core import ids
 
 
 def test_new_run_id_format():
@@ -30,7 +30,7 @@ def test_run_id_and_record_id_uniqueness_and_validity():
 
 
 def test_main_prints_one_valid_run_id(capsys):
-    """CORE-U-012: `python -m eftp.core.ids` prints one valid run ID with a trailing newline."""
+    """CORE-U-012: `python -m tuner.core.ids` prints one valid run ID with a trailing newline."""
     ids._main()
 
     captured = capsys.readouterr()

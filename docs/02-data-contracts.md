@@ -1,12 +1,12 @@
-# EFTP Data Contracts
+# Tuner Data Contracts
 
-Normative definition of every record schema, manifest, and storage layout in the pipeline. All other documents reference this one and never restate schemas. The executable form of these contracts is `src/eftp/core/schemas.py` (pydantic v2); if code and this document disagree, this document wins and the code is a bug.
+Normative definition of every record schema, manifest, and storage layout in the pipeline. All other documents reference this one and never restate schemas. The executable form of these contracts is `src/tuner/core/schemas.py` (pydantic v2); if code and this document disagree, this document wins and the code is a bug.
 
 General rules:
 
 - All records are JSONL (one JSON object per line, UTF-8, `\n` line endings).
 - All timestamps are ISO-8601 UTC with `Z` suffix (`2026-07-20T14:22:01Z`).
-- All content hashes are `"sha256:<64 lowercase hex>"`, computed over **canonical JSON**: `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")`. This one definition (implemented once in `eftp/core/ids.py` as `canonical_hash()`) is used everywhere a hash of a JSON object is taken — Bronze `content_hash`, the Cleaner's dedup key, manifest `records_hash` inputs.
+- All content hashes are `"sha256:<64 lowercase hex>"`, computed over **canonical JSON**: `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")`. This one definition (implemented once in `tuner/core/ids.py` as `canonical_hash()`) is used everywhere a hash of a JSON object is taken — Bronze `content_hash`, the Cleaner's dedup key, manifest `records_hash` inputs.
 - **Validation is fail-fast:** every stage validates each input record against the upstream schema on read; the first invalid record aborts the stage with exit code 2 and the offending record ID and error in the log.
 - Fields marked *(Phase 4)* are reserved now — present in the schema, valid to populate — but MVP producers write only the MVP subset.
 
@@ -14,7 +14,7 @@ General rules:
 
 ## 1. Bronze — raw envelope
 
-Bucket `eftp-bronze`, objects `{run_id}/records-{NNNNN}.jsonl` + `{run_id}/manifest.json`. Producer: Ingestor. The raw source data is preserved byte-faithfully inside a metadata envelope; nothing is cleaned or normalized at this tier.
+Bucket `tuner-bronze`, objects `{run_id}/records-{NNNNN}.jsonl` + `{run_id}/manifest.json`. Producer: Ingestor. The raw source data is preserved byte-faithfully inside a metadata envelope; nothing is cleaned or normalized at this tier.
 
 ```json
 {
@@ -40,7 +40,7 @@ Bucket `eftp-bronze`, objects `{run_id}/records-{NNNNN}.jsonl` + `{run_id}/manif
 | `source.type` | string | `csv` \| `jsonl` (MVP) \| `sql` \| `pdf` \| `api` (later) |
 | `source.locator` | string | position within the source: `row:{n}` (csv), `line:{n}` (jsonl), `page:{n}` (pdf), query offset (sql) |
 | `source.ingested_at` | timestamp | envelope creation time |
-| `source.ingestor_version` | string | eftp package version |
+| `source.ingestor_version` | string | tuner package version |
 | `content_hash` | string | `canonical_hash(raw)` per the canonical-JSON rule above |
 | `raw` | object | source record exactly as read; keys are source-defined |
 
@@ -48,7 +48,7 @@ Bucket `eftp-bronze`, objects `{run_id}/records-{NNNNN}.jsonl` + `{run_id}/manif
 
 ## 2. Silver & Gold — the Multimodal Contract
 
-Buckets `eftp-silver` and `eftp-gold`, same object layout as Bronze, **same schema for both tiers** — the difference is data state: Silver has `evaluation: null`; Gold has `evaluation` populated and only contains records at or above the judge threshold. Producers: Cleaner (Silver), Judge (Gold).
+Buckets `tuner-silver` and `tuner-gold`, same object layout as Bronze, **same schema for both tiers** — the difference is data state: Silver has `evaluation: null`; Gold has `evaluation` populated and only contains records at or above the judge threshold. Producers: Cleaner (Silver), Judge (Gold).
 
 ```json
 {
@@ -67,7 +67,7 @@ Buckets `eftp-silver` and `eftp-gold`, same object layout as Bronze, **same sche
       "role": "user",
       "content": [
         {"type": "text", "value": "How do I reset my password?"},
-        {"type": "image", "value": "s3://eftp-assets/run-.../img-001.jpg"}
+        {"type": "image", "value": "s3://tuner-assets/run-.../img-001.jpg"}
       ]
     },
     {
@@ -89,12 +89,12 @@ Buckets `eftp-silver` and `eftp-gold`, same object layout as Bronze, **same sche
 | `id` | string | carried over from Bronze unchanged |
 | `run_id` | string | as Bronze |
 | `lineage.bronze_content_hash` | string | `content_hash` of the originating Bronze envelope |
-| `lineage.cleaner_version` | string | eftp version that produced the Silver record |
+| `lineage.cleaner_version` | string | tuner version that produced the Silver record |
 | `conversation` | array, min 2 items | ordered turns; see turn rules below |
 | `conversation[].role` | string | `system` \| `user` \| `assistant`. At most one `system` turn, and only first. Must contain ≥1 `user` and ≥1 `assistant` turn; last turn must be `assistant` |
 | `conversation[].content` | array, min 1 item | **always an array**, even for a single text part (SAS §2.2) |
 | `content[].type` | string | `text` (MVP) \| `image` \| `audio` *(Phase 4)* |
-| `content[].value` | string | for `text`: the text, non-empty after trim; for `image`/`audio`: `s3://eftp-assets/...` URI *(Phase 4)* |
+| `content[].value` | string | for `text`: the text, non-empty after trim; for `image`/`audio`: `s3://tuner-assets/...` URI *(Phase 4)* |
 | `evaluation` | object or null | `null` in Silver; required non-null in Gold |
 | `evaluation.score` | number | normalized to **[0.0, 1.0]** |
 | `evaluation.judge_model` | string | model name that produced the score |
@@ -113,7 +113,7 @@ Written by every tier producer at `{run_id}/manifest.json` in its output bucket,
   "run_id": "run-20260720-142201-a3f9c2",
   "created_at": "2026-07-20T14:25:33Z",
   "producer": {"stage": "cleaner", "version": "0.1.0"},
-  "input": {"tier": "bronze", "manifest_uri": "s3://eftp-bronze/run-20260720-142201-a3f9c2/manifest.json"},
+  "input": {"tier": "bronze", "manifest_uri": "s3://tuner-bronze/run-20260720-142201-a3f9c2/manifest.json"},
   "files": ["records-00000.jsonl"],
   "records_hash": "sha256:cd34...",
   "counts": {"read": 100, "written": 91, "dropped": 9},
@@ -131,7 +131,7 @@ Rules: `counts.read = counts.written + counts.dropped`; `drops[].reason` values 
 
 ## 4. Tokenized artifact
 
-Bucket `eftp-artifacts`, prefix `{run_id}/tokens/`. Producer: Tokenizer.
+Bucket `tuner-artifacts`, prefix `{run_id}/tokens/`. Producer: Tokenizer.
 
 ```
 {run_id}/tokens/
@@ -151,7 +151,7 @@ Bucket `eftp-artifacts`, prefix `{run_id}/tokens/`. Producer: Tokenizer.
   "adapter": "gemma-e4b",
   "tokenizer_id": "google/gemma-4-e4b-it",
   "max_seq_len": 4096,
-  "gold_manifest_uri": "s3://eftp-gold/run-20260720-142201-a3f9c2/manifest.json",
+  "gold_manifest_uri": "s3://tuner-gold/run-20260720-142201-a3f9c2/manifest.json",
   "splits": {
     "train": [{"row": 0, "record_id": "9f1c2b3a-..."}, ...],
     "eval":  [{"row": 0, "record_id": "77aa41d0-..."}, ...]
@@ -166,7 +166,7 @@ Allowed `dropped[].reason` values: `over_max_len`, `unsupported_modality`, `mask
 
 ## 5. Training artifacts & registry
 
-### 5.1 Artifact layout (bucket `eftp-artifacts`)
+### 5.1 Artifact layout (bucket `tuner-artifacts`)
 
 ```
 {run_id}/
@@ -180,7 +180,7 @@ Allowed `dropped[].reason` values: `over_max_len`, `unsupported_modality`, `mask
 
 For `train.method: full`, `adapter/` is replaced by `model/` containing full SafeTensors weights; same manifest fields apply.
 
-### 5.2 Registry manifest (bucket `eftp-registry`)
+### 5.2 Registry manifest (bucket `tuner-registry`)
 
 One object per trained model version: `{model_version}/manifest.json`, written by the Trainer on success. This is the SAS §3.2 registry link between model, data, and experiment.
 
@@ -192,9 +192,9 @@ One object per trained model version: `{model_version}/manifest.json`, written b
   "base_model": "google/gemma-4-e4b-it",
   "method": "qlora",
   "created_at": "2026-07-20T16:05:00Z",
-  "gold_manifest_uri": "s3://eftp-gold/run-20260720-142201-a3f9c2/manifest.json",
-  "index_map_uri": "s3://eftp-artifacts/run-20260720-142201-a3f9c2/tokens/index_map.json",
-  "weights_uri": "s3://eftp-artifacts/run-20260720-142201-a3f9c2/adapter/",
+  "gold_manifest_uri": "s3://tuner-gold/run-20260720-142201-a3f9c2/manifest.json",
+  "index_map_uri": "s3://tuner-artifacts/run-20260720-142201-a3f9c2/tokens/index_map.json",
+  "weights_uri": "s3://tuner-artifacts/run-20260720-142201-a3f9c2/adapter/",
   "mlflow_run_id": "abcdef123456",
   "hyperparameters": {"learning_rate": 2e-4, "epochs": 3, "lora_r": 16},
   "eval": {"final_train_loss": 1.23, "final_eval_loss": 1.31},
@@ -210,11 +210,11 @@ One object per trained model version: `{model_version}/manifest.json`, written b
 
 | Bucket | Layout | Written by |
 | :--- | :--- | :--- |
-| `eftp-bronze` | `{run_id}/records-*.jsonl`, `{run_id}/manifest.json` | Ingestor |
-| `eftp-silver` | same | Cleaner |
-| `eftp-gold` | same | Judge |
-| `eftp-artifacts` | `{run_id}/tokens/`, `{run_id}/adapter/`, `{run_id}/smoke/` | Tokenizer, Trainer, Smoke-test |
-| `eftp-registry` | `{model_version}/manifest.json` | Trainer, Registry ops |
-| `eftp-assets` *(Phase 4)* | `{run_id}/media/{asset_id}.{ext}` | Ingestor |
+| `tuner-bronze` | `{run_id}/records-*.jsonl`, `{run_id}/manifest.json` | Ingestor |
+| `tuner-silver` | same | Cleaner |
+| `tuner-gold` | same | Judge |
+| `tuner-artifacts` | `{run_id}/tokens/`, `{run_id}/adapter/`, `{run_id}/smoke/` | Tokenizer, Trainer, Smoke-test |
+| `tuner-registry` | `{model_version}/manifest.json` | Trainer, Registry ops |
+| `tuner-assets` *(Phase 4)* | `{run_id}/media/{asset_id}.{ext}` | Ingestor |
 
-**MVP scope:** all of §1–§5 except: `content[].type` of `image`/`audio` is never produced, `eftp-assets` does not exist, registry `status` transitions beyond `candidate` are not implemented, and `train.method: full` is specified but only `qlora` is exercised.
+**MVP scope:** all of §1–§5 except: `content[].type` of `image`/`audio` is never produced, `tuner-assets` does not exist, registry `status` transitions beyond `candidate` are not implemented, and `train.method: full` is specified but only `qlora` is exercised.

@@ -8,11 +8,11 @@ Seeded `tokens/` prefix from a real TOK run over seeded Gold (shared session-sco
 
 | ID | Scenario | Expected |
 | :--- | :--- | :--- |
-| TRN-I-001 | Full happy path (tiny-test, `method: full`, 1 epoch) | Exit 0; `eftp-artifacts/{run_id}/model/` (full-FT layout) uploaded; loss decreased or run completed with finite losses |
+| TRN-I-001 | Full happy path (tiny-test, `method: full`, 1 epoch) | Exit 0; `tuner-artifacts/{run_id}/model/` (full-FT layout) uploaded; loss decreased or run completed with finite losses |
 | TRN-I-002 | QLoRA config-construction path (GPU-free part): LoraConfig built from merged hyperparameters | `r/alpha/dropout/target_modules` match the merge result (unit-style assert on the constructed object, model never loaded) |
 | TRN-I-003 | Artifact hygiene sweep | No `*.bin`, no pickle files anywhere under the run prefix (walk every object key) |
 | TRN-I-004 | Registry manifest | Validates vs. [02 §5.2](../02-data-contracts.md); `status: candidate`; `model_version` = `tiny-test-{run_id}`; URIs resolve to existing objects; `mlflow_run_id` resolves to a run |
-| TRN-I-005 | MLflow run | Every merged hyperparameter logged as param; ≥1 loss metric series; tags `eftp.run_id`/`eftp.adapter`/`eftp.model_version`/`eftp.stage: trainer`; dataset-version params (`gold_manifest_uri`, `index_map_uri`) |
+| TRN-I-005 | MLflow run | Every merged hyperparameter logged as param; ≥1 loss metric series; tags `tuner.run_id`/`tuner.adapter`/`tuner.model_version`/`tuner.stage: trainer`; dataset-version params (`gold_manifest_uri`, `index_map_uri`) |
 | TRN-I-006 | `method: full` with adapter where `supports_full_ft` is False (gemma-e4b, no model download happens) | Exit 2 before any load |
 | TRN-I-007 | `index_map.adapter` ≠ `model.adapter` | Exit 2 (tensors built for a different model) |
 | TRN-I-008 | Missing `tokens/index_map.json` | Exit 2 |

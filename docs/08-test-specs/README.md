@@ -1,4 +1,4 @@
-# EFTP Test Suite Specifications
+# Tuner Test Suite Specifications
 
 Executable-precision test specs for the MVP slice. [06-testing.md](../06-testing.md) is the strategy; these documents are the **normative case lists** — implement every case in the suite that matches your build task, exactly as specified. A build task is not done until its suite is green ([07-build-plan.md](../07-build-plan.md) definition of done, [09-git-workflow.md](../09-git-workflow.md) merge gate).
 
@@ -32,8 +32,8 @@ Executable-precision test specs for the MVP slice. [06-testing.md](../06-testing
 
 Tooling: `pytest-cov` (add to the `dev` extra in T01), **branch coverage on**, configured in `pyproject.toml`:
 
-- **Global gate (CI-enforced): ≥ 90 % branch coverage** over `src/eftp`, unit + integration combined. The aspirational target is 100 %; treat every uncovered line as a question to answer, not a gap to accept.
-- **100 % required (per-module `fail_under`, enforced by `scripts/check_coverage.py` in T14):** `eftp/core/*`, `eftp/cleaner/rules.py`, `eftp/cleaner/patterns.py`, `eftp/judge/prompts.py`, judge reply-parsing, `eftp/models/*`, `eftp/tokenizer/split.py`, `eftp/tokenizer/masking.py` — pure logic has no excuse.
+- **Global gate (CI-enforced): ≥ 90 % branch coverage** over `src/tuner`, unit + integration combined. The aspirational target is 100 %; treat every uncovered line as a question to answer, not a gap to accept.
+- **100 % required (per-module `fail_under`, enforced by `scripts/check_coverage.py` in T14):** `tuner/core/*`, `tuner/cleaner/rules.py`, `tuner/cleaner/patterns.py`, `tuner/judge/prompts.py`, judge reply-parsing, `tuner/models/*`, `tuner/tokenizer/split.py`, `tuner/tokenizer/masking.py` — pure logic has no excuse.
 - **Exclusions:** `# pragma: no cover` is allowed **only** on hardware-dependent branches (CUDA/bitsandbytes load paths, GPU OOM handlers) and each pragma carries a same-line justification comment naming the T15 manual check that covers it. CI greps that every pragma has a justification.
 - E2E runs are not counted toward the gate (they'd mask unit gaps); they exist to prove integration, not coverage.
 

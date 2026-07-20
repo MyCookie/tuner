@@ -5,15 +5,15 @@
 ## CLI
 
 ```
-eftp train --run-id <RUN_ID> [--config configs/pipeline.yaml]
+tuner train --run-id <RUN_ID> [--config configs/pipeline.yaml]
 ```
 
-Env: `EFTP_S3_*`, `HF_TOKEN`, `MLFLOW_TRACKING_URI`. Requires CUDA; absence ⇒ exit 2 with a clear message (see host-venv fallback in [05-infrastructure.md §3](../05-infrastructure.md)).
+Env: `TUNER_S3_*`, `HF_TOKEN`, `MLFLOW_TRACKING_URI`. Requires CUDA; absence ⇒ exit 2 with a clear message (see host-venv fallback in [05-infrastructure.md §3](../05-infrastructure.md)).
 
 ## Input / Output
 
-- **Input:** `eftp-artifacts/{run_id}/tokens/` (reads `index_map.json` first; absent ⇒ exit 2; its `adapter` field must equal `model.adapter` ⇒ else exit 2, tensors were built for a different model).
-- **Output:** `eftp-artifacts/{run_id}/adapter/` (PEFT adapter dir, SafeTensors) — or `model/` for full FT; `eftp-registry/{model_version}/manifest.json`; one MLflow run.
+- **Input:** `tuner-artifacts/{run_id}/tokens/` (reads `index_map.json` first; absent ⇒ exit 2; its `adapter` field must equal `model.adapter` ⇒ else exit 2, tensors were built for a different model).
+- **Output:** `tuner-artifacts/{run_id}/adapter/` (PEFT adapter dir, SafeTensors) — or `model/` for full FT; `tuner-registry/{model_version}/manifest.json`; one MLflow run.
 
 ## Config (`train.*` + `model.adapter`)
 
@@ -25,9 +25,9 @@ Env: `EFTP_S3_*`, `HF_TOKEN`, `MLFLOW_TRACKING_URI`. Requires CUDA; absence ⇒ 
 2. Download tensors + index_map via `StorageClient` to a local work dir.
 3. Load base model: `adapter.load_base_model(quantized=(method=="qlora"))`; for QLoRA wrap with PEFT `LoraConfig` built from the merged hyperparameters (`r`, `alpha`, `dropout`, `target_modules`).
 4. Build `Dataset` objects directly from the SafeTensors (`input_ids`, `attention_mask`, `labels` are already final — no collator logic beyond stacking).
-5. Start the MLflow run (experiment from config, run name = run ID, tags `eftp.run_id`, `eftp.adapter`, `eftp.model_version`, `eftp.stage: trainer`); log all effective hyperparameters, `gold_manifest_uri` and `index_map_uri` (the dataset version, SAS §3.2), package versions.
+5. Start the MLflow run (experiment from config, run name = run ID, tags `tuner.run_id`, `tuner.adapter`, `tuner.model_version`, `tuner.stage: trainer`); log all effective hyperparameters, `gold_manifest_uri` and `index_map_uri` (the dataset version, SAS §3.2), package versions.
 6. Train with HF `Trainer`: bf16, gradient checkpointing on, eval on the eval split each epoch, loss logged to MLflow every 10 steps. No early stopping in MVP; seed fixed at 42 and logged.
-7. On completion: save adapter (+ tokenizer files) locally, upload dir to `eftp-artifacts/{run_id}/adapter/` (delete-then-write idempotency).
+7. On completion: save adapter (+ tokenizer files) locally, upload dir to `tuner-artifacts/{run_id}/adapter/` (delete-then-write idempotency).
 8. Write the registry manifest **last** with `status: "candidate"`, final train/eval loss, and the MLflow run id. Registry manifest presence is the "training succeeded" commit marker.
 9. End the MLflow run (status FAILED on any exception, after logging the traceback as an artifact).
 

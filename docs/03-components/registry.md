@@ -1,17 +1,17 @@
 # Component Spec: Model Registry
 
-**Purpose:** Versioned catalog of trained models linking weights ↔ exact Gold dataset ↔ MLflow experiment (SAS §3.2). The registry **is** the `eftp-registry` bucket — one manifest object per model version ([02-data-contracts.md §5.2](../02-data-contracts.md)); there is no database. This component spec covers the operations layered on top of those manifests.
+**Purpose:** Versioned catalog of trained models linking weights ↔ exact Gold dataset ↔ MLflow experiment (SAS §3.2). The registry **is** the `tuner-registry` bucket — one manifest object per model version ([02-data-contracts.md §5.2](../02-data-contracts.md)); there is no database. This component spec covers the operations layered on top of those manifests.
 
 ## CLI
 
 ```
-eftp registry list
-eftp registry show <model_version>
-eftp registry promote <model_version>
-eftp registry rollback
+tuner registry list
+tuner registry show <model_version>
+tuner registry promote <model_version>
+tuner registry rollback
 ```
 
-Env: `EFTP_S3_*` (registry-ops credentials: read/write `eftp-registry`, read `eftp-artifacts`).
+Env: `TUNER_S3_*` (registry-ops credentials: read/write `tuner-registry`, read `tuner-artifacts`).
 
 ## Operations
 
@@ -33,7 +33,7 @@ Object stores have no transactions. Registry writes are last-writer-wins; the pr
 
 ## MVP scope
 
-**Trainer-written manifests only** (`status: "candidate"`, [trainer.md](trainer.md) step 8) plus `eftp registry list` — one afternoon of work that makes runs discoverable. `show`/`promote`/`rollback` are Phase 2.
+**Trainer-written manifests only** (`status: "candidate"`, [trainer.md](trainer.md) step 8) plus `tuner registry list` — one afternoon of work that makes runs discoverable. `show`/`promote`/`rollback` are Phase 2.
 
 ## Future phases
 

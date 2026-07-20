@@ -1,4 +1,4 @@
-# EFTP Git Workflow
+# Tuner Git Workflow
 
 Rules for all work in this repo, human or agent. The core invariant: **`main` is always green** — every commit on `main` passes the full local gate. Nothing merges on hope.
 

@@ -5,15 +5,15 @@
 ## CLI
 
 ```
-eftp smoke --run-id <RUN_ID> [--config configs/pipeline.yaml]
+tuner smoke --run-id <RUN_ID> [--config configs/pipeline.yaml]
 ```
 
-Env: `EFTP_S3_*`, `HF_TOKEN`, `MLFLOW_TRACKING_URI`. Requires CUDA (same fallback note as the Trainer).
+Env: `TUNER_S3_*`, `HF_TOKEN`, `MLFLOW_TRACKING_URI`. Requires CUDA (same fallback note as the Trainer).
 
 ## Input / Output
 
-- **Input:** `eftp-artifacts/{run_id}/adapter/` and `{run_id}/tokens/index_map.json`; `eftp-gold/{run_id}/` (to fetch prompt text for eval-split record IDs).
-- **Output:** `eftp-artifacts/{run_id}/smoke/transcript.json`; the same file attached as an artifact to the Trainer's MLflow run — located by filtering on **both** tags `eftp.run_id == {run_id}` and `eftp.stage == "trainer"` ([01 §7](../01-architecture.md)); exactly one run must match, else exit 2.
+- **Input:** `tuner-artifacts/{run_id}/adapter/` and `{run_id}/tokens/index_map.json`; `tuner-gold/{run_id}/` (to fetch prompt text for eval-split record IDs).
+- **Output:** `tuner-artifacts/{run_id}/smoke/transcript.json`; the same file attached as an artifact to the Trainer's MLflow run — located by filtering on **both** tags `tuner.run_id == {run_id}` and `tuner.stage == "trainer"` ([01 §7](../01-architecture.md)); exactly one run must match, else exit 2.
 
 ## Config (`smoke.*`)
 
@@ -38,7 +38,7 @@ Env: `EFTP_S3_*`, `HF_TOKEN`, `MLFLOW_TRACKING_URI`. Requires CUDA (same fallbac
 }
 ```
 
-6. Upload to `eftp-artifacts/{run_id}/smoke/` (delete-then-write); log as MLflow artifact `smoke/transcript.json` on the Trainer's run.
+6. Upload to `tuner-artifacts/{run_id}/smoke/` (delete-then-write); log as MLflow artifact `smoke/transcript.json` on the Trainer's run.
 
 ## Error handling
 

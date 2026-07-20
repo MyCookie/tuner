@@ -6,7 +6,7 @@ Specs under test: [01-architecture.md §2, §4.4](../01-architecture.md), [regis
 
 | ID | Scenario | Expected |
 | :--- | :--- | :--- |
-| CLI-U-001 | `eftp --help` | Lists exactly: ingest, clean, judge, tokenize, train, smoke, run, registry |
+| CLI-U-001 | `tuner --help` | Lists exactly: ingest, clean, judge, tokenize, train, smoke, run, registry |
 | CLI-U-002 | Stage subcommand without `--run-id` | Usage error, exit 2 |
 | CLI-U-003 | `--run-id not-a-run-id` (bad format) | Exit 2 with the format regex in the message |
 | CLI-U-004 | Default `--config` | Resolves to `configs/pipeline.yaml` |
@@ -15,7 +15,7 @@ Specs under test: [01-architecture.md §2, §4.4](../01-architecture.md), [regis
 
 | ID | Scenario | Expected |
 | :--- | :--- | :--- |
-| CLI-I-010 | `eftp run` happy path | Generates one valid run ID; invokes ingest→clean→judge→tokenize→train→smoke in exactly that order, each receiving the same run ID and config path |
+| CLI-I-010 | `tuner run` happy path | Generates one valid run ID; invokes ingest→clean→judge→tokenize→train→smoke in exactly that order, each receiving the same run ID and config path |
 | CLI-I-011 | Stage failure (judge recorder exits 1) | Driver stops: tokenize/train/smoke never invoked; driver exits 1 naming the failed stage |
 | CLI-I-012 | Stage exit 3 (zero records) | Driver aborts with a distinct "pipeline empty at <stage>" message, exit 3 |
 | CLI-I-013 | Completion output | Prints run ID, adapter/model URI, transcript URI, MLflow run URL (assert all four present on stdout) |

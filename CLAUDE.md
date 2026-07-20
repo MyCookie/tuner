@@ -1,4 +1,4 @@
-# EFTP — Conventions for Implementing Agents
+# Tuner — Conventions for Implementing Agents
 
 You are building the Enterprise Fine-Tuning Pipeline from the specs in `docs/`. The specs are normative; do not improvise architecture. If a spec is ambiguous or wrong, stop and say so rather than guessing.
 
@@ -11,11 +11,11 @@ You are building the Enterprise Fine-Tuning Pipeline from the specs in `docs/`. 
 
 ## Hard rules
 
-1. **Object storage only via `eftp.core.storage.StorageClient`.** No direct `boto3` imports outside it.
+1. **Object storage only via `tuner.core.storage.StorageClient`.** No direct `boto3` imports outside it.
 2. **No pickle, ever.** No `torch.load`/`torch.save` of raw tensors, no `.bin` weights — SafeTensors only. CI greps for violations.
-3. **Secrets via env vars only** (the `EFTP_*`/`MLFLOW_*`/`HF_TOKEN` set). Never in configs, code, logs, or compose files.
+3. **Secrets via env vars only** (the `TUNER_*`/`MLFLOW_*`/`HF_TOKEN` set). Never in configs, code, logs, or compose files.
 4. **Stages are stateless and idempotent:** delete own output prefix for the run ID, rewrite, write the manifest last. Never write outside your stage's output bucket (the IAM matrix will reject it anyway).
-5. **Validate inputs fail-fast** with the pydantic models in `eftp/core/schemas.py`; exit codes: 0 ok / 1 error / 2 config-or-validation / 3 zero-records.
+5. **Validate inputs fail-fast** with the pydantic models in `tuner/core/schemas.py`; exit codes: 0 ok / 1 error / 2 config-or-validation / 3 zero-records.
 6. **Model specifics live only in model adapters** (`docs/04-model-adapters.md`). A stage branching on an adapter's name is a bug.
 7. **Never weaken a test to make it pass.** A test that looks wrong is a spec question — check [docs/08-test-specs/](docs/08-test-specs/README.md) and the component spec, and flag conflicts instead of editing the test.
 
@@ -28,17 +28,17 @@ You are building the Enterprise Fine-Tuning Pipeline from the specs in `docs/`. 
 
 ## Tooling (fixed — do not churn)
 
-- Python 3.11+, **uv** for env/deps (`uv sync`, `uv run ...`), src-layout single package `eftp`.
+- Python 3.11+, **uv** for env/deps (`uv sync`, `uv run ...`), src-layout single package `tuner`.
 - **ruff** for lint + format (`uv run ruff check --fix . && uv run ruff format .`).
 - **pytest**; markers: default = unit, `-m integration` needs `docker compose up -d minio minio-init mlflow`, `-m e2e` is the full steel thread.
-- CLI framework: **click**, single `eftp` entrypoint.
+- CLI framework: **click**, single `tuner` entrypoint.
 
 ## Running things locally
 
 ```bash
 cp .env.example .env                 # fill in HF_TOKEN, judge endpoint
 docker compose up -d minio minio-init mlflow
-uv run eftp run --config configs/pipeline.yaml     # full pipeline, prints run ID
+uv run tuner run --config configs/pipeline.yaml     # full pipeline, prints run ID
 # MinIO console: http://localhost:9001  ·  MLflow: http://localhost:5000
 ```
 

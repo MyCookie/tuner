@@ -1,12 +1,12 @@
 # Model Adapters — Pluggable Fine-Tune Targets
 
-The SAS does not fix which model gets fine-tuned, and the team's model access may change. EFTP therefore isolates **everything model-specific** behind a `ModelAdapter`: the Tokenizer, Trainer, and Smoke-test are model-agnostic and obtain all model knowledge through the adapter selected by the single config key `model.adapter`. Swapping models is a config change; supporting a new model is a one-file change.
+The SAS does not fix which model gets fine-tuned, and the team's model access may change. Tuner therefore isolates **everything model-specific** behind a `ModelAdapter`: the Tokenizer, Trainer, and Smoke-test are model-agnostic and obtain all model knowledge through the adapter selected by the single config key `model.adapter`. Swapping models is a config change; supporting a new model is a one-file change.
 
 The default adapter is **`gemma-e4b`** (Google Gemma E4B).
 
 ---
 
-## 1. The `ModelAdapter` interface (`src/eftp/models/base.py`)
+## 1. The `ModelAdapter` interface (`src/tuner/models/base.py`)
 
 ```python
 @dataclass(frozen=True)
@@ -48,7 +48,7 @@ Rules:
 - MVP conversations contain only `text` content parts. Adapters concatenate multiple text parts of one turn with `\n\n`. Non-text parts raise `UnsupportedModalityError` until Phase 4.
 - Everything a stage might need per-model **must** live on the adapter. If a stage ever branches on `adapter.name`, that's a design bug — add a field/method instead.
 
-## 2. Registry and selection (`src/eftp/models/registry.py`)
+## 2. Registry and selection (`src/tuner/models/registry.py`)
 
 ```python
 ADAPTERS: dict[str, type[ModelAdapter]] = {
@@ -59,7 +59,7 @@ def get_adapter(name: str) -> ModelAdapter: ...   # KeyError -> exit code 2 with
 
 Selection: `model.adapter` in `configs/pipeline.yaml`. Config `train.hyperparameters` entries override the adapter's `training_defaults` field-by-field ([01-architecture.md §6](01-architecture.md) precedence). If `train.method: full` is requested and `supports_full_ft` is `False`, the Trainer exits 2.
 
-## 3. Default adapter: `gemma-e4b` (`src/eftp/models/gemma_e4b.py`)
+## 3. Default adapter: `gemma-e4b` (`src/tuner/models/gemma_e4b.py`)
 
 | Field | Value |
 | :--- | :--- |
@@ -77,13 +77,13 @@ These defaults are starting points sized for the 128 GB coherent-memory dev box;
 
 ## 4. Adding a model — checklist
 
-1. Create `src/eftp/models/<name>.py` defining the adapter class with all fields from §1.
+1. Create `src/tuner/models/<name>.py` defining the adapter class with all fields from §1.
 2. Register it in `ADAPTERS`.
 3. Add a unit test in `tests/unit/test_adapters.py`: `to_chat_messages` output for a fixture conversation (including the system-turn case), and `training_defaults` completeness.
 4. Set `model.adapter: <name>` in config. No other file changes; if any other change is needed, fix the abstraction first.
 
 ## 5. Phase 4 — multimodal extensions (specified, not built)
 
-Additive fields for multimodal models (e.g. LLaVA-class, SAS Phase 4): `processor_id` (AutoProcessor repo), `supported_modalities: set[str]`, and `to_chat_messages` accepting `image`/`audio` parts by downloading the `eftp-assets` URI via `StorageClient` and passing the media object per the processor's convention. Text-only adapters keep raising `UnsupportedModalityError`, which the Tokenizer reports as drop reason `unsupported_modality`.
+Additive fields for multimodal models (e.g. LLaVA-class, SAS Phase 4): `processor_id` (AutoProcessor repo), `supported_modalities: set[str]`, and `to_chat_messages` accepting `image`/`audio` parts by downloading the `tuner-assets` URI via `StorageClient` and passing the media object per the processor's convention. Text-only adapters keep raising `UnsupportedModalityError`, which the Tokenizer reports as drop reason `unsupported_modality`.
 
 **MVP scope:** §1–§4 with the single `gemma-e4b` adapter; `supports_full_ft` exists but no shipped adapter enables it; §5 deferred.

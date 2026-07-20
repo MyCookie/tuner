@@ -1,6 +1,6 @@
 # Test Suite: Core (`CORE`)
 
-Covers `eftp/core/`: config, ids, schemas, manifest helpers, StorageClient. Files: `tests/unit/test_config.py`, `test_ids.py`, `test_schemas.py`, `test_manifest.py`; `tests/integration/test_storage.py`. Coverage target: **100 %** of `eftp/core/*`.
+Covers `tuner/core/`: config, ids, schemas, manifest helpers, StorageClient. Files: `tests/unit/test_config.py`, `test_ids.py`, `test_schemas.py`, `test_manifest.py`; `tests/integration/test_storage.py`. Coverage target: **100 %** of `tuner/core/*`.
 
 ## Setup
 
@@ -23,7 +23,7 @@ Unit cases need nothing. `CORE-I-*` need compose MinIO (`storage`, `run_id` fixt
 | :--- | :--- | :--- |
 | CORE-U-010 | `new_run_id()` format | Matches `^run-\d{8}-\d{6}-[0-9a-f]{6}$`; timestamp part is UTC now (injected clock) |
 | CORE-U-011 | 1 000 generated run IDs / record IDs | All unique; record IDs are valid UUIDv4 |
-| CORE-U-012 | `python -m eftp.core.ids` | Prints exactly one valid run ID and a trailing newline, exit 0 |
+| CORE-U-012 | `python -m tuner.core.ids` | Prints exactly one valid run ID and a trailing newline, exit 0 |
 
 ## Schemas (`test_schemas.py`)
 
@@ -58,5 +58,5 @@ Doc-02 examples are stored under `tests/fixtures_schemas/` verbatim; drift betwe
 | CORE-I-042 | `read_json` / `write_json` round-trip | Identical dict |
 | CORE-I-043 | `upload_dir` / `download_dir` of a nested dir | Byte-identical tree |
 | CORE-I-044 | `delete_prefix` of `{run_id}/` | Own prefix gone; a sibling run's objects untouched |
-| CORE-I-045 | Client honors `EFTP_S3_ENDPOINT`/creds from env only | Constructing with env unset raises config error; no boto3 default-chain fallback |
-| CORE-U-046 | Static: `grep -r "import boto3" src/eftp --include="*.py"` matches only `core/storage.py` | Rule [CLAUDE.md hard rule 1] holds (implemented as a real test) |
+| CORE-I-045 | Client honors `TUNER_S3_ENDPOINT`/creds from env only | Constructing with env unset raises config error; no boto3 default-chain fallback |
+| CORE-U-046 | Static: `grep -r "import boto3" src/tuner --include="*.py"` matches only `core/storage.py` | Rule [CLAUDE.md hard rule 1] holds (implemented as a real test) |
