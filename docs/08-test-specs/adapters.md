@@ -6,7 +6,7 @@ Spec under test: [04-model-adapters.md](../04-model-adapters.md). File: `tests/u
 
 | ID | Scenario | Expected |
 | :--- | :--- | :--- |
-| ADP-U-001 | Field completeness | `name` matches its registry key; `hf_model_id` non-empty; `max_seq_len` > 0; `training_defaults` has every `TrainingDefaults` field; `quantization` non-empty when `supports_full_ft` is False |
+| ADP-U-001 | Field completeness | `name` matches its registry key; `hf_model_id` non-empty; `hf_revision` pinned (INF-U-011 enforces the never-`main` rule); `max_seq_len` > 0; `training_defaults` has every `TrainingDefaults` field; `quantization` non-empty when `supports_full_ft` is False |
 | ADP-U-002 | `to_chat_messages` on a 2-turn text conversation | Returns a list of role/content dicts accepted by `apply_chat_template` (validated against a stub tokenizer contract) |
 | ADP-U-003 | `to_chat_messages` with an `image` content part | Raises `UnsupportedModalityError` (until the adapter declares the modality, [04 §5](../04-model-adapters.md)) |
 | ADP-U-004 | Multiple text parts in one turn | Joined with `\n\n` |

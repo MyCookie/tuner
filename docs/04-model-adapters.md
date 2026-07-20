@@ -24,6 +24,7 @@ class TrainingDefaults:
 class ModelAdapter(ABC):
     name: str                      # registry key, e.g. "gemma-e4b"
     hf_model_id: str               # Hugging Face repo id of the base model
+    hf_revision: str               # pinned commit hash or tag — never "main" (reproducibility)
     max_seq_len: int               # default max sequence length
     supports_full_ft: bool         # True only for models where full FT is sanctioned (< 3B, SAS §3.1)
     training_defaults: TrainingDefaults
@@ -36,9 +37,9 @@ class ModelAdapter(ABC):
         Handles model quirks (e.g. folding a system turn into the first
         user turn for models without a system role)."""
 
-    def load_tokenizer(self):        # default impl: AutoTokenizer.from_pretrained(hf_model_id)
-    def load_base_model(self, quantized: bool):  # default impl: AutoModelForCausalLM with
-                                                 # self.quantization when quantized=True
+    def load_tokenizer(self):        # default impl: AutoTokenizer.from_pretrained(hf_model_id, revision=hf_revision)
+    def load_base_model(self, quantized: bool):  # default impl: AutoModelForCausalLM at hf_revision,
+                                                 # with self.quantization when quantized=True
 ```
 
 Rules:
@@ -64,6 +65,7 @@ Selection: `model.adapter` in `configs/pipeline.yaml`. Config `train.hyperparame
 | :--- | :--- |
 | `name` | `gemma-e4b` |
 | `hf_model_id` | `google/gemma-4-e4b-it` — **verify against the team's HF access at implementation time**; this string is the only place the repo id exists |
+| `hf_revision` | pin to the current commit hash of that repo at implementation time |
 | `max_seq_len` | 4096 |
 | `supports_full_ft` | `False` (E4B ≈ 4B effective params; QLoRA only) |
 | `lora_target_modules` | `["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]` |

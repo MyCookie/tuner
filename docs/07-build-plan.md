@@ -8,7 +8,7 @@ Ordered task breakdown for the MVP slice, sized for one-task-per-session executi
 
 ### T01 — Repo scaffold & core config
 **Goal:** installable `eftp` package with config loading.
-**Files:** `pyproject.toml` (uv-managed; deps: pydantic, boto3, pyyaml, click; extras `train`, `dev` incl. pytest-cov; coverage config per [08 README](08-test-specs/README.md)), `.gitignore` + `scripts/pre-commit` hook ([09 §6](09-git-workflow.md)), `src/eftp/core/config.py`, `src/eftp/core/ids.py`, `src/eftp/cli.py` (subcommand skeleton, all stages stubbed exit 1 "not implemented"), `configs/pipeline.yaml` (defaults from [01 §6](01-architecture.md)), `tests/unit/test_config.py`, `tests/unit/test_ids.py`.
+**Files:** `pyproject.toml` (uv-managed; deps: pydantic, boto3, pyyaml, click; extras `train`, `dev` incl. pytest-cov + hypothesis; coverage config per [08 README](08-test-specs/README.md)), `.gitignore` + `scripts/pre-commit` hook ([09 §6](09-git-workflow.md)), `src/eftp/core/config.py`, `src/eftp/core/ids.py`, `src/eftp/cli.py` (subcommand skeleton, all stages stubbed exit 1 "not implemented"), `configs/pipeline.yaml` (defaults from [01 §6](01-architecture.md)), `tests/unit/test_config.py`, `tests/unit/test_ids.py`.
 **Spec:** [01 §3, §4.2, §4.4, §6](01-architecture.md).
 **Accept:** config file round-trips through the pydantic model; unknown key rejected; run-ID/record-ID formats match §4.2 regexes.
 **Verify:** `uv run eftp --help` lists all subcommands; `uv run pytest tests/unit`.
@@ -31,8 +31,8 @@ Ordered task breakdown for the MVP slice, sized for one-task-per-session executi
 ### T04 — Compose infra & MinIO bootstrap
 **Goal:** local environment per [05 §1–§2, §5](05-infrastructure.md).
 **Files:** `docker-compose.yaml`, `docker/base.Dockerfile`, `scripts/bootstrap_minio.py` (buckets incl. `eftp-mlflow`, per-stage users + policies from the IAM matrix), `.env.example`.
-**Accept:** fresh `docker compose up -d` yields healthy MinIO + MLflow; bootstrap is idempotent; a negative policy test (script `scripts/check_iam.py`): ingestor creds writing to `eftp-gold` is denied.
-**Verify:** `python scripts/check_iam.py` prints the full matrix result.
+**Accept:** fresh `docker compose up -d` yields healthy MinIO + MLflow; INF-I-001..005 and INF-U-006..007 pass ([08 infra.md](08-test-specs/infra.md)) — including the full IAM matrix sweep and the MLflow proxied-artifact round-trip.
+**Verify:** `python scripts/check_iam.py` prints the full matrix result; `uv run pytest -m integration tests/integration/test_infra.py`.
 
 ### T05 — Fixtures & mock judge
 **Goal:** test data + judge test double, before any stage exists.
@@ -82,13 +82,13 @@ Ordered task breakdown for the MVP slice, sized for one-task-per-session executi
 **Verify:** `uv run eftp run --config configs/pipeline.e2e.yaml` completes end-to-end; `uv run eftp registry list` shows the new candidate.
 
 ### T14 — E2E steel thread + CI
-**Files:** `tests/e2e/test_steel_thread.py`, `configs/pipeline.e2e.yaml`, `scripts/check_test_ids.py` + `scripts/check_coverage.py` ([08 README](08-test-specs/README.md)), CI workflow (lint, unit, integration-with-services, pickle-ban grep, both check scripts).
+**Files:** `tests/e2e/test_steel_thread.py`, `configs/pipeline.e2e.yaml`, `scripts/check_test_ids.py` + `scripts/check_coverage.py` + `scripts/check_docs.py` ([08 README](08-test-specs/README.md)), CI workflows per [06 §6](06-testing.md) (push, PR with offline-HF cache seeding, weekly audit, nightly slow lane).
 **Spec:** [06 §5–§6](06-testing.md), [08 e2e.md](08-test-specs/e2e.md).
 **Verify:** `uv run pytest -m e2e` passes within budget; CI green on a PR.
 
 ### T15 — MVP hardening pass
 **Goal:** close the gaps a single-task view misses.
-**Do:** run the full pipeline on the real `gemma-e4b` adapter with fixtures on the GPU box (or host-venv fallback, [05 §3](05-infrastructure.md)); review the smoke transcript by hand; verify IAM matrix once more via `check_iam.py`; confirm no `.bin`/pickle artifacts anywhere in MinIO; write `README.md` quick-start (compose up → `eftp run` → MLflow URL).
+**Do:** run the full pipeline on the real `gemma-e4b` adapter with fixtures on the GPU box (or host-venv fallback, [05 §3](05-infrastructure.md)) — this covers the `G`-marked cases (TRN-G-020) and every justified coverage pragma; run the slow lane (`pytest -m slow`: INF-S-020..021); review the smoke transcript by hand; verify IAM matrix once more via `check_iam.py`; confirm no `.bin`/pickle artifacts anywhere in MinIO; write `README.md` quick-start (compose up → `eftp run` → MLflow URL).
 **Accept:** a teammate can go from clone to trained-adapter-with-transcript using only README.md.
 
 ---

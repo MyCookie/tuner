@@ -39,6 +39,7 @@ Doc-02 examples are stored under `tests/fixtures_schemas/` verbatim; drift betwe
 | CORE-U-025 | Tier manifest with `counts.read ≠ written + dropped`; unknown `drops[].reason` for the producing stage | Rejected |
 | CORE-U-026 | Timestamps without `Z` / non-UTC offset | Rejected |
 | CORE-U-027 | Registry manifest `status` outside `candidate\|promoted\|retired` | Rejected |
+| CORE-U-050 | **Property (hypothesis):** valid records generated from the schema models (arbitrary text values, turn counts, drop lists) | `model → dict → JSON → model` round-trips equal; canonical-hash computation is stable across the round-trip |
 
 ## Manifest helpers (`test_manifest.py`)
 

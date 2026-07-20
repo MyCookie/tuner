@@ -16,6 +16,7 @@ Spec under test: [cleaner.md](../03-components/cleaner.md). Files: `tests/unit/t
 | CLN-U-008 | `bad_structure`: no assistant turn, last turn user, double system (parametrized) | Drop `bad_structure` — cleaner drops, not crashes, since Bronze `raw` is untrusted |
 | CLN-U-009 | Dedup: identical scrubbed conversations, different Bronze ids | First kept, second dropped `duplicate`; near-identical (one char diff) both kept |
 | CLN-U-010 | Scrub-then-dedup ordering: two records identical only **after** PII scrub | Second is dropped (proves dedup runs on scrubbed text) |
+| CLN-U-030 | **Property (hypothesis):** arbitrary unicode text through the full scrub chain | Idempotent (`scrub(scrub(x)) == scrub(x)`); output never matches the PII patterns; output length ≤ input length + placeholder slack |
 
 ## Structure mapping (unit)
 

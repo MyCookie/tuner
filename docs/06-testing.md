@@ -44,9 +44,11 @@ One test module per stage, each following the pattern: seed the input tier by wr
 
 ## 6. CI (GitHub Actions or equivalent, no GPU)
 
-- Every push: ruff (lint + format check), unit tests, the pickle-ban grep ([05 §6](05-infrastructure.md)).
-- Every PR: integration tests with MinIO + mock judge as service containers.
-- E2E: not in CI (GPU/time); it is the **manual release gate** — run before tagging and record the run ID in the PR/tag description.
+- Every push: ruff (lint + format check), unit tests, the pickle-ban grep ([05 §6](05-infrastructure.md)), secret scan (gitleaks), docs check (`scripts/check_docs.py`: link resolution + test-ID traceability).
+- Every PR: integration tests with MinIO + mock judge as service containers, HF access in offline mode with a pre-seeded tiny-model cache (INF-I-012), coverage gate (`scripts/check_coverage.py`).
+- On lockfile change + weekly: dependency audit (`uvx pip-audit`).
+- Nightly: `pytest -m slow` (container structure, scale smoke — [08 infra.md](08-test-specs/infra.md)) + CPU E2E.
+- GPU E2E: not in CI; it is the **manual release gate** — run before tagging and record the run ID in the PR/tag description.
 
 ## MVP scope
 
