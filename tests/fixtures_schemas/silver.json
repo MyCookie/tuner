@@ -1,0 +1,38 @@
+{
+  "id": "e932515d-1f15-4f90-8def-01cbbc736b02",
+  "run_id": "run-20260720-142201-a3f9c2",
+  "lineage": {
+    "bronze_content_hash": "sha256:378bd885574e683c37cb6b83c048cb2ede155595dfad04be2a58fe673b06970e",
+    "cleaner_version": "0.1.0"
+  },
+  "conversation": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "text",
+          "value": "You are a helpful support agent."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "value": "How do I reset my password?"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "value": "Go to Settings..."
+        }
+      ]
+    }
+  ],
+  "evaluation": null
+}

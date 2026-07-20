@@ -1,0 +1,27 @@
+{
+  "run_id": "run-20260720-142201-a3f9c2",
+  "adapter": "gemma-e4b",
+  "tokenizer_id": "google/gemma-4-e4b-it",
+  "max_seq_len": 4096,
+  "gold_manifest_uri": "s3://tuner-gold/run-20260720-142201-a3f9c2/manifest.json",
+  "splits": {
+    "train": [
+      {
+        "row": 0,
+        "record_id": "e932515d-1f15-4f90-8def-01cbbc736b02"
+      }
+    ],
+    "eval": [
+      {
+        "row": 0,
+        "record_id": "77aa41d0-0000-4000-8000-000000000001"
+      }
+    ]
+  },
+  "dropped": [
+    {
+      "record_id": "c0ffee12-0000-4000-8000-000000000001",
+      "reason": "over_max_len"
+    }
+  ]
+}

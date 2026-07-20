@@ -1,0 +1,16 @@
+{
+  "id": "e932515d-1f15-4f90-8def-01cbbc736b02",
+  "run_id": "run-20260720-142201-a3f9c2",
+  "source": {
+    "uri": "file:///data/support_dialogs.csv",
+    "type": "csv",
+    "locator": "row:42",
+    "ingested_at": "2026-07-20T14:22:05Z",
+    "ingestor_version": "0.1.0"
+  },
+  "content_hash": "sha256:378bd885574e683c37cb6b83c048cb2ede155595dfad04be2a58fe673b06970e",
+  "raw": {
+    "question": "How do I reset my password?",
+    "answer": "Go to Settings..."
+  }
+}
