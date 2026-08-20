@@ -10,7 +10,9 @@ Tests for the tooling *around* the pipeline: MinIO bootstrap + IAM, the MLflow s
 | INF-I-002 | Bootstrap re-run on an initialized store | Exit 0, idempotent: no duplicate policies, existing bucket contents untouched |
 | INF-I-003 | **Full IAM matrix sweep** — parametrized over every principal×bucket cell of 05 §5, both directions | Every granted op succeeds and every ungranted op raises AccessDenied, per the 05 §5 legend (R = list+get; W = R + put+delete). The test's expectation table is a literal transcription of the doc table, so doc↔policy drift fails here |
 | INF-I-004 | MLflow server round-trip (real compose `mlflow`, not file-backed) | Param/metric/artifact logged via `MLFLOW_TRACKING_URI` are readable back; artifact bytes appear under `tuner-mlflow` (proxied artifacts working); a stage credential attempting direct `tuner-mlflow` access is denied |
-| INF-I-005 | Object store unreachable (endpoint pointed at a closed port) | Any stage CLI fails fast with exit 1 and a connection-error message — no hang (bounded retries/timeout), no partial manifest |
+| INF-I-005 | Object store unreachable (endpoint pointed at a closed port) | `StorageClient` fails fast with a connection error — no hang (bounded retries/timeout)¹ |
+
+¹ **Scope decision (T04):** at T04, no stage CLI does real storage I/O yet — every stage in `tuner/cli.py` is still T01's `sys.exit(1)` stub, so "any stage CLI fails fast on an unreachable store" isn't a buildable/testable claim until a stage genuinely talks to `StorageClient`. T04 implements and tests the shared mechanism directly against `StorageClient` (the layer every stage CLI will inherit this behavior from). The CLI-level half of this scenario — invoking a real stage CLI (starting with `tuner ingest`) against an unreachable store and asserting exit 1 + a connection-error message + no partial manifest — is deferred to **T06**, added as a companion case under this same ID (`INF-I-005`) once the Ingestor CLI exists, per the case-ID convention in [08 README](README.md) ("IDs are stable; never renumber, append instead").
 
 ## Static config checks (unit)
 
