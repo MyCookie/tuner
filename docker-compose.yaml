@@ -1,0 +1,213 @@
+# Local topology (05-infrastructure.md §1). Credentials only ever flow in via
+# .env (git-ignored; .env.example documents every var) — never a literal here.
+services:
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    build:
+      context: .
+      dockerfile: docker/base.Dockerfile
+    entrypoint: ["python", "scripts/bootstrap_minio.py"]
+    environment:
+      TUNER_S3_ENDPOINT: http://minio:9000
+      TUNER_S3_REGION: us-east-1
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      INGESTOR_S3_ACCESS_KEY: ${INGESTOR_S3_ACCESS_KEY}
+      INGESTOR_S3_SECRET_KEY: ${INGESTOR_S3_SECRET_KEY}
+      CLEANER_S3_ACCESS_KEY: ${CLEANER_S3_ACCESS_KEY}
+      CLEANER_S3_SECRET_KEY: ${CLEANER_S3_SECRET_KEY}
+      JUDGE_S3_ACCESS_KEY: ${JUDGE_S3_ACCESS_KEY}
+      JUDGE_S3_SECRET_KEY: ${JUDGE_S3_SECRET_KEY}
+      TOKENIZER_S3_ACCESS_KEY: ${TOKENIZER_S3_ACCESS_KEY}
+      TOKENIZER_S3_SECRET_KEY: ${TOKENIZER_S3_SECRET_KEY}
+      TRAINER_S3_ACCESS_KEY: ${TRAINER_S3_ACCESS_KEY}
+      TRAINER_S3_SECRET_KEY: ${TRAINER_S3_SECRET_KEY}
+      SMOKE_S3_ACCESS_KEY: ${SMOKE_S3_ACCESS_KEY}
+      SMOKE_S3_SECRET_KEY: ${SMOKE_S3_SECRET_KEY}
+      REGISTRY_OPS_S3_ACCESS_KEY: ${REGISTRY_OPS_S3_ACCESS_KEY}
+      REGISTRY_OPS_S3_SECRET_KEY: ${REGISTRY_OPS_S3_SECRET_KEY}
+      MLFLOW_S3_ACCESS_KEY: ${MLFLOW_S3_ACCESS_KEY}
+      MLFLOW_S3_SECRET_KEY: ${MLFLOW_S3_SECRET_KEY}
+    depends_on:
+      minio:
+        condition: service_healthy
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow
+    entrypoint: ["mlflow"]
+    command:
+      - server
+      - --backend-store-uri=sqlite:////mlflow-data/mlflow.db
+      - --default-artifact-root=mlflow-artifacts:/
+      - --artifacts-destination=s3://tuner-mlflow/
+      - --serve-artifacts
+      - --host=0.0.0.0
+      - --port=5000
+      - --allowed-hosts=localhost,localhost:5000,mlflow,mlflow:5000
+    ports:
+      - "5000:5000"
+    environment:
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: ${MLFLOW_S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${MLFLOW_S3_SECRET_KEY}
+    volumes:
+      - mlflow-data:/mlflow-data
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:5000/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ingestor:
+    profiles: ["pipeline"]
+    build:
+      context: .
+      dockerfile: docker/base.Dockerfile
+    command: ["ingest"]
+    environment:
+      TUNER_S3_ENDPOINT: http://minio:9000
+      TUNER_S3_REGION: us-east-1
+      TUNER_S3_ACCESS_KEY: ${INGESTOR_S3_ACCESS_KEY}
+      TUNER_S3_SECRET_KEY: ${INGESTOR_S3_SECRET_KEY}
+    volumes:
+      - ./configs:/app/configs:ro
+      - ./fixtures:/app/fixtures:ro
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+
+  cleaner:
+    profiles: ["pipeline"]
+    build:
+      context: .
+      dockerfile: docker/base.Dockerfile
+    command: ["clean"]
+    environment:
+      TUNER_S3_ENDPOINT: http://minio:9000
+      TUNER_S3_REGION: us-east-1
+      TUNER_S3_ACCESS_KEY: ${CLEANER_S3_ACCESS_KEY}
+      TUNER_S3_SECRET_KEY: ${CLEANER_S3_SECRET_KEY}
+    volumes:
+      - ./configs:/app/configs:ro
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+
+  judge:
+    profiles: ["pipeline"]
+    build:
+      context: .
+      dockerfile: docker/base.Dockerfile
+    command: ["judge"]
+    environment:
+      TUNER_S3_ENDPOINT: http://minio:9000
+      TUNER_S3_REGION: us-east-1
+      TUNER_S3_ACCESS_KEY: ${JUDGE_S3_ACCESS_KEY}
+      TUNER_S3_SECRET_KEY: ${JUDGE_S3_SECRET_KEY}
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      TUNER_JUDGE_BASE_URL: ${TUNER_JUDGE_BASE_URL}
+      TUNER_JUDGE_API_KEY: ${TUNER_JUDGE_API_KEY}
+    volumes:
+      - ./configs:/app/configs:ro
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+      mlflow:
+        condition: service_healthy
+
+  tokenizer:
+    profiles: ["pipeline"]
+    build:
+      context: .
+      dockerfile: docker/base.Dockerfile
+    command: ["tokenize"]
+    environment:
+      TUNER_S3_ENDPOINT: http://minio:9000
+      TUNER_S3_REGION: us-east-1
+      TUNER_S3_ACCESS_KEY: ${TOKENIZER_S3_ACCESS_KEY}
+      TUNER_S3_SECRET_KEY: ${TOKENIZER_S3_SECRET_KEY}
+      HF_TOKEN: ${HF_TOKEN}
+    volumes:
+      - ./configs:/app/configs:ro
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+
+  trainer:
+    profiles: ["pipeline"]
+    build:
+      context: .
+      dockerfile: docker/trainer.Dockerfile
+    command: ["train"]
+    environment:
+      TUNER_S3_ENDPOINT: http://minio:9000
+      TUNER_S3_REGION: us-east-1
+      TUNER_S3_ACCESS_KEY: ${TRAINER_S3_ACCESS_KEY}
+      TUNER_S3_SECRET_KEY: ${TRAINER_S3_SECRET_KEY}
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      HF_TOKEN: ${HF_TOKEN}
+    volumes:
+      - ./configs:/app/configs:ro
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+      mlflow:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  smoke:
+    profiles: ["pipeline"]
+    build:
+      context: .
+      dockerfile: docker/trainer.Dockerfile
+    command: ["smoke"]
+    environment:
+      TUNER_S3_ENDPOINT: http://minio:9000
+      TUNER_S3_REGION: us-east-1
+      TUNER_S3_ACCESS_KEY: ${SMOKE_S3_ACCESS_KEY}
+      TUNER_S3_SECRET_KEY: ${SMOKE_S3_SECRET_KEY}
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      HF_TOKEN: ${HF_TOKEN}
+    volumes:
+      - ./configs:/app/configs:ro
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+      mlflow:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  minio-data:
+  mlflow-data:

@@ -57,7 +57,15 @@ class StorageClient:
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
             region_name=os.environ.get(_ENV_REGION, _DEFAULT_REGION),
-            config=BotoConfig(signature_version="s3v4", s3={"addressing_style": "path"}),
+            config=BotoConfig(
+                signature_version="s3v4",
+                s3={"addressing_style": "path"},
+                # Bounded so an unreachable store fails fast, not hangs
+                # (botocore's defaults are 60s/60s + broad retries) — INF-I-005.
+                connect_timeout=5,
+                read_timeout=10,
+                retries={"max_attempts": 2, "mode": "standard"},
+            ),
         )
 
     # -- jsonl record shards --------------------------------------------------
