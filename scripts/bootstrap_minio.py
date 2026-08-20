@@ -1,4 +1,4 @@
-"""Create the six... seven canonical buckets and per-stage MinIO users/policies.
+"""Create the seven canonical buckets and per-stage MinIO users/policies.
 
 Run once by the `minio-init` compose service (05-infrastructure.md §1, §5).
 Idempotent: safe to re-run against an already-bootstrapped store (INF-I-002).
