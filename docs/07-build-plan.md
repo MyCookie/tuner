@@ -31,7 +31,7 @@ Ordered task breakdown for the MVP slice, sized for one-task-per-session executi
 ### T04 — Compose infra & MinIO bootstrap
 **Goal:** local environment per [05 §1–§2, §5](05-infrastructure.md).
 **Files:** `docker-compose.yaml`, `docker/base.Dockerfile`, `scripts/bootstrap_minio.py` (buckets incl. `tuner-mlflow`, per-stage users + policies from the IAM matrix), `.env.example`.
-**Accept:** fresh `docker compose up -d` yields healthy MinIO + MLflow; INF-I-001..005 and INF-U-006..007 pass ([08 infra.md](08-test-specs/infra.md)) — including the full IAM matrix sweep and the MLflow proxied-artifact round-trip.
+**Accept:** fresh `docker compose up -d` yields healthy MinIO + MLflow; INF-I-001..005 and INF-U-006..007 pass ([08 infra.md](08-test-specs/infra.md)) — including the full IAM matrix sweep and the MLflow proxied-artifact round-trip. INF-I-005 is scoped to `StorageClient` at this task (see the footnote on that case in [08 infra.md](08-test-specs/infra.md)) since no stage CLI does real storage I/O until T06.
 **Verify:** `python scripts/check_iam.py` prints the full matrix result; `uv run pytest -m integration tests/integration/test_infra.py`.
 
 ### T05 — Fixtures & mock judge
@@ -44,6 +44,7 @@ Ordered task breakdown for the MVP slice, sized for one-task-per-session executi
 ### T06 — Ingestor
 **Files:** `src/tuner/ingestor/` (`sources.py`, `cli.py`), `tests/unit/test_sources.py`, `tests/integration/test_ingestor.py`.
 **Spec:** [ingestor.md](03-components/ingestor.md) — implement its acceptance criteria as the integration test.
+**Also:** add the deferred CLI-level companion case for `INF-I-005` in `tests/integration/test_infra.py` (real `tuner ingest` against an unreachable object store → exit 1, connection-error message, no partial manifest) — see the footnote on that case in [08 infra.md](08-test-specs/infra.md).
 **Verify:** `uv run tuner ingest --run-id $(uv run python -m tuner.core.ids) --config configs/pipeline.yaml` then inspect `tuner-bronze` in the MinIO console.
 
 ### T07 — Cleaner

@@ -13,6 +13,7 @@ dependencies = [
   "mlflow>=2.12",
   "transformers>=4.41",
   "safetensors>=0.4",
+  "minio>=7.2.20",
 ]
 
 [project.optional-dependencies]
@@ -48,6 +49,7 @@ src = ["src", "tests"]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
+pythonpath = ["."]  # so tests/integration/test_infra.py can `import scripts.bootstrap_minio`
 markers = [
   "integration: requires docker compose services (MinIO, MLflow)",
   "e2e: full pipeline steel-thread test",
