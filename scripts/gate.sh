@@ -62,11 +62,16 @@ step "ruff format --check" uv run ruff format --check .
 # -- the pickle ban (05 §6, 06 §6) — CI greps for this; so does pre-commit --
 
 # CLAUDE.md hard rule 2 / 05 §6: SafeTensors only. Matches the serialisers themselves,
-# disabled safe-serialization (what actually makes HF emit .bin), and the known weight
-# filenames — NOT a bare `.bin` string, which would reject TRN-I-003's own assertion that
-# no .bin exists. grep exits 0 = found, 1 = clean, 2 = error; only 1 passes, so a broken
-# grep fails the gate rather than silently passing it.
-_BAN_RE='pickle\.(dump|load|Pickler|Unpickler)|torch\.(save|load)\(|joblib\.(dump|load)|^[[:space:]]*(import|from)[[:space:]]+[a-zA-Z_0-9,.[:space:]]*\b(pickle|cPickle|dill)\b|safe_serialization[[:space:]]*=[[:space:]]*False|(pytorch_model|adapter_model|optimizer|scheduler)\.bin'
+# disabled safe-serialization (what actually makes HF emit one), and any *named* weight
+# file with the banned extension — including the multi-shard form a real checkpoint
+# produces, which the previous revision missed. Requiring a name character before the
+# extension is what keeps TRN-I-003's own suffix assertion out of the net: a bare quoted
+# suffix has no filename in front of it. grep exits 0 = found, 1 = clean, 2 = error; only
+# 1 passes, so a broken grep fails the gate instead of silently passing it.
+#
+# NB: this comment deliberately never spells out a banned filename. The scanner scans its
+# own directory, and naming one here would make the gate fail on itself — as it did twice.
+_BAN_RE='pickle\.(dump|load|Pickler|Unpickler)|torch\.(save|load)\(|joblib\.(dump|load)|^[[:space:]]*(import|from)[[:space:]]+[a-zA-Z_0-9,.[:space:]]*\b(_?pickle|cPickle|dill)\b|from[[:space:]]+joblib[[:space:]]+import[[:space:]]+.*\b(dump|load)\b|safe_serialization[[:space:]]*=[[:space:]]*False|[A-Za-z0-9_-]+\.bin\b'
 
 pickle_ban() {
     grep -rnE "$_BAN_RE" src/ scripts/ tests/ docker/ configs/ \
