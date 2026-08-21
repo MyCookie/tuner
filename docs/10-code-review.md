@@ -31,9 +31,10 @@ implementer:  branch  →  implement  →  ./scripts/gate.sh  →  git push -u  
                                                           Verdict: APPROVE          Verdict: REQUEST_CHANGES
                                                                  ↓                            ↓
                                           gh pr merge --merge --delete-branch     implementer fixes on the branch,
-                                                                 ↓                pushes, spawns a NEW reviewer (round 2)
+                                                                 ↓                pushes, spawns a NEW reviewer
                                              implementer: git switch main               ↓
-                                                          git pull --ff-only     still rejected after round 2
+                                                          git pull --ff-only     finding re-argued, spec disputed,
+                                                                                 or 5 rounds (§8)
                                                                                         ↓
                                                                                  stop, leave the PR open, report
 ```
@@ -100,7 +101,7 @@ The compose stack is a **single shared instance** on fixed ports (`9000`/`9001`/
 
 ## 5. Semantic analysis
 
-The gate proves the tests pass. The review exists for what a green gate cannot show. Work through all six:
+The gate proves the tests pass. The review exists for what a green gate cannot show. Work through all seven:
 
 The lettering below is normative; [.claude/agents/code-reviewer.md](../.claude/agents/code-reviewer.md) restates it and must not diverge.
 
@@ -125,6 +126,10 @@ Edits to **pre-existing** tests are the strongest signal that a test was bent to
 **f. Commits.** Atomic and Conventional ([09 §2–§3](09-git-workflow.md)); code and its tests in the same commit; nothing committed that `.gitignore` should have caught.
 
 **g. Documentation of decisions.** A spec ambiguity resolved during implementation belongs **in the docs**, not in a code comment or a commit message. The precedent is T04's `INF-I-005` footnote in [08 infra.md](08-test-specs/infra.md): the decision, its reasoning, and the task that owns the follow-up.
+
+### Reviewing a checker
+
+Running the gate proves nothing about a change *to* the gate. Anything that greps, bans, validates or filters needs its own controls, built by the reviewer — never reused from the implementer, since a check validated only against its author's examples is validated against its author's blind spots. Build true positives covering every form the check exists to catch (including awkward real-world ones), and **negative controls of legitimate code that superficially resembles what is banned** — that is where the defects are. A false positive in a gate blocks every future task and fails loudly on correct work, which is worse than failing open. Extract the pattern from the file under review rather than retyping it, and prove failure propagation by breaking something deliberately rather than by reasoning about shell semantics.
 
 ## 6. Verdict
 
@@ -162,20 +167,28 @@ A review that finds nothing still posts: the verdict plus the gate transcript pl
 Apply the matching label so PR state is queryable (`gh pr list --label review:changes-requested`):
 
 ```bash
-gh pr edit <N> --add-label review:approved          # or review:changes-requested
+gh pr edit <N> --add-label review:approved --remove-label review:changes-requested
+# or, rejecting:
+gh pr edit <N> --add-label review:changes-requested --remove-label review:approved
 ```
+
+Always remove the other one. On a multi-round PR you inherit the previous round's label, and a PR carrying both tells `gh pr list --label` nothing.
 
 ## 7. Merging
 
 Only the reviewer, only after posting `**Verdict: APPROVE**`:
 
 ```bash
-gh pr merge <N> --merge --delete-branch \
+gh pr merge <N> --merge \
   --subject "Merge feat/tNN-<slug>: TNN <task title>" \
   --body "Refs: TNN
 
 Reviewed-by: Opus 5 reviewer agent (round R)"
+
+git push origin --delete feat/tNN-<slug>      # NOT `gh pr merge --delete-branch`
 ```
+
+**Do not use `--delete-branch`.** §4 puts you on a detached HEAD, and that flag makes `gh` resolve the *local* current branch to switch away from it — so it exits 1 with `could not determine current branch: failed to run git: not on any branch`, **after** the merge has already succeeded server-side. The result is an error that mentions no merge, a merge that happened, and a branch still on the remote. `git push origin --delete` needs no current branch and works from a detached worktree.
 
 `--merge` produces a merge commit, preserving the feature boundary in history exactly as the local `--no-ff` merges of T01–T04 did. The implementer then updates its local trunk:
 
@@ -203,7 +216,7 @@ When you do stop: leave the PR open with every review attached, merge nothing, a
 
 ## 9. GitHub constraints (already discovered — don't re-derive)
 
-- **Self-approval is impossible.** Both agents authenticate as the same GitHub user, who is the PR author; GitHub rejects `APPROVE` and `REQUEST_CHANGES` reviews on your own PR with HTTP 422. `--comment` reviews are permitted and appear in the review timeline, which is why the verdict is a parseable line in the body rather than a native review state.
+- **Self-approval is assumed impossible — this one is inferred, not measured.** Both agents authenticate as the same GitHub user, who is the PR author, and GitHub is documented to reject `APPROVE` and `REQUEST_CHANGES` reviews on your own PR with HTTP 422. **No reviewer has verified it, and none should:** confirming it requires the author submitting a real approving review on their own PR, which is precisely what the rule exists to prevent. Three rounds have now declined to test it, correctly. `--comment` reviews are permitted and appear in the review timeline, which is why the verdict is a parseable line in the body rather than a native review state — and that design costs nothing even if the 422 assumption is wrong. Treat it as the one claim in this section that rests on documentation rather than on a command someone ran.
 - **Branch protection is unavailable on this repository — and not because of the token.** `gh api repos/MyCookie/tuner/branches/main/protection` returns 403 *"Upgrade to GitHub Pro or make this repository public to enable this feature."* `MyCookie/tuner` is a private repo on a free personal account, and GitHub gates branch protection and rulesets behind plan-and-visibility there. So there is no UI toggle to flip and no scope to grant: *Require a pull request before merging* is simply not offered, and required status checks will **not** become available at T14 merely because CI starts existing ([06 §6](06-testing.md)). Server-side enforcement needs one of — make the repository public, upgrade the account to Pro, or move it to an organisation on a plan that includes rulesets. Until one of those happens the gate in this document rests on agent discipline alone, which is why §1's role boundaries are written as rules rather than inferred from tooling.
 
 ## 10. Scope
