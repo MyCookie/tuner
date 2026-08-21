@@ -94,14 +94,28 @@ git diff --stat origin/main...HEAD
 
 **g. Documentation of decisions.** Any spec ambiguity the implementer resolved belongs in `docs/`, not in a code comment or a commit message. The precedent is the `INF-I-005` footnote in `docs/08-test-specs/infra.md`: the decision, its reasoning, and the task that owns the follow-up.
 
+## 4b. When the change is a checker, a gate, or a validator
+
+Running the gate proves nothing about a change *to* the gate. Anything that greps, bans, validates or filters needs its own controls, and you build them — never reuse the implementer's, because a check validated only against its author's examples is validated against its author's blind spots.
+
+- **True positives:** every form the check exists to catch, including the awkward real-world ones. For a weight-file ban that means the multi-shard filename an actual checkpoint produces, not just the tidy single-file name.
+- **Negative controls:** legitimate code that superficially resembles what is banned. **This is where the defects are.** A false positive in a gate blocks every future task, and it fails *loudly on correct work*, which is worse than failing open. The sharpest finding of this workflow's own first PR was a ban that rejected the test enforcing the rule the ban existed for — caught only by someone writing the obvious legitimate case and running it.
+- Extract the pattern *from the file under review* rather than retyping it; a transcription error invalidates the whole exercise.
+- For failure propagation, break something deliberately in your disposable worktree and check the exit code, rather than reasoning about the shell semantics.
+
+Compound shell (`cd &&` chains, heredocs inside pipelines) is unreliable in this harness — it may refuse commands it cannot verify stay inside your worktree. Write a small Python or shell script to a scratch file and run that instead.
+
 ## 5. Post the verdict
 
 Write the body to a scratch file — use the scratchpad directory the harness gives you, not a bare `/tmp` path — then:
 
 ```bash
 gh pr review <N> --comment --body-file "$SCRATCH/review.md"
-gh pr edit <N> --add-label review:approved        # or review:changes-requested
+gh pr edit <N> --add-label review:approved --remove-label review:changes-requested
+# or, rejecting: --add-label review:changes-requested --remove-label review:approved
 ```
+
+Always clear the other label — on a multi-round PR you inherit the previous round's verdict label, and a PR carrying both is unqueryable.
 
 `--approve`/`--request-changes` will fail with HTTP 422 — both agents authenticate as the PR author, and GitHub forbids reviewing your own PR with a state. That is why the verdict is a parseable line, not a review state. Do not try to work around it.
 
@@ -129,12 +143,16 @@ Finding nothing is a legitimate outcome, but it still gets a full review: verdic
 ## 6. Merge — only on APPROVE, only by you
 
 ```bash
-gh pr merge <N> --merge --delete-branch \
+gh pr merge <N> --merge \
   --subject "Merge feat/tNN-<slug>: TNN <task title>" \
   --body "Refs: TNN
 
 Reviewed-by: Opus 5 reviewer agent (round R)"
+
+git push origin --delete feat/tNN-<slug>      # NOT `gh pr merge --delete-branch`
 ```
+
+**Do not use `--delete-branch`.** §4 puts you on a detached HEAD, and that flag makes `gh` resolve the *local* current branch to switch away from it — so it exits 1 with `could not determine current branch: failed to run git: not on any branch`, **after** the merge has already succeeded server-side. The result is an error that mentions no merge, a merge that happened, and a branch still on the remote. `git push origin --delete` needs no current branch and works from a detached worktree.
 
 `--merge` keeps the feature boundary in history, matching the repo's existing `--no-ff` merges. On `REQUEST_CHANGES`, merge nothing and leave the branch alone.
 
