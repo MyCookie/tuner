@@ -82,8 +82,8 @@ Runs cold, in its own git worktree, against **what is on `origin`** — not the 
 git fetch origin
 git checkout --detach origin/feat/tNN-<slug>   # detached: the branch is checked out in the implementer's tree
 
-MAIN_TREE=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
-cp "$MAIN_TREE/.env" .env                      # git-ignored, so absent from a fresh worktree
+cp "$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')/.env" .env
+                                               # .env is git-ignored, so a fresh worktree has none
 
 uv sync --extra dev                            # `dev` is an EXTRA — a bare `uv sync` uninstalls
                                                # ruff, pytest, pytest-cov and hypothesis, and every
@@ -92,7 +92,7 @@ set -a; . ./.env; set +a                       # tests read credentials from the
 ./scripts/gate.sh
 ```
 
-**Compound shell is unreliable in this harness for the whole session.** `cd &&` chains, a `$(...)` assignment followed by another command, heredocs inside pipelines — any may be refused as too complex to verify they stay inside the worktree. Run one simple command at a time, or write a script to a scratch file and run that. A single bare heredoc carrying a long review body is refused too: build the body with one `>` then successive `>>` appends, each its own command.
+**Compound shell is unreliable in this harness, and shell state does not persist between commands.** Each command runs in a fresh shell, so a variable assigned in one is gone in the next — which is why the `cp` above inlines the substitution instead of setting `MAIN_TREE` first. `cd &&` chains, an assignment followed by a dependent command, heredocs inside pipelines: any may also be refused outright as too complex to verify they stay inside the worktree. Run one self-contained command at a time, or write a script to a scratch file and run that. If the inlined `cp` is refused, run `git worktree list --porcelain | head -1` on its own and use the literal path. A single bare heredoc carrying a long review body is refused too — build the body with one `>` then successive `>>` appends, each its own command.
 
 When you finish, delete `.env` and any `run-gate.sh` from the worktree. `.env` is gitignored, so this is not about avoiding a stray commit — it is a real credentials file, and leaving copies of it scattered through disposable worktrees is how one eventually outlives the worktree. `run-gate.sh` is *not* gitignored and does show as untracked to whoever looks next.
 
@@ -104,6 +104,8 @@ If the harness refuses the inline `set -a; . ./.env; set +a` — it does for som
 printf '#!/usr/bin/env bash\nset -a; . ./.env; set +a\nexec ./scripts/gate.sh\n' > run-gate.sh
 chmod +x run-gate.sh && ./run-gate.sh
 ```
+
+If the PR under review modifies `.claude/agents/code-reviewer.md` itself — as several have — your detached checkout swaps your own operating instructions mid-review. Follow the branch's version, and treat the differences from what you started with as part of the diff you are judging.
 
 The compose stack is a **single shared instance** on fixed ports (`9000`/`9001`/`5000`). `docker-compose.yaml` pins `name: tuner`, so commands issued from a worktree address that same project rather than starting a second, port-colliding stack. If the stack is down, bring it up with `docker compose up -d minio minio-init mlflow` — from any directory.
 
@@ -137,7 +139,7 @@ Edits to **pre-existing** tests are the strongest signal that a test was bent to
 
 ### Reviewing a checker
 
-This applies to any change that greps, bans, validates or filters — and to changes to the *guidance* about such checks, which are judged by whether they would have caught the last defect.
+This applies to any change that greps, bans, validates or filters — and to changes to the *guidance* about such checks, which are judged by whether they would have caught the most recent defect found in that check's own history.
 
 Running the gate proves nothing about a change *to* the gate. Anything that greps, bans, validates or filters needs its own controls, built by the reviewer — never reused from the implementer, since a check validated only against its author's examples is validated against its author's blind spots. Build true positives covering every form the check exists to catch (including awkward real-world ones), and **negative controls of legitimate code that superficially resembles what is banned** — that is where the defects are. A false positive in a gate blocks every future task and fails loudly on correct work, which is worse than failing open. Extract the pattern from the file under review rather than retyping it, and prove failure propagation by breaking something deliberately rather than by reasoning about shell semantics.
 
@@ -216,7 +218,7 @@ If that pull is not a fast-forward, something wrote to `main` outside this workf
 
 ## 8. Rework loop
 
-**A reviewer's `Suggested fix:` is an argument, not a verified patch.** It was written by someone who had just found a defect, not by someone who then tested the remedy — reviewers do not run their own suggestions, and §1 forbids them from applying one. Adopting the wording verbatim is how a reviewer's blind spot becomes the next commit's defect. That is measured, not hypothetical: it happened twice on the branch that introduced this document, once producing a claim that was false *in the same direction the same review had just rejected*. Check a suggested fix exactly as the reviewer is required to check a claim in the PR body, then write your own.
+**A reviewer's `Suggested fix:` is an argument, not a verified patch.** It was written by someone who had just found a defect, not by someone who then tested the remedy — reviewers do not run their own suggestions, and §1 forbids them from applying one. Adopting the wording verbatim is how a reviewer's blind spot becomes the next commit's defect. That is measured, not hypothetical: it happened twice on `docs/merge-authority`, the branch that added this rule — once producing a claim that was false *in the same direction the same review had just rejected*. Check a suggested fix exactly as the reviewer is required to check a claim in the PR body, then write your own.
 
 `REQUEST_CHANGES` ⇒ the implementer addresses every `blocker` and `major` on the same branch, in atomic commits that reference the finding, re-runs `./scripts/gate.sh`, and pushes. The next round is a **brand-new reviewer** with fresh context that re-runs the entire gate and the entire checklist. It is never asked to "just re-check the fix" — a targeted re-check inherits the previous reviewer's blind spots, and in practice each fresh pass finds defects its predecessor missed.
 

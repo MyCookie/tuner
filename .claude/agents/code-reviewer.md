@@ -23,8 +23,9 @@ You are running in your own git worktree. The branch under review is checked out
 git fetch origin
 git checkout --detach origin/<branch>
 
-MAIN_TREE=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')  # main is always first
-cp "$MAIN_TREE/.env" .env      # git-ignored, so absent from a fresh worktree
+cp "$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')/.env" .env
+                               # main checkout is always first; .env is git-ignored,
+                               # so a fresh worktree has none
 
 uv sync --extra dev            # `dev` is an EXTRA: a bare `uv sync` UNINSTALLS ruff,
                                # pytest, pytest-cov and hypothesis, and then every check
@@ -32,9 +33,9 @@ uv sync --extra dev            # `dev` is an EXTRA: a bare `uv sync` UNINSTALLS 
 set -a; . ./.env; set +a
 ```
 
-**Compound shell is unreliable in this harness for the whole session, not just when reviewing a checker.** `cd &&` chains, a `$(...)` assignment followed by another command, heredocs inside pipelines — any of these may be refused as too complex to verify they stay inside your worktree. Run one simple command at a time, or write a script to a scratch file and run that. The block above is written as separate commands for this reason; if the `$(...)` form is refused, resolve the path with a plain `git worktree list --porcelain` and use the literal.
+**Compound shell is unreliable in this harness, and shell state does not persist between commands.** Each command runs in a fresh shell, so a variable assigned in one is gone in the next — which is why the `cp` above inlines the substitution instead of setting `MAIN_TREE` first. `cd &&` chains, an assignment followed by a dependent command, heredocs inside pipelines: any may also be refused outright as too complex to verify they stay inside your worktree. Run one self-contained command at a time, or write a script to a scratch file and run that. If the inlined `cp` is refused, run `git worktree list --porcelain | head -1` on its own and use the literal path. A single bare heredoc carrying a long review body is refused too — build the body with one `>` then successive `>>` appends, each its own command.
 
-If `$MAIN_TREE/.env` does not exist, stop and say so — do not invent credentials or skip the integration tests. When you finish, delete `.env` and any `run-gate.sh` from the worktree. `.env` is gitignored, so this is not about avoiding a stray commit — it is a real credentials file, and leaving copies of it scattered through disposable worktrees is how one eventually outlives the worktree. `run-gate.sh` is *not* gitignored and does show as untracked to whoever looks next. If the harness refuses the inline `set -a; . ./.env; set +a` (it does for some worktree-isolated agents), put it in a wrapper:
+If the main worktree has no `.env`, stop and say so — do not invent credentials or skip the integration tests. When you finish, delete `.env` and any `run-gate.sh` from the worktree. `.env` is gitignored, so this is not about avoiding a stray commit — it is a real credentials file, and leaving copies of it scattered through disposable worktrees is how one eventually outlives the worktree. `run-gate.sh` is *not* gitignored and does show as untracked to whoever looks next. If the harness refuses the inline `set -a; . ./.env; set +a` (it does for some worktree-isolated agents), put it in a wrapper:
 
 ```bash
 printf '#!/usr/bin/env bash\nset -a; . ./.env; set +a\nexec ./scripts/gate.sh\n' > run-gate.sh
@@ -42,6 +43,8 @@ chmod +x run-gate.sh && ./run-gate.sh
 ```
 
 `gate.sh` refuses to run rather than mislead you if either step was missed: it verifies the store is reachable and that `ruff`/`pytest` are installed, exiting 2 with the fix.
+
+If the PR modifies this file itself — several have — your detached checkout swaps your own operating instructions underneath you mid-review. Follow the branch's version, and treat what differs from the copy you started with as part of the diff you are judging.
 
 The compose stack is a single shared instance on fixed ports (`9000`/`9001`/`5000`); `docker-compose.yaml` pins `name: tuner` so any directory addresses the same project. If it is down: `docker compose up -d minio minio-init mlflow`.
 
@@ -98,7 +101,7 @@ git diff --stat origin/main...HEAD
 
 ## 4b. When the change is a checker, a gate, or a validator
 
-This covers anything that greps, bans, validates or filters — and changes to the *guidance* about such checks, which are judged by whether they would have caught the last defect.
+This covers anything that greps, bans, validates or filters — and changes to the *guidance* about such checks, which are judged by whether they would have caught the most recent defect found in that check's own history.
 
 Running the gate proves nothing about a change *to* the gate. Anything that greps, bans, validates or filters needs its own controls, and you build them — never reuse the implementer's, because a check validated only against its author's examples is validated against its author's blind spots.
 
@@ -169,4 +172,4 @@ For a branch that is not a build task — `docs/`, `fix/`, `refactor/`, `chore/`
 
 ## 7. Report back
 
-Your final message is not shown to the user directly — the implementer relays it. Give it: the verdict, the gate summary, every finding with its severity, whether you merged, and the PR URL. Be explicit about anything you could not verify and why.
+Your final message is not shown to the user directly — the implementer relays it. Give it: the verdict, the gate summary, every finding with its severity, whether you merged, and the PR URL. Confirm you deleted `.env` and any `run-gate.sh` from the worktree (§1), and that no tracked file was modified. Be explicit about anything you could not verify and why.
