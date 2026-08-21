@@ -2,6 +2,10 @@
 
 Tests for the tooling *around* the pipeline: MinIO bootstrap + IAM, the MLflow server, Docker images, compose config, Hugging Face interaction, and failure behavior when infrastructure is absent. Specs under test: [05-infrastructure.md](../05-infrastructure.md), [04-model-adapters.md](../04-model-adapters.md). Files: `tests/integration/test_infra.py`, `tests/unit/test_infra_static.py`, `tests/slow/test_containers.py`, `tests/slow/test_scale.py`. Built in T04 (001–007), T09 (010–011), T14 (012), T15 exercises the slow lane.
 
+## Setup
+
+Integration cases read MinIO root credentials (`MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`) and every per-stage keypair from the environment; `.env.example` documents all of them. The canonical bare `TUNER_S3_ACCESS_KEY`/`TUNER_S3_SECRET_KEY` pair must be set to the **root** credentials for a local run: the suite drives `StorageClient` across every tier, and no single per-stage principal holds that many grants. Export before running: `set -a; . ./.env; set +a`.
+
 ## Object store & IAM (integration)
 
 | ID | Scenario | Expected |

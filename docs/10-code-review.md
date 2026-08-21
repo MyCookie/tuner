@@ -13,6 +13,8 @@ Every build task is implemented by one agent and merged by a different one, with
 
 **The reviewer never edits code.** If it fixed what it found, it would be reviewing its own work — which is exactly the T03/T04 pattern this replaces. Its permitted actions are: read, run tests, post a review, apply a label, merge, delete the branch. A reviewer that wants a change files a finding and rejects.
 
+The `code-reviewer` agent definition withholds Edit and Write for this reason — but that is a guard rail, not a wall. The reviewer has `Bash`, and `Bash` can write files. Removing the easy path is not the same as making it impossible, so the rule is what actually holds the line, exactly as it is for branch protection in §9.
+
 **The implementer never merges its own PR.** Not after a green gate, not for a one-line fix, not "to save a round".
 
 ## 2. Lifecycle
@@ -70,10 +72,24 @@ Runs cold, in its own git worktree, against **what is on `origin`** — not the 
 ```bash
 git fetch origin
 git checkout --detach origin/feat/tNN-<slug>   # detached: the branch is checked out in the implementer's tree
-cp /home/ashish/Projects/tuner/.env .env       # git-ignored, so absent from a fresh worktree
-uv sync                                        # a fresh .venv also proves the lockfile resolves
+
+MAIN_TREE=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
+cp "$MAIN_TREE/.env" .env                      # git-ignored, so absent from a fresh worktree
+
+uv sync --extra dev                            # `dev` is an EXTRA — a bare `uv sync` uninstalls
+                                               # ruff, pytest, pytest-cov and hypothesis, and every
+                                               # check then fails for reasons unrelated to the branch
 set -a; . ./.env; set +a                       # tests read credentials from the environment
 ./scripts/gate.sh
+```
+
+`gate.sh` refuses to run rather than mislead you if either of those steps was missed: it checks the endpoint is reachable and that `ruff`/`pytest` are actually installed, and exits 2 with the fix.
+
+If the harness refuses the inline `set -a; . ./.env; set +a` — it does for some worktree-isolated agents — put it in a wrapper instead:
+
+```bash
+printf '#!/usr/bin/env bash\nset -a; . ./.env; set +a\nexec ./scripts/gate.sh\n' > run-gate.sh
+chmod +x run-gate.sh && ./run-gate.sh
 ```
 
 The compose stack is a **single shared instance** on fixed ports (`9000`/`9001`/`5000`). `docker-compose.yaml` pins `name: tuner`, so commands issued from a worktree address that same project rather than starting a second, port-colliding stack. If the stack is down, bring it up with `docker compose up -d minio minio-init mlflow` — from any directory.
@@ -168,7 +184,7 @@ The implementer never argues a finding into submission by re-explaining it. If a
 ## 9. GitHub constraints (already discovered — don't re-derive)
 
 - **Self-approval is impossible.** Both agents authenticate as the same GitHub user, who is the PR author; GitHub rejects `APPROVE` and `REQUEST_CHANGES` reviews on your own PR with HTTP 422. `--comment` reviews are permitted and appear in the review timeline, which is why the verdict is a parseable line in the body rather than a native review state.
-- **Branch protection is not settable with the current token.** `gh api repos/MyCookie/tuner/branches/main/protection` returns 403 "Resource not accessible by personal access token". The gate in this document is therefore enforced by agent discipline, not by the server. Enabling *Require a pull request before merging* in the GitHub UI would harden it today; required status checks become possible at T14, when CI exists ([06 §6](06-testing.md)).
+- **Branch protection is unavailable on this repository — and not because of the token.** `gh api repos/MyCookie/tuner/branches/main/protection` returns 403 *"Upgrade to GitHub Pro or make this repository public to enable this feature."* `MyCookie/tuner` is a private repo on a free personal account, and GitHub gates branch protection and rulesets behind plan-and-visibility there. So there is no UI toggle to flip and no scope to grant: *Require a pull request before merging* is simply not offered, and required status checks will **not** become available at T14 merely because CI starts existing ([06 §6](06-testing.md)). Server-side enforcement needs one of — make the repository public, upgrade the account to Pro, or move it to an organisation on a plan that includes rulesets. Until one of those happens the gate in this document rests on agent discipline alone, which is why §1's role boundaries are written as rules rather than inferred from tooling.
 
 ## 10. Scope
 

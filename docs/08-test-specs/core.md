@@ -22,7 +22,7 @@ Unit cases need nothing. `CORE-I-*` need compose MinIO (`storage`, `run_id` fixt
 | ID | Scenario | Expected |
 | :--- | :--- | :--- |
 | CORE-U-010 | `new_run_id()` format | Matches `^run-\d{8}-\d{6}-[0-9a-f]{6}$`; timestamp part is UTC now (injected clock) |
-| CORE-U-011 | 1 000 generated run IDs / record IDs | All unique; record IDs are valid UUIDv4¹ |
+| CORE-U-011 | 1 000 generated run IDs / record IDs | All unique — run IDs across distinct seconds, record IDs valid UUIDv4; same-second run IDs keep a high-entropy suffix¹ |
 | CORE-U-012 | `python -m tuner.core.ids` | Prints exactly one valid run ID and a trailing newline, exit 0 |
 
 ¹ **Spec decision:** run IDs are asserted unique across *distinct* seconds, not within one. The [01 §4.2](../01-architecture.md) format ends in 6 hex chars — 24 bits — so 1 000 IDs minted inside the same second collide with probability ≈ 2.9 %; asserting zero collisions there asserts something the format does not promise, and made this case fail ~1 run in 34. Uniqueness genuinely comes from timestamp + suffix, and the orchestrator mints one run ID per pipeline run, so distinct seconds is the real-world condition. The same-second case is still covered, by the stronger claim it can actually support: the suffix stays high-entropy (≥ 990 distinct out of 1 000; ≥ 10 collisions has probability ~1e-22, so it fails only on a broken RNG, never on luck). Widening the suffix was rejected — [01 §4.2](../01-architecture.md) is load-bearing across manifests, MLflow tags, and registry entries.

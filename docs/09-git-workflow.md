@@ -47,7 +47,7 @@ It runs ruff check + format, the pickle ban, unit tests, then unit + integration
 
 **A green gate is necessary but no longer sufficient.** From T05 on, `main` advances only through a reviewed pull request: push the branch, open the PR, and a fresh Opus 5 reviewer agent independently re-runs this same gate in its own worktree, analyses the change against the specs, and merges it — [10-code-review.md](10-code-review.md) is normative. **The author never merges their own work.** The merge happens on GitHub via `gh pr merge --merge`, which produces the same merge-commit shape `--no-ff` did; local `main` then fast-forwards with `git pull --ff-only`.
 
-CI (T14) attaches the same checks to the PR as required status checks. The local gate stays mandatory regardless, because CI has no GPU. Branch protection is not settable with the repo's current token ([10 §9](10-code-review.md)), so until that changes the gate is enforced by discipline rather than by the server.
+CI (T14) can attach the same checks to the PR, but it cannot yet *require* them: branch protection is unavailable on this repository's plan and visibility, not merely unset ([10 §9](10-code-review.md)). Until that changes the gate is enforced by discipline rather than by the server. The local gate stays mandatory regardless, because CI has no GPU.
 
 ## 5. Releases
 

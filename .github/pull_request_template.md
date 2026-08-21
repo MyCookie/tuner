@@ -3,13 +3,13 @@
 
 ## Task
 
-**TNN — <task title>** · [07-build-plan.md](../docs/07-build-plan.md)
+**TNN — <task title>** · `docs/07-build-plan.md`
 
 <one paragraph: what this branch makes true that was not true before>
 
 ## Suite
 
-Cases implemented, per the task's **Suite** line ([08-test-specs](../docs/08-test-specs/README.md)):
+Cases implemented, per the task's **Suite** line in `docs/08-test-specs/`:
 
 - `XXX-U-001..00N` — <what they cover>
 - `XXX-I-010..01N` — <what they cover>
