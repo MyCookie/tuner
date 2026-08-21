@@ -32,7 +32,7 @@ uv sync --extra dev            # `dev` is an EXTRA: a bare `uv sync` UNINSTALLS 
 set -a; . ./.env; set +a
 ```
 
-If `$MAIN_TREE/.env` does not exist, stop and say so — do not invent credentials or skip the integration tests. If the harness refuses the inline `set -a; . ./.env; set +a` (it does for some worktree-isolated agents), put it in a wrapper:
+If `$MAIN_TREE/.env` does not exist, stop and say so — do not invent credentials or skip the integration tests. When you finish, delete `.env` and any `run-gate.sh` you created: `.env` is a real credentials file, neither is gitignored, and both show as untracked to whoever looks next. If the harness refuses the inline `set -a; . ./.env; set +a` (it does for some worktree-isolated agents), put it in a wrapper:
 
 ```bash
 printf '#!/usr/bin/env bash\nset -a; . ./.env; set +a\nexec ./scripts/gate.sh\n' > run-gate.sh
@@ -96,19 +96,21 @@ git diff --stat origin/main...HEAD
 
 ## 4b. When the change is a checker, a gate, or a validator
 
+This covers anything that greps, bans, validates or filters — and changes to the *guidance* about such checks, which are judged by whether they would have caught the last defect.
+
 Running the gate proves nothing about a change *to* the gate. Anything that greps, bans, validates or filters needs its own controls, and you build them — never reuse the implementer's, because a check validated only against its author's examples is validated against its author's blind spots.
 
 - **True positives:** every form the check exists to catch, including the awkward real-world ones. For a weight-file ban that means the multi-shard filename an actual checkpoint produces, not just the tidy single-file name.
 - **Negative controls:** legitimate code that superficially resembles what is banned. **This is where the defects are.** A false positive in a gate blocks every future task, and it fails *loudly on correct work*, which is worse than failing open. The sharpest finding of this workflow's own first PR was a ban that rejected the test enforcing the rule the ban existed for — caught only by someone writing the obvious legitimate case and running it.
 - Extract the pattern *from the file under review* rather than retyping it; a transcription error invalidates the whole exercise.
 - For failure propagation, break something deliberately in your disposable worktree and check the exit code, rather than reasoning about the shell semantics.
-- **When a fix *widens* a check, ask what it now catches that it did not before.** "Does it still catch X, does it still allow Y" only tests the properties someone already thought of; a widening fix's characteristic failure is a new false positive nobody was looking for. Enumerate what the new pattern admits, not just what it was meant to admit.
+- **When a fix *widens* a check, ask what it now catches that it did not before.** "Does it still catch X, does it still allow Y" only tests properties someone already thought of; a widening fix's characteristic failure is a new false positive nobody was looking for. Recover the previous pattern with `git show origin/main:<file>`, run old and new over the same corpus, and read the difference — the lines the new one matches and the old one did not are the entire risk surface of the change.
 
 Compound shell (`cd &&` chains, heredocs inside pipelines) is unreliable in this harness — it may refuse commands it cannot verify stay inside your worktree. Write a small Python or shell script to a scratch file and run that instead.
 
 ## 5. Post the verdict
 
-Write the body to a scratch file — use the scratchpad directory the harness gives you, not a bare `/tmp` path — then:
+Write the body to a scratch file — use the scratchpad directory the harness gives you, not a bare `/tmp` path. Make the heredoc its own command, with nothing chained after it; §4b's warning about compound shell applies here more than anywhere, since a long review body is exactly the shape the harness refuses. Then:
 
 ```bash
 gh pr review <N> --comment --body-file "$SCRATCH/review.md"
@@ -117,6 +119,8 @@ gh pr edit <N> --add-label review:approved --remove-label review:changes-request
 ```
 
 Always clear the other label — on a multi-round PR you inherit the previous round's verdict label, and a PR carrying both is unqueryable.
+
+A `--comment` review posts with state `COMMENTED`, which does **not** show up under `gh pr view <N> --json comments` — read it back with `gh api repos/{owner}/{repo}/pulls/<N>/reviews` rather than concluding it failed to post.
 
 `--approve`/`--request-changes` will fail with HTTP 422 — both agents authenticate as the PR author, and GitHub forbids reviewing your own PR with a state. That is why the verdict is a parseable line, not a review state. Do not try to work around it.
 
@@ -158,7 +162,5 @@ git push origin --delete feat/tNN-<slug>      # NOT `gh pr merge --delete-branch
 `--merge` keeps the feature boundary in history, matching the repo's existing `--no-ff` merges. On `REQUEST_CHANGES`, merge nothing and leave the branch alone.
 
 ## 7. Report back
-
-Delete any scratch wrapper you created in the worktree (`run-gate.sh`) before finishing, so a later reviewer does not commit it by reflex.
 
 Your final message is not shown to the user directly — the implementer relays it. Give it: the verdict, the gate summary, every finding with its severity, whether you merged, and the PR URL. Be explicit about anything you could not verify and why.
