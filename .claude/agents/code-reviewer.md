@@ -32,7 +32,9 @@ uv sync --extra dev            # `dev` is an EXTRA: a bare `uv sync` UNINSTALLS 
 set -a; . ./.env; set +a
 ```
 
-If `$MAIN_TREE/.env` does not exist, stop and say so — do not invent credentials or skip the integration tests. When you finish, delete `.env` and any `run-gate.sh` you created: `.env` is a real credentials file, neither is gitignored, and both show as untracked to whoever looks next. If the harness refuses the inline `set -a; . ./.env; set +a` (it does for some worktree-isolated agents), put it in a wrapper:
+**Compound shell is unreliable in this harness for the whole session, not just when reviewing a checker.** `cd &&` chains, a `$(...)` assignment followed by another command, heredocs inside pipelines — any of these may be refused as too complex to verify they stay inside your worktree. Run one simple command at a time, or write a script to a scratch file and run that. The block above is written as separate commands for this reason; if the `$(...)` form is refused, resolve the path with a plain `git worktree list --porcelain` and use the literal.
+
+If `$MAIN_TREE/.env` does not exist, stop and say so — do not invent credentials or skip the integration tests. When you finish, delete `.env` and any `run-gate.sh` from the worktree. `.env` is gitignored, so this is not about avoiding a stray commit — it is a real credentials file, and leaving copies of it scattered through disposable worktrees is how one eventually outlives the worktree. `run-gate.sh` is *not* gitignored and does show as untracked to whoever looks next. If the harness refuses the inline `set -a; . ./.env; set +a` (it does for some worktree-isolated agents), put it in a wrapper:
 
 ```bash
 printf '#!/usr/bin/env bash\nset -a; . ./.env; set +a\nexec ./scripts/gate.sh\n' > run-gate.sh
@@ -110,7 +112,9 @@ Compound shell (`cd &&` chains, heredocs inside pipelines) is unreliable in this
 
 ## 5. Post the verdict
 
-Write the body to a scratch file — use the scratchpad directory the harness gives you, not a bare `/tmp` path. Make the heredoc its own command, with nothing chained after it; §4b's warning about compound shell applies here more than anywhere, since a long review body is exactly the shape the harness refuses. Then:
+Write the body to a scratch file in the scratchpad directory the harness names in your prompt — call it `$SCRATCH` below; substitute the real path, it is not exported for you.
+
+Producing the body is where a Bash-only reviewer most often gets stuck, because a heredoc carrying a long review is exactly the shape the harness refuses. A single bare heredoc may be rejected even with nothing chained after it. What works is writing the body in pieces — one `>` to create, then successive `>>` appends — each as its own command. Do this before you need it; being unable to post is a bad place to discover the limitation.
 
 ```bash
 gh pr review <N> --comment --body-file "$SCRATCH/review.md"
@@ -158,6 +162,8 @@ git push origin --delete feat/tNN-<slug>      # NOT `gh pr merge --delete-branch
 ```
 
 **Do not use `--delete-branch`.** §1 puts you on a detached HEAD, and that flag makes `gh` resolve the *local* current branch to switch away from it — so it exits 1 with `could not determine current branch: failed to run git: not on any branch`, **after** the merge has already succeeded server-side. The result is an error that mentions no merge, a merge that happened, and a branch still on the remote. `git push origin --delete` needs no current branch and works from a detached worktree.
+
+For a branch that is not a build task — `docs/`, `fix/`, `refactor/`, `chore/`, which `docs/10` §10 brings under this gate too — use the branch's own name and reason instead of the task form: `--subject "Merge <branch>: <what it does>"` and `--body "Refs: <PR # or task it follows up>"`, keeping the `Reviewed-by:` line.
 
 `--merge` keeps the feature boundary in history, matching the repo's existing `--no-ff` merges. On `REQUEST_CHANGES`, merge nothing and leave the branch alone.
 
