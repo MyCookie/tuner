@@ -71,9 +71,13 @@ CI (T14) can attach the same checks to the PR, but it cannot yet *require* them:
 4. Green ⇒ publish:
    ```bash
    git push -u origin feat/tNN-<slug>
-   gh pr create --base main --title "TNN — <task title>"    # fills in .github/pull_request_template.md
+   PR_BODY=$(mktemp /tmp/pr-body-XXXX.md)
+   cp .github/pull_request_template.md "$PR_BODY"     # gh does NOT apply the template
+   $EDITOR "$PR_BODY"                                # non-interactively — fill it in yourself
+   gh pr create --base main --title "TNN — <task title>" --body-file "$PR_BODY"
    ```
+   `--body` or `--body-file` is mandatory: `gh pr create` refuses to run non-interactively without one, and it does **not** apply `.github/pull_request_template.md` outside an interactive terminal.
 5. Spawn a **fresh** reviewer — `Agent(subagent_type: "code-reviewer", isolation: "worktree")` — with the PR number and branch. It re-runs the gate itself, reviews against the specs, posts a verdict, and merges on `APPROVE` ([10-code-review.md](10-code-review.md)). Do not merge it yourself, and do not summarise the review as approval it did not give.
-6. `REQUEST_CHANGES` ⇒ fix every `blocker` and `major` on the branch, push, and spawn a **new** reviewer for round 2. Rejected again ⇒ stop, leave the PR open, report to the user. Two rounds is the cap: a second independent rejection is a spec question, not a code bug.
+6. `REQUEST_CHANGES` ⇒ fix every `blocker` and `major` on the branch, push, and spawn a **new** reviewer for the next round. Keep going while each round finds *new* defects and the previous round's findings verify as fixed — that is the process working. Stop and report to the user when a round re-raises an already-argued finding, when a reviewer disputes what the spec requires, or at five rounds ([10 §8](10-code-review.md)).
 7. Merged ⇒ `git switch main && git pull --ff-only`; report the task done with the gate output and the PR URL.
 8. A test that seems wrong is a spec question: check [08-test-specs](08-test-specs/) and the component spec; if they conflict, flag it and record the resolution **in the docs**, instead of "fixing" the test.

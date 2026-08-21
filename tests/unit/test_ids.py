@@ -19,7 +19,8 @@ def test_new_run_id_format():
 
 
 def test_run_id_and_record_id_uniqueness_and_validity():
-    """CORE-U-011: 1000 generated run/record IDs are all unique; record IDs are valid UUIDv4."""
+    """CORE-U-011: 1000 run IDs across distinct seconds and 1000 record IDs are all unique;
+    record IDs are valid UUIDv4; same-second run IDs keep a high-entropy suffix."""
     # Run IDs carry uniqueness in timestamp + suffix (01 §4.2) and the orchestrator mints
     # one per pipeline run, so uniqueness is asserted across distinct seconds — the way
     # they are actually generated. See the CORE-U-011 footnote in 08-test-specs/core.md.

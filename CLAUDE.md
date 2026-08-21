@@ -24,11 +24,11 @@ You are building the Enterprise Fine-Tuning Pipeline from the specs in `docs/`. 
 - Never commit to `main`. One branch per build task (`feat/tNN-<slug>`), branched from up-to-date `main`.
 - Atomic commits, Conventional Commits format (`feat(cleaner): ...`), code + its tests in the same commit, unit tests passing at every commit.
 - The gate is one command: `./scripts/gate.sh` (ruff, pickle ban, unit, integration, coverage). Red and unfixable this session ⇒ leave the branch, report honestly. Never merge-then-fix, never force-push shared branches.
-- **Green is not done.** Push the branch, open a PR, then spawn a fresh reviewer — `Agent(subagent_type: "code-reviewer", isolation: "worktree")`. It re-runs the gate itself, reviews against the specs, and merges on `APPROVE`. **You never merge your own PR**, and you never report a review as approval it did not give. Rejected twice ⇒ stop and report; two rounds is the cap.
+- **Green is not done.** Push the branch, open a PR, then spawn a fresh reviewer — `Agent(subagent_type: "code-reviewer", isolation: "worktree")`. It re-runs the gate itself, reviews against the specs, and merges on `APPROVE`. **You never merge your own PR**, and you never report a review as approval it did not give. Keep iterating while each round finds new defects; stop and report when a finding is re-argued, when the spec itself is disputed, or at five rounds ([docs/10 §8](docs/10-code-review.md)).
 
 ## Tooling (fixed — do not churn)
 
-- Python 3.11+, **uv** for env/deps (`uv sync`, `uv run ...`), src-layout single package `tuner`.
+- Python 3.11+, **uv** for env/deps (`uv sync --extra dev` — the test toolchain is an extra, so a bare `uv sync` uninstalls ruff and pytest; then `uv run ...`), src-layout single package `tuner`.
 - **ruff** for lint + format (`uv run ruff check --fix . && uv run ruff format .`).
 - **pytest**; markers: default = unit, `-m integration` needs `docker compose up -d minio minio-init mlflow`, `-m e2e` is the full steel thread.
 - CLI framework: **click**, single `tuner` entrypoint.
