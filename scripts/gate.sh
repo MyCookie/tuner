@@ -44,6 +44,16 @@ if ! curl -fsS --max-time 5 "${TUNER_S3_ENDPOINT}/minio/health/live" >/dev/null 
     exit 2
 fi
 
+# The test toolchain lives in the `dev` extra, so a bare `uv sync` UNINSTALLS it and
+# every check below fails for a reason that has nothing to do with the branch.
+for tool in ruff pytest; do
+    if ! uv run --no-sync "$tool" --version >/dev/null 2>&1; then
+        echo "gate: $tool is not installed in .venv — the test toolchain is an extra:" >&2
+        echo "      uv sync --extra dev" >&2
+        exit 2
+    fi
+done
+
 # -- lint & format ---------------------------------------------------------
 
 step "ruff check" uv run ruff check .
@@ -51,12 +61,19 @@ step "ruff format --check" uv run ruff format --check .
 
 # -- the pickle ban (05 §6, 06 §6) — CI greps for this; so does pre-commit --
 
+# CLAUDE.md hard rule 2 / 05 §6: SafeTensors only. Covers the serialisers themselves,
+# not just their call sites, and `.bin` weights. grep exits 0 = found, 1 = clean, 2 = error;
+# only 1 is a pass, so a broken grep fails the gate instead of silently passing it.
 pickle_ban() {
-    if grep -rnE 'pickle\.(dump|load)|torch\.(save|load)\(' src/ scripts/ tests/ --include='*.py'; then
-        echo "gate: banned pickle/torch.save/load reference above" >&2
-        return 1
-    fi
-    return 0
+    grep -rnE "pickle\.(dump|load)|torch\.(save|load)\(|^[[:space:]]*(import|from)[[:space:]]+(pickle|cPickle|dill|joblib)\b|pytorch_model\.bin|\.bin[\"']" \
+        src/ scripts/ tests/ docker/ configs/ --include='*.py' --include='*.sh' \
+        --include='*.yaml' --include='*.yml' --include='Dockerfile' --include='*.Dockerfile'
+    local rc=$?
+    case "$rc" in
+        1) return 0 ;;
+        0) echo "gate: banned pickle/torch.save/.bin reference above (CLAUDE.md hard rule 2)" >&2; return 1 ;;
+        *) echo "gate: pickle-ban grep failed with status $rc" >&2; return 1 ;;
+    esac
 }
 step "pickle ban" pickle_ban
 
