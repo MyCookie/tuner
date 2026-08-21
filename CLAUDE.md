@@ -4,7 +4,7 @@ You are building the Enterprise Fine-Tuning Pipeline from the specs in `docs/`. 
 
 ## Read this first
 
-- Your task comes from [docs/07-build-plan.md](docs/07-build-plan.md). Do exactly one task per session; its "Accept" + "Verify" lines are the definition of done, together with its test suite from [docs/08-test-specs/](docs/08-test-specs/README.md) and clean lint.
+- Your task comes from [docs/07-build-plan.md](docs/07-build-plan.md). Do exactly one task per session, and finish it against that document's ten-point **Definition of done**: its "Suite" + "Accept" + "Verify" lines, clean lint, and a review gate that ends at *an independent reviewer merged it* — not at *my tests pass* ([docs/10-code-review.md](docs/10-code-review.md)).
 - Tests are specified, not improvised: implement every case in your task's suite exactly as listed in [docs/08-test-specs/](docs/08-test-specs/README.md), docstring-tagged with its case ID. Coverage gates: ≥90 % branch globally, 100 % on the listed pure-logic modules.
 - Before touching **any** record, manifest, or schema code, read [docs/02-data-contracts.md](docs/02-data-contracts.md). It wins over code.
 - All canonical names (buckets, env vars, config keys, run-ID format, exit codes) live in [docs/01-architecture.md §4](docs/01-architecture.md). Never invent a name variant.
@@ -19,12 +19,12 @@ You are building the Enterprise Fine-Tuning Pipeline from the specs in `docs/`. 
 6. **Model specifics live only in model adapters** (`docs/04-model-adapters.md`). A stage branching on an adapter's name is a bug.
 7. **Never weaken a test to make it pass.** A test that looks wrong is a spec question — check [docs/08-test-specs/](docs/08-test-specs/README.md) and the component spec, and flag conflicts instead of editing the test.
 
-## Git (full rules: [docs/09-git-workflow.md](docs/09-git-workflow.md))
+## Git & review (full rules: [docs/09-git-workflow.md](docs/09-git-workflow.md), [docs/10-code-review.md](docs/10-code-review.md))
 
 - Never commit to `main`. One branch per build task (`feat/tNN-<slug>`), branched from up-to-date `main`.
 - Atomic commits, Conventional Commits format (`feat(cleaner): ...`), code + its tests in the same commit, unit tests passing at every commit.
-- Merge to `main` only after the full gate is green: ruff check + format, unit, integration, traceability + coverage scripts. Merge `--no-ff`, delete the branch.
-- Gate red and unfixable this session ⇒ leave the branch, report honestly. Never merge-then-fix, never force-push shared branches.
+- The gate is one command: `./scripts/gate.sh` (ruff, pickle ban, unit, integration, coverage). Red and unfixable this session ⇒ leave the branch, report honestly. Never merge-then-fix, never force-push shared branches.
+- **Green is not done.** Push the branch, open a PR, then spawn a fresh reviewer — `Agent(subagent_type: "code-reviewer", isolation: "worktree")`. It re-runs the gate itself, reviews against the specs, and merges on `APPROVE`. **You never merge your own PR**, and you never report a review as approval it did not give. Rejected twice ⇒ stop and report; two rounds is the cap.
 
 ## Tooling (fixed — do not churn)
 
@@ -39,6 +39,7 @@ You are building the Enterprise Fine-Tuning Pipeline from the specs in `docs/`. 
 cp .env.example .env                 # fill in HF_TOKEN, judge endpoint
 docker compose up -d minio minio-init mlflow
 uv run tuner run --config configs/pipeline.yaml     # full pipeline, prints run ID
+set -a; . ./.env; set +a && ./scripts/gate.sh        # the full merge gate
 # MinIO console: http://localhost:9001  ·  MLflow: http://localhost:5000
 ```
 

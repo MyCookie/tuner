@@ -1,6 +1,6 @@
 # Tuner Test Suite Specifications
 
-Executable-precision test specs for the MVP slice. [06-testing.md](../06-testing.md) is the strategy; these documents are the **normative case lists** — implement every case in the suite that matches your build task, exactly as specified. A build task is not done until its suite is green ([07-build-plan.md](../07-build-plan.md) definition of done, [09-git-workflow.md](../09-git-workflow.md) merge gate).
+Executable-precision test specs for the MVP slice. [06-testing.md](../06-testing.md) is the strategy; these documents are the **normative case lists** — implement every case in the suite that matches your build task, exactly as specified. A build task is not done until its suite is green ([07-build-plan.md](../07-build-plan.md) definition of done, [09-git-workflow.md](../09-git-workflow.md) merge gate) **and an independent reviewer has verified and merged it** ([10-code-review.md](../10-code-review.md)).
 
 ## Suites
 
