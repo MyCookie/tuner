@@ -61,17 +61,21 @@ step "ruff format --check" uv run ruff format --check .
 
 # -- the pickle ban (05 §6, 06 §6) — CI greps for this; so does pre-commit --
 
-# CLAUDE.md hard rule 2 / 05 §6: SafeTensors only. Covers the serialisers themselves,
-# not just their call sites, and `.bin` weights. grep exits 0 = found, 1 = clean, 2 = error;
-# only 1 is a pass, so a broken grep fails the gate instead of silently passing it.
+# CLAUDE.md hard rule 2 / 05 §6: SafeTensors only. Matches the serialisers themselves,
+# disabled safe-serialization (what actually makes HF emit .bin), and the known weight
+# filenames — NOT a bare `.bin` string, which would reject TRN-I-003's own assertion that
+# no .bin exists. grep exits 0 = found, 1 = clean, 2 = error; only 1 passes, so a broken
+# grep fails the gate rather than silently passing it.
+_BAN_RE='pickle\.(dump|load|Pickler|Unpickler)|torch\.(save|load)\(|joblib\.(dump|load)|^[[:space:]]*(import|from)[[:space:]]+[a-zA-Z_0-9,.[:space:]]*\b(pickle|cPickle|dill)\b|safe_serialization[[:space:]]*=[[:space:]]*False|(pytorch_model|adapter_model|optimizer|scheduler)\.bin'
+
 pickle_ban() {
-    grep -rnE "pickle\.(dump|load)|torch\.(save|load)\(|^[[:space:]]*(import|from)[[:space:]]+(pickle|cPickle|dill|joblib)\b|pytorch_model\.bin|\.bin[\"']" \
-        src/ scripts/ tests/ docker/ configs/ --include='*.py' --include='*.sh' \
-        --include='*.yaml' --include='*.yml' --include='Dockerfile' --include='*.Dockerfile'
+    grep -rnE "$_BAN_RE" src/ scripts/ tests/ docker/ configs/ \
+        --include='*.py' --include='*.sh' --include='*.yaml' --include='*.yml' \
+        --include='Dockerfile' --include='*.Dockerfile'
     local rc=$?
     case "$rc" in
         1) return 0 ;;
-        0) echo "gate: banned pickle/torch.save/.bin reference above (CLAUDE.md hard rule 2)" >&2; return 1 ;;
+        0) echo "gate: banned serialiser/.bin reference above (CLAUDE.md hard rule 2)" >&2; return 1 ;;
         *) echo "gate: pickle-ban grep failed with status $rc" >&2; return 1 ;;
     esac
 }
