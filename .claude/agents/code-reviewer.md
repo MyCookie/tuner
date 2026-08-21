@@ -102,6 +102,7 @@ Running the gate proves nothing about a change *to* the gate. Anything that grep
 - **Negative controls:** legitimate code that superficially resembles what is banned. **This is where the defects are.** A false positive in a gate blocks every future task, and it fails *loudly on correct work*, which is worse than failing open. The sharpest finding of this workflow's own first PR was a ban that rejected the test enforcing the rule the ban existed for — caught only by someone writing the obvious legitimate case and running it.
 - Extract the pattern *from the file under review* rather than retyping it; a transcription error invalidates the whole exercise.
 - For failure propagation, break something deliberately in your disposable worktree and check the exit code, rather than reasoning about the shell semantics.
+- **When a fix *widens* a check, ask what it now catches that it did not before.** "Does it still catch X, does it still allow Y" only tests the properties someone already thought of; a widening fix's characteristic failure is a new false positive nobody was looking for. Enumerate what the new pattern admits, not just what it was meant to admit.
 
 Compound shell (`cd &&` chains, heredocs inside pipelines) is unreliable in this harness — it may refuse commands it cannot verify stay inside your worktree. Write a small Python or shell script to a scratch file and run that instead.
 
@@ -152,10 +153,12 @@ Reviewed-by: Opus 5 reviewer agent (round R)"
 git push origin --delete feat/tNN-<slug>      # NOT `gh pr merge --delete-branch`
 ```
 
-**Do not use `--delete-branch`.** §4 puts you on a detached HEAD, and that flag makes `gh` resolve the *local* current branch to switch away from it — so it exits 1 with `could not determine current branch: failed to run git: not on any branch`, **after** the merge has already succeeded server-side. The result is an error that mentions no merge, a merge that happened, and a branch still on the remote. `git push origin --delete` needs no current branch and works from a detached worktree.
+**Do not use `--delete-branch`.** §1 puts you on a detached HEAD, and that flag makes `gh` resolve the *local* current branch to switch away from it — so it exits 1 with `could not determine current branch: failed to run git: not on any branch`, **after** the merge has already succeeded server-side. The result is an error that mentions no merge, a merge that happened, and a branch still on the remote. `git push origin --delete` needs no current branch and works from a detached worktree.
 
 `--merge` keeps the feature boundary in history, matching the repo's existing `--no-ff` merges. On `REQUEST_CHANGES`, merge nothing and leave the branch alone.
 
 ## 7. Report back
+
+Delete any scratch wrapper you created in the worktree (`run-gate.sh`) before finishing, so a later reviewer does not commit it by reflex.
 
 Your final message is not shown to the user directly — the implementer relays it. Give it: the verdict, the gate summary, every finding with its severity, whether you merged, and the PR URL. Be explicit about anything you could not verify and why.

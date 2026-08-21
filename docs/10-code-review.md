@@ -30,7 +30,7 @@ implementer:  branch  →  implement  →  ./scripts/gate.sh  →  git push -u  
                                                                  ↓                            ↓
                                                           Verdict: APPROVE          Verdict: REQUEST_CHANGES
                                                                  ↓                            ↓
-                                          gh pr merge --merge --delete-branch     implementer fixes on the branch,
+                                          gh pr merge (§7) + push --delete        implementer fixes on the branch,
                                                                  ↓                pushes, spawns a NEW reviewer
                                              implementer: git switch main               ↓
                                                           git pull --ff-only     finding re-argued, spec disputed,
@@ -131,6 +131,8 @@ Edits to **pre-existing** tests are the strongest signal that a test was bent to
 
 Running the gate proves nothing about a change *to* the gate. Anything that greps, bans, validates or filters needs its own controls, built by the reviewer — never reused from the implementer, since a check validated only against its author's examples is validated against its author's blind spots. Build true positives covering every form the check exists to catch (including awkward real-world ones), and **negative controls of legitimate code that superficially resembles what is banned** — that is where the defects are. A false positive in a gate blocks every future task and fails loudly on correct work, which is worse than failing open. Extract the pattern from the file under review rather than retyping it, and prove failure propagation by breaking something deliberately rather than by reasoning about shell semantics.
 
+- **When a fix *widens* a check, ask what it now catches that it did not before.** "Does it still catch X, does it still allow Y" only tests the properties someone already thought of; a widening fix's characteristic failure is a new false positive nobody was looking for. Enumerate what the new pattern admits, not just what it was meant to admit.
+
 ## 6. Verdict
 
 One review per round, posted with `gh pr review <N> --comment --body-file <file>`. The **first line of the body is exactly** one of:
@@ -218,6 +220,10 @@ When you do stop: leave the PR open with every review attached, merge nothing, a
 
 - **Self-approval is assumed impossible — this one is inferred, not measured.** Both agents authenticate as the same GitHub user, who is the PR author, and GitHub is documented to reject `APPROVE` and `REQUEST_CHANGES` reviews on your own PR with HTTP 422. **No reviewer has verified it, and none should:** confirming it requires the author submitting a real approving review on their own PR, which is precisely what the rule exists to prevent. Three rounds have now declined to test it, correctly. `--comment` reviews are permitted and appear in the review timeline, which is why the verdict is a parseable line in the body rather than a native review state — and that design costs nothing even if the 422 assumption is wrong. Treat it as the one claim in this section that rests on documentation rather than on a command someone ran.
 - **Branch protection is unavailable on this repository — and not because of the token.** `gh api repos/MyCookie/tuner/branches/main/protection` returns 403 *"Upgrade to GitHub Pro or make this repository public to enable this feature."* `MyCookie/tuner` is a private repo on a free personal account, and GitHub gates branch protection and rulesets behind plan-and-visibility there. So there is no UI toggle to flip and no scope to grant: *Require a pull request before merging* is simply not offered, and required status checks will **not** become available at T14 merely because CI starts existing ([06 §6](06-testing.md)). Server-side enforcement needs one of — make the repository public, upgrade the account to Pro, or move it to an organisation on a plan that includes rulesets. Until one of those happens the gate in this document rests on agent discipline alone, which is why §1's role boundaries are written as rules rather than inferred from tooling.
+
+- **`main` advances on agent judgement alone, and that is a deliberate choice — not an oversight.** The repository owner was shown the full picture and confirmed it: both agents authenticate as the same GitHub user, so nothing on GitHub distinguishes reviewer from author; branch protection is unavailable (above); and the reviewer is a subagent the implementer spawns and whose output the implementer relays. The separation is real — fresh context, its own worktree, no knowledge of the implementer's reasoning, and it has caught defects the implementer would otherwise have shipped — but it is a **process control, not an access control**, and it should never be described as though it were.
+
+  What compensates: the reviewer re-derives every claim rather than trusting the PR body; each round is a new instance, so blind spots are not inherited; and the entire trail — verdict, findings, rebuttals — is permanent on the PR and auditable after the fact. What does not compensate: nothing prevents two successive reviewers from sharing a blind spot, and nothing stops a determined implementer from merging its own work. Revisit this if the repository gains a plan that supports rulesets, or when a stage begins producing artifacts whose defects are expensive to discover late.
 
 ## 10. Scope
 
