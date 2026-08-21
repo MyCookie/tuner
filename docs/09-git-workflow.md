@@ -37,19 +37,17 @@ Refs: T07, docs/03-components/cleaner.md
 
 ## 4. Merge gate — run before every merge to `main`
 
-From the feature branch, after rebasing onto latest `main` (`git fetch && git rebase origin/main` — rebase, don't back-merge):
+From the feature branch, after rebasing onto latest `main` (`git fetch && git rebase origin/main` — rebase, don't back-merge), run the whole gate as one command:
 
 ```bash
-uv run ruff check . && uv run ruff format --check .
-uv run pytest                          # unit
-uv run pytest -m integration           # compose services up
-python scripts/check_test_ids.py       # spec ↔ test traceability (from T14 on)
-python scripts/check_coverage.py       # ≥90% global / 100% listed modules (from T14 on)
+./scripts/gate.sh
 ```
 
-All green ⇒ merge with `git merge --no-ff <branch>` (preserves the feature boundary in history) and delete the branch. Anything red ⇒ fix on the branch; never merge-then-fix.
+It runs ruff check + format, the pickle ban, unit tests, then unit + integration with the ≥ 90 % branch coverage gate, and — from T14 on — `check_test_ids.py`, `check_coverage.py`, `check_docs.py`. Every step runs even after an earlier one fails, so one round surfaces the whole picture, and it prints a summary table to paste into the PR. Anything red ⇒ fix on the branch; never merge-then-fix.
 
-Where a GitHub remote exists, encode this as branch protection + the CI workflow (T14) as required checks, and merge via PR; the local gate stays mandatory regardless because CI has no GPU.
+**A green gate is necessary but no longer sufficient.** From T05 on, `main` advances only through a reviewed pull request: push the branch, open the PR, and a fresh Opus 5 reviewer agent independently re-runs this same gate in its own worktree, analyses the change against the specs, and merges it — [10-code-review.md](10-code-review.md) is normative. **The author never merges their own work.** The merge happens on GitHub via `gh pr merge --merge`, which produces the same merge-commit shape `--no-ff` did; local `main` then fast-forwards with `git pull --ff-only`.
+
+CI (T14) can attach the same checks to the PR, but it cannot yet *require* them: branch protection is unavailable on this repository's plan and visibility, not merely unset ([10 §9](10-code-review.md)). Until that changes the gate is enforced by discipline rather than by the server. The local gate stays mandatory regardless, because CI has no GPU.
 
 ## 5. Releases
 
@@ -67,7 +65,19 @@ Where a GitHub remote exists, encode this as branch protection + the CI workflow
 
 ## 7. Agent session protocol (one build task per session)
 
-1. `git fetch && git switch main && git pull` (or `git switch -c` from current `main` if no remote), then `git switch -c feat/tNN-<slug>`.
-2. Implement the task per [07-build-plan.md](07-build-plan.md); commit atomically as you go (§2–§3).
-3. Run the merge gate (§4). Green: merge `--no-ff` to `main`, delete the branch, report the task done with the gate output. Red and unfixable this session: **stop, push/leave the branch, report honestly** — never merge, never weaken a test to pass it.
-4. A test that seems wrong is a spec question: check [08-test-specs](08-test-specs/) and the component spec; if they conflict, flag it instead of "fixing" the test.
+1. `git fetch origin && git switch main && git pull --ff-only`, then `git switch -c feat/tNN-<slug>`.
+2. Implement the task per [07-build-plan.md](07-build-plan.md); commit atomically as you go (§2–§3). Code and its spec'd test cases land in the same commit.
+3. Run the gate (§4): `./scripts/gate.sh`. Red and unfixable this session ⇒ **stop, push the branch, report honestly** — never merge, never weaken a test to pass it.
+4. Green ⇒ publish:
+   ```bash
+   git push -u origin feat/tNN-<slug>
+   PR_BODY=$(mktemp /tmp/pr-body-XXXX.md)
+   cp .github/pull_request_template.md "$PR_BODY"     # gh does NOT apply the template
+   $EDITOR "$PR_BODY"                                # non-interactively — fill it in yourself
+   gh pr create --base main --title "TNN — <task title>" --body-file "$PR_BODY"
+   ```
+   `--body` or `--body-file` is mandatory: `gh pr create` refuses to run non-interactively without one, and it does **not** apply `.github/pull_request_template.md` outside an interactive terminal.
+5. Spawn a **fresh** reviewer — `Agent(subagent_type: "code-reviewer", isolation: "worktree")` — with the PR number and branch. It re-runs the gate itself, reviews against the specs, posts a verdict, and merges on `APPROVE` ([10-code-review.md](10-code-review.md)). Do not merge it yourself, and do not summarise the review as approval it did not give.
+6. `REQUEST_CHANGES` ⇒ fix every `blocker` and `major` on the branch, push, and spawn a **new** reviewer for the next round. Keep going while each round finds *new* defects and the previous round's findings verify as fixed — that is the process working. Stop and report to the user when a round re-raises an already-argued finding, when a reviewer disputes what the spec requires, or at five rounds ([10 §8](10-code-review.md)).
+7. Merged ⇒ `git switch main && git pull --ff-only`; report the task done with the gate output and the PR URL.
+8. A test that seems wrong is a spec question: check [08-test-specs](08-test-specs/) and the component spec; if they conflict, flag it and record the resolution **in the docs**, instead of "fixing" the test.

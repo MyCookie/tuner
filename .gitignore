@@ -7,8 +7,13 @@
 # MLflow local artifacts
 mlruns/
 
+# Agent tooling: the code-reviewer definition is committed, local permissions are not
+.claude/settings.local.json
+.claude/worktrees/
+
 # Python
 .venv/
+.hypothesis/
 __pycache__/
 *.egg-info/
 .pytest_cache/

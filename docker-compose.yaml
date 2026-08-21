@@ -1,5 +1,9 @@
 # Local topology (05-infrastructure.md §1). Credentials only ever flow in via
 # .env (git-ignored; .env.example documents every var) — never a literal here.
+# Project name pinned so a git worktree — or any other directory — addresses this
+# same stack instead of starting a second, port-colliding one (10-code-review.md §4).
+name: tuner
+
 services:
   minio:
     image: minio/minio

@@ -1,6 +1,6 @@
 # Tuner Test Suite Specifications
 
-Executable-precision test specs for the MVP slice. [06-testing.md](../06-testing.md) is the strategy; these documents are the **normative case lists** — implement every case in the suite that matches your build task, exactly as specified. A build task is not done until its suite is green ([07-build-plan.md](../07-build-plan.md) definition of done, [09-git-workflow.md](../09-git-workflow.md) merge gate).
+Executable-precision test specs for the MVP slice. [06-testing.md](../06-testing.md) is the strategy; these documents are the **normative case lists** — implement every case in the suite that matches your build task, exactly as specified. A build task is not done until its suite is green ([07-build-plan.md](../07-build-plan.md) definition of done, [09-git-workflow.md](../09-git-workflow.md) merge gate) **and an independent reviewer has verified and merged it** ([10-code-review.md](../10-code-review.md)).
 
 ## Suites
 
@@ -12,10 +12,10 @@ Executable-precision test specs for the MVP slice. [06-testing.md](../06-testing
 | Judge (+ mock judge) | `JDG` | [judge.md](judge.md) | T05, T08 |
 | Model adapters | `ADP` | [adapters.md](adapters.md) | T09 |
 | Tokenizer | `TOK` | [tokenizer.md](tokenizer.md) | T10 |
-| Trainer | `TRN` | [trainer.md](trainer.md) | T11 |
+| Trainer | `TRN` | [trainer.md](trainer.md) | T11; `TRN-G-020` in T15 |
 | Smoke-test | `SMK` | [smoke.md](smoke.md) | T12 |
 | CLI, driver, registry list | `CLI` | [cli.md](cli.md) | T13 |
-| Infrastructure & tooling (MinIO/IAM, MLflow server, containers, HF) | `INF` | [infra.md](infra.md) | T04, T09, T14 |
+| Infrastructure & tooling (MinIO/IAM, MLflow server, containers, HF) | `INF` | [infra.md](infra.md) | T04, T09, T14, T15 |
 | End-to-end steel thread | `E2E` | [e2e.md](e2e.md) | T14 |
 
 ## Conventions
