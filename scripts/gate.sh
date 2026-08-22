@@ -32,21 +32,31 @@ skip() {
 
 # -- preflight: fail with an actionable message, not 50 confusing test errors --
 
-# Load .env ourselves rather than telling the caller to `set -a; . ./.env; set +a`.
-# That instruction was wrong for agents in the first place — shell state does not
-# persist between commands, so exporting in one call and running the gate in the
-# next leaves the gate with nothing. Anything already exported wins.
-if [ -z "${TUNER_S3_ENDPOINT:-}" ] && [ -f .env ]; then
+# Load .env ourselves rather than telling the caller to export it first. That
+# instruction was wrong for agents anyway: no shell state survives between
+# commands, so exporting in one call and running the gate in the next leaves the
+# gate with nothing. Sourced only if any required var is missing, so a fully
+# exported environment is left alone.
+_missing_creds() {
+    [ -z "${TUNER_S3_ENDPOINT:-}" ] || [ -z "${TUNER_S3_ACCESS_KEY:-}" ] ||
+        [ -z "${TUNER_S3_SECRET_KEY:-}" ]
+}
+
+if _missing_creds && [ -f .env ]; then
     set -a
     # shellcheck disable=SC1091
     . ./.env
     set +a
 fi
 
-if [ -z "${TUNER_S3_ENDPOINT:-}" ]; then
-    echo "gate: TUNER_S3_ENDPOINT is unset and no .env is present." >&2
-    echo "      cp .env.example .env  and fill it in (see .env.example for what a" >&2
-    echo "      local run needs), or export the TUNER_S3_* vars yourself." >&2
+# Checked after sourcing, and all three: a partial environment used to slip past a
+# single-variable check and surface as dozens of unexplained integration failures.
+if _missing_creds; then
+    echo "gate: incomplete object-store credentials. Missing:" >&2
+    for v in TUNER_S3_ENDPOINT TUNER_S3_ACCESS_KEY TUNER_S3_SECRET_KEY; do
+        [ -z "$(eval "printf %s \"\${$v:-}\"")" ] && echo "        $v" >&2
+    done
+    echo "      cp .env.example .env and fill it in, or export all three yourself." >&2
     exit 2
 fi
 
@@ -101,9 +111,14 @@ step "pickle ban" pickle_ban
 # The runbook lives in scripts/ now (10-code-review.md §3, §4), so a broken one is
 # a broken process. Cheapest possible guard: it must parse.
 shell_syntax() {
-    local rc=0
-    for s in scripts/*.sh; do
-        bash -n "$s" || { echo "gate: $s does not parse" >&2; rc=1; }
+    local rc=0 f
+    for f in scripts/*; do
+        [ -f "$f" ] || continue
+        # By shebang, not by extension: scripts/pre-commit is bash with no suffix,
+        # and a `scripts/*.sh` glob skipped it while claiming full coverage.
+        case "$(head -1 "$f")" in
+            '#!'*sh*) bash -n "$f" || { echo "gate: $f does not parse" >&2; rc=1; } ;;
+        esac
     done
     return "$rc"
 }

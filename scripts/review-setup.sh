@@ -29,6 +29,12 @@ fi
 
 git fetch origin --quiet
 
+if ! git rev-parse --verify --quiet "refs/remotes/origin/$branch" >/dev/null; then
+    echo "review-setup: no branch '$branch' on origin." >&2
+    echo "              Check the name; git's own error here is unhelpfully about paths." >&2
+    exit 2
+fi
+
 # Detached on purpose: the branch is checked out in the implementer's tree, and
 # reviewing origin's copy is what makes this a review of what was published.
 git checkout --detach "origin/$branch" --quiet
