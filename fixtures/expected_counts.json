@@ -41,5 +41,32 @@
     "support_dialogs.csv": {
       "read": 100
     }
+  },
+  "judge": {
+    "combined": {
+      "dropped": 5,
+      "drops": {
+        "below_threshold": 5
+      },
+      "read": 99,
+      "written": 94
+    },
+    "extra_dialogs.jsonl": {
+      "dropped": 2,
+      "drops": {
+        "below_threshold": 2
+      },
+      "read": 15,
+      "written": 13
+    },
+    "support_dialogs.csv": {
+      "dropped": 3,
+      "drops": {
+        "below_threshold": 3
+      },
+      "read": 84,
+      "written": 81
+    },
+    "threshold_score": 7
   }
 }

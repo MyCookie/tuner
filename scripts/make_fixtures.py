@@ -18,15 +18,25 @@ import csv
 import json
 from pathlib import Path
 
+from tuner.core.config import CleanConfig, JudgeConfig
+
 FIXTURES_DIR = Path(__file__).resolve().parents[1] / "fixtures"
 
-# Mirrors the CleanConfig defaults in src/tuner/core/config.py (min_chars=20,
-# max_chars=32000) — the fixture's "under-length"/"over-length" rows are
-# planted relative to these, not to whatever a future config might set.
-MIN_CHARS = 20
-MAX_CHARS = 32000
+# Read from the real config defaults (src/tuner/core/config.py), not
+# duplicated literals — the fixture's "under-length"/"over-length" rows and
+# judge-marker scores are planted relative to whatever configs/pipeline.yaml
+# actually ships, not a copy of it that could drift.
+MIN_CHARS = CleanConfig().min_chars
+MAX_CHARS = CleanConfig().max_chars
+JUDGE_THRESHOLD_SCORE = round(JudgeConfig().threshold * 10)  # 0.7 -> 7 (raw 1-10 score)
 
 SYSTEM_PROMPT = "You are a helpful support agent."
+
+
+def _mark(text: str, score: int) -> str:
+    """Embed a mock-judge `[[score=N]]` marker (docs/06-testing.md §4) in fixture text."""
+    return f"{text} [[score={score}]]"
+
 
 # 16 support-desk scenarios x 5 product surfaces = 80 unique clean rows.
 _TOPICS = [
@@ -122,11 +132,31 @@ _PRODUCTS = [
 ]
 
 
+# A handful of otherwise-clean rows carry an explicit `[[score=N]]` marker
+# (flat index into the 80-row _clean_rows() output -> raw judge score), so a
+# real Judge run against the committed fixtures (T08 Verify) and the E2E
+# steel thread (E2E-E-003 "marker-derived judge expectations") see a mix of
+# promoted/below_threshold outcomes instead of every record defaulting to
+# the mock judge's score-8 default (JDG-U-004). Below JUDGE_THRESHOLD_SCORE
+# -> below_threshold; at/above -> promoted (index 13 is an explicit-marker
+# promotion, distinct from the unmarked default-promoted rows).
+MARKED_CLEAN_SCORES = {2: 3, 13: 9, 30: 5, 61: 6}
+
+
 def _clean_rows() -> list[dict[str, str]]:
     """80 unique, mappable, in-bounds rows — no planted defect."""
     rows = []
-    for i, (question_tmpl, answer) in enumerate(_TOPICS):
+    for i, (question_tmpl, base_answer) in enumerate(_TOPICS):
         for product in _PRODUCTS:
+            flat_index = len(rows)
+            # Never rebind `base_answer` here — it's the outer loop variable,
+            # shared across every product for this topic; a rebind would leak
+            # the marker into every later product row for the same topic.
+            answer = (
+                _mark(base_answer, MARKED_CLEAN_SCORES[flat_index])
+                if flat_index in MARKED_CLEAN_SCORES
+                else base_answer
+            )
             rows.append(
                 {
                     "question": question_tmpl.format(product=product),
@@ -243,7 +273,9 @@ def _blank_question_rows() -> list[dict[str, str]]:
     return rows
 
 
-def _write_support_dialogs_csv() -> dict:
+def _write_support_dialogs_csv() -> tuple[dict, dict]:
+    """Returns (clean_counts, judge_counts) — kept separate so `expected_counts.json`'s
+    "clean" and "judge" sections don't nest one inside the other."""
     clean = _clean_rows()
     duplicates = _duplicate_rows(clean)
     short = _short_rows()
@@ -263,7 +295,8 @@ def _write_support_dialogs_csv() -> dict:
 
     written = len(clean) + len(pii)
     dropped = len(duplicates) + len(short) + len(long_) + len(empty_answer) + len(blank_question)
-    return {
+    below_threshold = sum(1 for s in MARKED_CLEAN_SCORES.values() if s < JUDGE_THRESHOLD_SCORE)
+    clean_counts = {
         "read": len(all_rows),
         "written": written,
         "dropped": dropped,
@@ -274,6 +307,19 @@ def _write_support_dialogs_csv() -> dict:
             "unmappable": len(empty_answer) + len(blank_question),
         },
     }
+    judge_counts = {
+        "read": written,
+        "written": written - below_threshold,
+        "dropped": below_threshold,
+        "drops": {"below_threshold": below_threshold},
+    }
+    return clean_counts, judge_counts
+
+
+# Same purpose as MARKED_CLEAN_SCORES above, scoped to their own lists
+# (index into the scenario/pair list, not the file's line number).
+MARKED_CONTRACT_SCORES = {1: 4}
+MARKED_FLAT_SCORES = {2: 2}
 
 
 def _contract_shaped_lines() -> list[dict]:
@@ -322,6 +368,8 @@ def _contract_shaped_lines() -> list[dict]:
     ]
     lines = []
     for i, (question, answer) in enumerate(scenarios):
+        if i in MARKED_CONTRACT_SCORES:
+            answer = _mark(answer, MARKED_CONTRACT_SCORES[i])
         conversation = []
         if i < 3:
             conversation.append(
@@ -358,7 +406,10 @@ def _flat_prompt_response_lines() -> list[dict]:
             "Admins can download the audit log as CSV from the Security tab.",
         ),
     ]
-    lines = [{"prompt": p, "response": r} for p, r in pairs]
+    lines = [
+        {"prompt": p, "response": _mark(r, MARKED_FLAT_SCORES[i]) if i in MARKED_FLAT_SCORES else r}
+        for i, (p, r) in enumerate(pairs)
+    ]
     assert len(lines) == 5
     return lines
 
@@ -376,7 +427,8 @@ def _unmappable_lines() -> list[dict]:
     return lines
 
 
-def _write_extra_dialogs_jsonl() -> dict:
+def _write_extra_dialogs_jsonl() -> tuple[dict, dict]:
+    """Returns (clean_counts, judge_counts) — see `_write_support_dialogs_csv`."""
     contract = _contract_shaped_lines()
     flat = _flat_prompt_response_lines()
     unmappable = _unmappable_lines()
@@ -388,12 +440,25 @@ def _write_extra_dialogs_jsonl() -> dict:
         for obj in all_lines:
             f.write(json.dumps(obj, ensure_ascii=False) + "\n")
 
-    return {
+    written = len(contract) + len(flat)
+    below_threshold = sum(
+        1
+        for s in (*MARKED_CONTRACT_SCORES.values(), *MARKED_FLAT_SCORES.values())
+        if s < JUDGE_THRESHOLD_SCORE
+    )
+    clean_counts = {
         "read": len(all_lines),
-        "written": len(contract) + len(flat),
+        "written": written,
         "dropped": len(unmappable),
         "drops": {"unmappable": len(unmappable)},
     }
+    judge_counts = {
+        "read": written,
+        "written": written - below_threshold,
+        "dropped": below_threshold,
+        "drops": {"below_threshold": below_threshold},
+    }
+    return clean_counts, judge_counts
 
 
 def _write_bad_lines_jsonl() -> None:
@@ -417,7 +482,8 @@ def _write_bad_lines_jsonl() -> None:
 
 
 def _merge_counts(csv_counts: dict, jsonl_counts: dict) -> dict:
-    drops = dict.fromkeys(("duplicate", "too_short", "too_long", "unmappable"), 0)
+    """Sum two `{read, written, dropped, drops}` count blocks reason-by-reason."""
+    drops = dict.fromkeys(csv_counts["drops"].keys() | jsonl_counts["drops"].keys(), 0)
     for counts in (csv_counts, jsonl_counts):
         for reason, count in counts["drops"].items():
             drops[reason] += count
@@ -432,20 +498,26 @@ def _merge_counts(csv_counts: dict, jsonl_counts: dict) -> dict:
 def main() -> int:
     FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
 
-    csv_counts = _write_support_dialogs_csv()
-    jsonl_counts = _write_extra_dialogs_jsonl()
+    csv_clean, csv_judge = _write_support_dialogs_csv()
+    jsonl_clean, jsonl_judge = _write_extra_dialogs_jsonl()
     _write_bad_lines_jsonl()
 
     expected_counts = {
         "ingest": {
-            "support_dialogs.csv": {"read": csv_counts["read"]},
-            "extra_dialogs.jsonl": {"read": jsonl_counts["read"]},
-            "combined": {"read": csv_counts["read"] + jsonl_counts["read"]},
+            "support_dialogs.csv": {"read": csv_clean["read"]},
+            "extra_dialogs.jsonl": {"read": jsonl_clean["read"]},
+            "combined": {"read": csv_clean["read"] + jsonl_clean["read"]},
         },
         "clean": {
-            "support_dialogs.csv": csv_counts,
-            "extra_dialogs.jsonl": jsonl_counts,
-            "combined": _merge_counts(csv_counts, jsonl_counts),
+            "support_dialogs.csv": csv_clean,
+            "extra_dialogs.jsonl": jsonl_clean,
+            "combined": _merge_counts(csv_clean, jsonl_clean),
+        },
+        "judge": {
+            "threshold_score": JUDGE_THRESHOLD_SCORE,
+            "support_dialogs.csv": csv_judge,
+            "extra_dialogs.jsonl": jsonl_judge,
+            "combined": _merge_counts(csv_judge, jsonl_judge),
         },
     }
     (FIXTURES_DIR / "expected_counts.json").write_text(
