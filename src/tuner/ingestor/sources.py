@@ -26,7 +26,10 @@ class SourceConfigError(Exception):
 
 
 class MalformedLine(Exception):
-    """A JSONL line failed to parse; carries its 1-based line number."""
+    """A source record failed to parse or decode; carries its 1-based line/row number.
+    Raised by both CsvSource and JsonlSource — a bad byte sequence or a JSONL line that
+    isn't valid JSON are the same class of problem: this record cannot be read as intended,
+    so Bronze must be complete or absent, never partial-silent (03-components/ingestor.md)."""
 
     def __init__(self, line_number: int, cause: Exception) -> None:
         super().__init__(f"line {line_number}: {cause}")
@@ -57,7 +60,7 @@ class CsvSource(Source):
         try:
             with Path(cfg.uri).open(newline="", encoding="utf-8") as f:
                 header = next(csv.reader(f), [])
-        except OSError as exc:
+        except (OSError, UnicodeDecodeError) as exc:
             raise SourceConfigError(f"cannot read source {cfg.uri!r}: {exc}") from exc
 
         if cfg.mapping is not None:
@@ -74,7 +77,28 @@ class CsvSource(Source):
     def records(self) -> Iterator[tuple[str, dict[str, Any]]]:
         with Path(self.cfg.uri).open(newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
-            for line_number, row in enumerate(reader, start=1):
+            line_number = 0
+            while True:
+                line_number += 1
+                try:
+                    row = next(reader)
+                except StopIteration:
+                    return
+                except UnicodeDecodeError as exc:
+                    # The row number here is best-effort, not exact: csv.reader sits on
+                    # top of a text-mode file object that decodes in internally-buffered
+                    # chunks possibly spanning several rows, so a bad byte can surface on
+                    # whichever `next()` call was in progress when the buffer needed
+                    # refilling. Unlike JsonlSource, CSV can't switch to binary-mode
+                    # per-line decoding to fix this precisely -- a quoted field may
+                    # legitimately span physical lines, so "one line" isn't "one row".
+                    raise MalformedLine(line_number, exc) from exc
+                # DictReader puts overflow fields (more columns than the header) under
+                # the `None` restkey — a row shape mismatch, not a value to carry through.
+                if None in row:
+                    raise MalformedLine(
+                        line_number, ValueError(f"row has more fields than the header: {row}")
+                    )
                 yield f"row:{line_number}", dict(row)
 
 
@@ -85,12 +109,24 @@ class JsonlSource(Source):
         super().__init__(cfg)
         try:
             Path(cfg.uri).open(encoding="utf-8").close()
-        except OSError as exc:
+        except (OSError, UnicodeDecodeError) as exc:
             raise SourceConfigError(f"cannot read source {cfg.uri!r}: {exc}") from exc
 
     def records(self) -> Iterator[tuple[str, dict[str, Any]]]:
-        with Path(self.cfg.uri).open(encoding="utf-8") as f:
-            for line_number, line in enumerate(f, start=1):
+        # Binary mode + per-line decode, not a text-mode file object: a text-mode
+        # TextIOWrapper decodes in internally-buffered chunks that can span several
+        # physical lines, so a bad byte anywhere in that chunk gets blamed on whichever
+        # line the buffer happened to be filled during -- not necessarily the line it's
+        # actually on. Decoding one raw, already-`\n`-delimited line at a time keeps the
+        # line number in MalformedLine accurate. Safe for JSONL specifically because each
+        # record is exactly one physical line by construction (03-components/ingestor.md);
+        # CSV can't do this since a quoted field may legitimately span lines.
+        with Path(self.cfg.uri).open("rb") as f:
+            for line_number, raw_line in enumerate(f, start=1):
+                try:
+                    line = raw_line.decode("utf-8")
+                except UnicodeDecodeError as exc:
+                    raise MalformedLine(line_number, exc) from exc
                 try:
                     obj = json.loads(line)
                 except json.JSONDecodeError as exc:

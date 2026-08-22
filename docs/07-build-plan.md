@@ -59,7 +59,7 @@ A spec ambiguity found along the way is resolved **in the docs**, not in a code 
 
 ### T06 — Ingestor
 **Files:** `src/tuner/ingestor/` (`sources.py`, `cli.py`), `tests/unit/test_sources.py`, `tests/integration/test_ingestor.py`.
-**Suite:** `ING-U-001..006`, `ING-I-010..018` ([08 ingestor.md](08-test-specs/ingestor.md)), plus the deferred `INF-I-005` CLI companion below.
+**Suite:** `ING-U-001..010`, `ING-I-010..019` ([08 ingestor.md](08-test-specs/ingestor.md)), plus the deferred `INF-I-005` CLI companion below.
 **Spec:** [ingestor.md](03-components/ingestor.md) — implement its acceptance criteria as the integration test.
 **Also:** add the deferred CLI-level companion case for `INF-I-005` in `tests/integration/test_infra.py` (real `tuner ingest` against an unreachable object store → exit 1, connection-error message, no partial manifest) — see the footnote on that case in [08 infra.md](08-test-specs/infra.md).
 **Verify:** `uv run tuner ingest --run-id $(uv run python -m tuner.core.ids) --config configs/pipeline.yaml` then inspect `tuner-bronze` in the MinIO console.

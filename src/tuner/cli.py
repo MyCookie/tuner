@@ -1,7 +1,7 @@
 """`tuner` entrypoint — subcommand skeleton (01-architecture.md §4.4).
 
-Stage logic lands in later build-plan tasks; every stage here is a stub that
-exits 1 until its task implements it.
+`ingest` is real (T06); the rest of STAGES plus `run` are still T01 stubs that
+exit 1 until their build task implements them.
 """
 
 from __future__ import annotations

@@ -220,11 +220,9 @@ def test_shard_boundary_25_records_shard_size_10(storage, run_id, tmp_path):
     ],
 )
 def test_bad_jsonl_line_exits_2_via_full_cli(storage, run_id, tmp_path, line):
-    """Regression (PR #6 review round 1, findings 1 & 2): a JSONL line that either fails to
-    parse or parses to something that isn't an object both exit 2 through the full `ingest()`
-    pipeline (01-architecture.md §4.4 input-schema validation), with no manifest written.
-    Closes the coverage gap ING-U-004's docstring incorrectly claimed was covered here, and
-    the bug where the latter case fell through to exit 1 as an "unexpected" error instead."""
+    """ING-I-019: a JSONL line that either fails to parse or parses to something that isn't
+    an object both exit 2 through the full `ingest()` pipeline (01-architecture.md §4.4
+    input-schema validation), with no manifest written."""
     jsonl_path = tmp_path / "bad.jsonl"
     jsonl_path.write_text(line)
     config_path = _write_config(tmp_path, [{"type": "jsonl", "uri": str(jsonl_path)}])

@@ -10,6 +10,7 @@ from typing import Any
 import click
 from pydantic import ValidationError
 
+from tuner import __version__ as STAGE_VERSION
 from tuner.core.config import DEFAULT_CONFIG_PATH, ConfigError, IngestSourceConfig, load_config
 from tuner.core.ids import canonical_hash, new_record_id
 from tuner.core.manifest import records_hash
@@ -19,7 +20,6 @@ from tuner.ingestor.sources import MalformedLine, SourceConfigError, build_sourc
 
 BUCKET = "tuner-bronze"
 STAGE = "ingestor"
-STAGE_VERSION = "0.1.0"
 SHARD_SIZE = 50_000
 
 

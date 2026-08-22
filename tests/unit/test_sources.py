@@ -95,9 +95,8 @@ def test_jsonl_source_yields_parsed_lines_with_locators(tmp_path):
 
 def test_jsonl_source_malformed_line_raises_with_line_number():
     """ING-U-004: JsonlSource hitting a malformed line (fixtures/bad_lines.jsonl) raises a
-    parse error carrying the line number. The CLI maps this to exit 2 — see
-    test_bad_jsonl_line_exits_2_via_full_cli in tests/integration/test_ingestor.py, since
-    exercising that path needs a real store."""
+    parse error carrying the line number. The CLI maps this to exit 2 — see ING-I-019 in
+    tests/integration/test_ingestor.py, since exercising that path needs a real store."""
     source = JsonlSource(_jsonl_config(str(REPO_ROOT / "fixtures" / "bad_lines.jsonl")))
 
     with pytest.raises(MalformedLine) as exc_info:
@@ -117,6 +116,58 @@ def test_unknown_source_type_exits_2_naming_known_types(tmp_path):
     assert "parquet" in result.output
     assert "csv" in result.output
     assert "jsonl" in result.output
+
+
+def test_csv_header_decode_failure_exits_2_at_construction(tmp_path):
+    """ING-U-007: a CSV whose header line isn't valid UTF-8 raises SourceConfigError at
+    construction — the same bucket as an unreadable source URI (exit 2, before any output
+    is written) — instead of an uncaught UnicodeDecodeError escaping the stage entirely."""
+    csv_path = tmp_path / "dialogs.csv"
+    csv_path.write_bytes(b"ques\xfftion,answer\nq1,a1\n")
+
+    with pytest.raises(SourceConfigError, match="cannot read source"):
+        CsvSource(_csv_config(str(csv_path)))
+
+
+def test_csv_data_row_decode_failure_raises_malformed_line(tmp_path):
+    """ING-U-008: a non-UTF-8 byte deep in a CSV file (the header decodes fine, so
+    construction succeeds) raises MalformedLine from records() -- not an uncaught
+    UnicodeDecodeError. The row number isn't asserted here: it's best-effort for CSV (see
+    the comment on CsvSource.records()), unlike JsonlSource's, which is exact. Padded well
+    past the text-decoder's internal buffer so the bad byte isn't swept up by the
+    construction-time header check, which would raise SourceConfigError instead."""
+    csv_path = tmp_path / "dialogs.csv"
+    padding = "".join(f"q{i},a{i}\n" for i in range(2000))
+    csv_path.write_bytes(f"question,answer\n{padding}".encode() + b"qbad,\xffbad\n")
+
+    with pytest.raises(MalformedLine):
+        list(CsvSource(_csv_config(str(csv_path))).records())
+
+
+def test_jsonl_data_row_decode_failure_raises_with_exact_line_number(tmp_path):
+    """ING-U-009: a non-UTF-8 byte in a JSONL data line (the first line decodes fine, so
+    construction succeeds) raises MalformedLine carrying the exact line number -- JsonlSource
+    decodes one physical line at a time, unlike CsvSource, so this is precise, not best-effort."""
+    jsonl_path = tmp_path / "extra.jsonl"
+    jsonl_path.write_bytes(b'{"a": 1}\n{"a": \xffbad}\n')
+
+    with pytest.raises(MalformedLine) as exc_info:
+        list(JsonlSource(_jsonl_config(str(jsonl_path))).records())
+
+    assert exc_info.value.line_number == 2
+
+
+def test_csv_row_more_fields_than_header_raises_malformed_line(tmp_path):
+    """ING-U-010: a CSV row with more fields than the header (DictReader's `None` restkey)
+    raises MalformedLine naming the row, instead of crashing downstream when canonical_hash
+    tries to sort a dict with a `None` key alongside `str` keys."""
+    csv_path = tmp_path / "dialogs.csv"
+    csv_path.write_text("question,answer\nq1,a1,extra,fields\n")
+
+    with pytest.raises(MalformedLine) as exc_info:
+        list(CsvSource(_csv_config(str(csv_path))).records())
+
+    assert exc_info.value.line_number == 1
 
 
 def test_csv_byte_fidelity_no_trimming(tmp_path):
