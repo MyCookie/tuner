@@ -1,0 +1,3 @@
+{"question": "Unterminated string, "answer": "This line is deliberately malformed."}
+{"question": "Missing closing brace", "answer": "oops"
+["not", "an", "object",]

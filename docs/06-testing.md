@@ -20,11 +20,11 @@ This document is the strategy. The **normative, case-by-case test specifications
 
 Committed, synthetic, generated once by `scripts/make_fixtures.py` (kept for regeneration, output committed for stability):
 
-- `support_dialogs.csv` — 100 rows (`question,answer` + a `system` column on some): ~80 clean, planted defects with **known counts**: 3 exact duplicates, 5 under-length, 2 over-length, 4 with emails/phones, 3 with empty answer, 3 unmappable (blank question).
-- `extra_dialogs.jsonl` — 20 lines: 10 contract-shaped, 5 flat `prompt`/`response`, 3 malformed-for-Bronze-abort tests (kept in a separate `bad_lines.jsonl` so the happy-path file ingests cleanly), 5 arbitrary-shape (unmappable).
-- `expected_counts.json` — the authoritative drop-count expectations consumed by integration/E2E asserts.
+- `support_dialogs.csv` — 100 rows (`question,answer,system`, `system` populated on a quarter of the clean rows, empty elsewhere): 80 clean + 4 with emails/phones (kept, scrubbed — not a drop reason) = 84 written; 16 dropped: 3 exact duplicates, 5 under-length, 2 over-length, 3 with empty answer + 3 with blank question (both `unmappable`, per [cleaner.md](03-components/cleaner.md) core logic 3).
+- `extra_dialogs.jsonl` — **20 lines**: 10 contract-shaped, 5 flat `prompt`/`response`, 5 arbitrary-shape (unmappable) — 15 written, 5 dropped. The 3 malformed-for-Bronze-abort lines live entirely in a separate `bad_lines.jsonl` (used by `ING-U-004`), not counted in this file's 20, so the happy-path file ingests cleanly.
+- `expected_counts.json` — the authoritative drop-count expectations consumed by integration/E2E asserts, generated from the same counters `make_fixtures.py` uses to decide what to write (so it matches "by construction", never recomputed by a second implementation of cleaner logic). Shape: `{"ingest": {"<file>": {"read": N}, "combined": {...}}, "clean": {"<file>": {"read", "written", "dropped", "drops": {<reason>: N}}, "combined": {...}}}`, one entry per source file plus a `"combined"` entry for the two-source configs (`ING-I-013`, `CLN-I-030`).
 
-All content is synthetic English support-desk chatter; no real data, no real PII.
+All content is synthetic English support-desk chatter; no real data, no real PII. `bad_lines.jsonl` and `expected_counts.json` are also written by `make_fixtures.py`, alongside the two files above.
 
 ## 3. Integration tests (compose MinIO up)
 

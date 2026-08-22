@@ -1,0 +1,45 @@
+{
+  "clean": {
+    "combined": {
+      "dropped": 21,
+      "drops": {
+        "duplicate": 3,
+        "too_long": 2,
+        "too_short": 5,
+        "unmappable": 11
+      },
+      "read": 120,
+      "written": 99
+    },
+    "extra_dialogs.jsonl": {
+      "dropped": 5,
+      "drops": {
+        "unmappable": 5
+      },
+      "read": 20,
+      "written": 15
+    },
+    "support_dialogs.csv": {
+      "dropped": 16,
+      "drops": {
+        "duplicate": 3,
+        "too_long": 2,
+        "too_short": 5,
+        "unmappable": 6
+      },
+      "read": 100,
+      "written": 84
+    }
+  },
+  "ingest": {
+    "combined": {
+      "read": 120
+    },
+    "extra_dialogs.jsonl": {
+      "read": 20
+    },
+    "support_dialogs.csv": {
+      "read": 100
+    }
+  }
+}

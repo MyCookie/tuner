@@ -1,0 +1,20 @@
+{"conversation": [{"role": "system", "content": [{"type": "text", "value": "You are a helpful support agent."}]}, {"role": "user", "content": [{"type": "text", "value": "How do I merge two duplicate customer records?"}]}, {"role": "assistant", "content": [{"type": "text", "value": "Open the customer profile, select Merge, and confirm the primary record."}]}]}
+{"conversation": [{"role": "system", "content": [{"type": "text", "value": "You are a helpful support agent."}]}, {"role": "user", "content": [{"type": "text", "value": "What's the retention policy for closed tickets?"}]}, {"role": "assistant", "content": [{"type": "text", "value": "Closed tickets are retained for 2 years, then archived to cold storage."}]}]}
+{"conversation": [{"role": "system", "content": [{"type": "text", "value": "You are a helpful support agent."}]}, {"role": "user", "content": [{"type": "text", "value": "Can I bulk-export all my open tickets?"}]}, {"role": "assistant", "content": [{"type": "text", "value": "Yes, from the Tickets view select all, then choose Export as CSV."}]}]}
+{"conversation": [{"role": "user", "content": [{"type": "text", "value": "How do I set an out-of-office auto-reply?"}]}, {"role": "assistant", "content": [{"type": "text", "value": "Go to Settings, Automation, and enable the Out of Office responder."}]}]}
+{"conversation": [{"role": "user", "content": [{"type": "text", "value": "Why does the dashboard show stale numbers?"}]}, {"role": "assistant", "content": [{"type": "text", "value": "Dashboards refresh every 15 minutes; use the manual refresh button for live data."}]}]}
+{"conversation": [{"role": "user", "content": [{"type": "text", "value": "Can a ticket be reassigned after it's closed?"}]}, {"role": "assistant", "content": [{"type": "text", "value": "Reopen the ticket first, then use the Assignee field to reassign it."}]}]}
+{"conversation": [{"role": "user", "content": [{"type": "text", "value": "How do I mute notifications for one project?"}]}, {"role": "assistant", "content": [{"type": "text", "value": "Open the project, select Notifications, and toggle Mute for this project."}]}]}
+{"conversation": [{"role": "user", "content": [{"type": "text", "value": "What's included in the starter support plan?"}]}, {"role": "assistant", "content": [{"type": "text", "value": "The starter plan includes email support and a 48-hour response time."}]}]}
+{"conversation": [{"role": "user", "content": [{"type": "text", "value": "How do I merge two support inboxes?"}]}, {"role": "assistant", "content": [{"type": "text", "value": "Contact your workspace admin; inbox merges are performed from the Admin console."}]}]}
+{"conversation": [{"role": "user", "content": [{"type": "text", "value": "Can I see who last edited a saved reply?"}]}, {"role": "assistant", "content": [{"type": "text", "value": "Yes, saved replies show an edit history with the editor's name and timestamp."}]}]}
+{"prompt": "How do I archive an old workspace?", "response": "Open workspace settings and select Archive Workspace."}
+{"prompt": "Can I recover an archived workspace?", "response": "Yes, archived workspaces can be restored from the Admin console within 90 days."}
+{"prompt": "How do I change my workspace's timezone?", "response": "Go to Workspace Settings, General, and update the Timezone field."}
+{"prompt": "Why can't I invite new members?", "response": "Your plan has reached its seat limit; upgrade or remove an inactive member first."}
+{"prompt": "How do I download an audit log?", "response": "Admins can download the audit log as CSV from the Security tab."}
+{"note": "internal memo about the CSV importer"}
+{"id": 1001, "payload": {"foo": "bar"}}
+{"log_level": "info", "message": "job completed"}
+{"tags": ["urgent", "billing"], "assignee": "team-b"}
+{"raw_text": "unstructured customer feedback blob"}
