@@ -95,8 +95,9 @@ def test_jsonl_source_yields_parsed_lines_with_locators(tmp_path):
 
 def test_jsonl_source_malformed_line_raises_with_line_number():
     """ING-U-004: JsonlSource hitting a malformed line (fixtures/bad_lines.jsonl) raises a
-    parse error carrying the line number (CLI maps this to exit 2 — see ING-I coverage in
-    tests/integration/test_ingestor.py, since exercising that path needs a real store)."""
+    parse error carrying the line number. The CLI maps this to exit 2 — see
+    test_bad_jsonl_line_exits_2_via_full_cli in tests/integration/test_ingestor.py, since
+    exercising that path needs a real store."""
     source = JsonlSource(_jsonl_config(str(REPO_ROOT / "fixtures" / "bad_lines.jsonl")))
 
     with pytest.raises(MalformedLine) as exc_info:

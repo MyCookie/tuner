@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import click
+from pydantic import ValidationError
 
 from tuner.core.config import DEFAULT_CONFIG_PATH, ConfigError, IngestSourceConfig, load_config
 from tuner.core.ids import canonical_hash, new_record_id
@@ -105,7 +106,11 @@ def ingest(
             key_name, chunk = _write_shard(storage, run_id, shard_index, shard)
             written_files.append(key_name)
             shard_byte_chunks.append(chunk)
-    except MalformedLine as exc:
+    except (MalformedLine, ValidationError) as exc:
+        # MalformedLine: bad JSON syntax. ValidationError: syntactically valid JSON that
+        # isn't shaped like a Bronze envelope -- e.g. a JSONL line whose parsed value isn't
+        # an object, so `raw` fails BronzeRecord's `dict[str, Any]`. Both are input-schema
+        # validation failures (01-architecture.md §4.4 exit 2), not unexpected errors.
         click.echo(f"ingest: {exc}", err=True)
         return 2
     except Exception as exc:  # unexpected mid-run failure (I/O, storage, ...) -> exit 1

@@ -6,6 +6,7 @@ Needs compose MinIO up: `docker compose up -d minio minio-init` then
 
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
 
@@ -56,6 +57,15 @@ def test_ingest_support_dialogs_csv(storage, run_id):
         manifest = _manifest(storage, run_id)
         assert manifest["counts"] == {"read": 100, "written": 100, "dropped": 0}
         assert manifest["input"] is None
+
+        # records_hash must match the sha256 of the bytes actually stored, not merely
+        # of however _shard_bytes() reconstructed them to compute it in the first place.
+        client = _ingestor_s3()
+        digest = hashlib.sha256()
+        for filename in manifest["files"]:
+            body = client.get_object(Bucket=BUCKET, Key=f"{run_id}/{filename}")["Body"].read()
+            digest.update(body)
+        assert manifest["records_hash"] == f"sha256:{digest.hexdigest()}"
     finally:
         storage.delete_prefix(BUCKET, f"{run_id}/")
 
@@ -75,10 +85,14 @@ def test_content_hash_spot_check(storage, run_id):
 
 @pytest.mark.integration
 def test_rerun_same_run_id_is_idempotent(storage, run_id):
-    """ING-I-012: re-run same run ID -> same count, no duplicate objects, fresh manifest."""
+    """ING-I-012: re-run same run ID -> same count, no duplicate objects, fresh manifest
+    (idempotency). Plants a stale shard between runs that only a real delete-prefix would
+    remove, so a no-op'd delete-prefix would be caught here rather than passing silently."""
     try:
         assert ingest(run_id, str(DEFAULT_CONFIG_PATH), storage=storage) == 0
         first_count = len(_records(storage, run_id))
+
+        storage.write_jsonl(BUCKET, f"{run_id}/records-00099.jsonl", [{"stale": True}])
 
         assert ingest(run_id, str(DEFAULT_CONFIG_PATH), storage=storage) == 0
         second_records = _records(storage, run_id)
@@ -86,6 +100,7 @@ def test_rerun_same_run_id_is_idempotent(storage, run_id):
 
         assert first_count == len(second_records) == 100
         assert second_manifest["counts"] == {"read": 100, "written": 100, "dropped": 0}
+        assert second_manifest["files"] == ["records-00000.jsonl"]
     finally:
         storage.delete_prefix(BUCKET, f"{run_id}/")
 
@@ -192,6 +207,31 @@ def test_shard_boundary_25_records_shard_size_10(storage, run_id, tmp_path):
         for shard_name, expected_len in zip(manifest["files"], (10, 10, 5), strict=True):
             shard_records = list(storage.read_jsonl(BUCKET, f"{run_id}/{shard_name}"))
             assert len(shard_records) == expected_len
+    finally:
+        storage.delete_prefix(BUCKET, f"{run_id}/")
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "line",
+    [
+        pytest.param('{"question": "bad, "answer": "oops"}\n', id="malformed-json-syntax"),
+        pytest.param("[1, 2, 3]\n", id="valid-json-not-an-object"),
+    ],
+)
+def test_bad_jsonl_line_exits_2_via_full_cli(storage, run_id, tmp_path, line):
+    """Regression (PR #6 review round 1, findings 1 & 2): a JSONL line that either fails to
+    parse or parses to something that isn't an object both exit 2 through the full `ingest()`
+    pipeline (01-architecture.md §4.4 input-schema validation), with no manifest written.
+    Closes the coverage gap ING-U-004's docstring incorrectly claimed was covered here, and
+    the bug where the latter case fell through to exit 1 as an "unexpected" error instead."""
+    jsonl_path = tmp_path / "bad.jsonl"
+    jsonl_path.write_text(line)
+    config_path = _write_config(tmp_path, [{"type": "jsonl", "uri": str(jsonl_path)}])
+
+    try:
+        assert ingest(run_id, str(config_path), storage=storage) == 2
+        assert _manifest(storage, run_id) is None
     finally:
         storage.delete_prefix(BUCKET, f"{run_id}/")
 
