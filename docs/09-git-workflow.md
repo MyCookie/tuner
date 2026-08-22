@@ -43,7 +43,7 @@ From the feature branch, after rebasing onto latest `main` (`git fetch && git re
 ./scripts/gate.sh
 ```
 
-It runs ruff check + format, the pickle ban, unit tests, then unit + integration with the ≥ 90 % branch coverage gate, and — from T14 on — `check_test_ids.py`, `check_coverage.py`, `check_docs.py`. Every step runs even after an earlier one fails, so one round surfaces the whole picture, and it prints a summary table to paste into the PR. Anything red ⇒ fix on the branch; never merge-then-fix.
+It reads `.env` itself — there is no export step — and runs ruff check + format, the pickle ban, unit tests, then unit + integration with the ≥ 90 % branch coverage gate, and — from T14 on — `check_test_ids.py`, `check_coverage.py`, `check_docs.py`. Every step runs even after an earlier one fails, so one round surfaces the whole picture, and it prints a summary table to paste into the PR. Anything red ⇒ fix on the branch; never merge-then-fix.
 
 **A green gate is necessary but no longer sufficient.** From T05 on, `main` advances only through a reviewed pull request: push the branch, open the PR, and a fresh Opus 5 reviewer agent independently re-runs this same gate in its own worktree, analyses the change against the specs, and merges it — [10-code-review.md](10-code-review.md) is normative. **The author never merges their own work.** The merge happens on GitHub via `gh pr merge --merge`, which produces the same merge-commit shape `--no-ff` did; local `main` then fast-forwards with `git pull --ff-only`.
 
@@ -70,13 +70,10 @@ CI (T14) can attach the same checks to the PR, but it cannot yet *require* them:
 3. Run the gate (§4): `./scripts/gate.sh`. Red and unfixable this session ⇒ **stop, push the branch, report honestly** — never merge, never weaken a test to pass it.
 4. Green ⇒ publish:
    ```bash
-   git push -u origin feat/tNN-<slug>
-   PR_BODY=$(mktemp /tmp/pr-body-XXXX.md)
-   cp .github/pull_request_template.md "$PR_BODY"     # gh does NOT apply the template
-   $EDITOR "$PR_BODY"                                # non-interactively — fill it in yourself
-   gh pr create --base main --title "TNN — <task title>" --body-file "$PR_BODY"
+   cp .github/pull_request_template.md /tmp/pr-body.md   # fill it in; gh will not
+   ./scripts/open-pr.sh "TNN — <task title>" /tmp/pr-body.md
    ```
-   `--body` or `--body-file` is mandatory: `gh pr create` refuses to run non-interactively without one, and it does **not** apply `.github/pull_request_template.md` outside an interactive terminal.
+   `open-pr.sh` pushes the branch and opens the PR, refusing on a dirty tree, on `main`, on a detached HEAD, or on a body file that is missing or still the unmodified template. `gh pr create` will not run non-interactively without `--body`/`--body-file` and never applies the template outside a terminal, which is why the copy is explicit.
 5. Spawn a **fresh** reviewer — `Agent(subagent_type: "code-reviewer", isolation: "worktree")` — with the PR number and branch. It re-runs the gate itself, reviews against the specs, posts a verdict, and merges on `APPROVE` ([10-code-review.md](10-code-review.md)). Do not merge it yourself, and do not summarise the review as approval it did not give.
 6. `REQUEST_CHANGES` ⇒ fix every `blocker` and `major` on the branch, push, and spawn a **new** reviewer for the next round. Keep going while each round finds *new* defects and the previous round's findings verify as fixed — that is the process working. Stop and report to the user when a round re-raises an already-argued finding, when a reviewer disputes what the spec requires, or at five rounds ([10 §8](10-code-review.md)).
 7. Merged ⇒ `git switch main && git pull --ff-only`; report the task done with the gate output and the PR URL.

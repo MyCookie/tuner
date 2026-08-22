@@ -4,7 +4,7 @@ Tests for the tooling *around* the pipeline: MinIO bootstrap + IAM, the MLflow s
 
 ## Setup
 
-Integration cases read MinIO root credentials (`MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`) and every per-stage keypair from the environment; `.env.example` documents all of them. The canonical bare `TUNER_S3_ACCESS_KEY`/`TUNER_S3_SECRET_KEY` pair must be set to the **root** credentials for a local run: the suite drives `StorageClient` across every tier, and no single per-stage principal holds that many grants. Export before running: `set -a; . ./.env; set +a`.
+Integration cases read MinIO root credentials (`MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`) and every per-stage keypair from the environment; `.env.example` documents all of them. The canonical bare `TUNER_S3_ACCESS_KEY`/`TUNER_S3_SECRET_KEY` pair must be set to the **root** credentials for a local run: the suite drives `StorageClient` across every tier, and no single per-stage principal holds that many grants. `scripts/gate.sh` loads `.env` itself; running pytest directly needs the vars exported first.
 
 ## Object store & IAM (integration)
 

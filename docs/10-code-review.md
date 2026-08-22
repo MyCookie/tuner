@@ -51,14 +51,13 @@ git switch -c feat/tNN-<slug>
 # 3. the gate — the same script the reviewer will run
 ./scripts/gate.sh
 
-# 4. publish
-git push -u origin feat/tNN-<slug>
-cp .github/pull_request_template.md "$PR_BODY"     # gh does NOT apply the template
-$EDITOR "$PR_BODY"                                # non-interactively — fill it in yourself
-gh pr create --base main --title "TNN — <task title>" --body-file "$PR_BODY"
+# 4. publish — pushes the branch and opens the PR
+cp .github/pull_request_template.md /tmp/pr-body.md   # gh will not apply it non-interactively
+#   ...fill in /tmp/pr-body.md...
+./scripts/open-pr.sh "TNN — <task title>" /tmp/pr-body.md
 ```
 
-`--body-file` is mandatory, not stylistic: `gh pr create` refuses to run non-interactively without `--body`/`--body-file`, and it applies `.github/pull_request_template.md` only in an interactive terminal — so copy the template yourself.
+`open-pr.sh` refuses on a dirty tree, on `main`, on a detached HEAD, on a missing body file, and on a body that is still the unmodified template. It exists because the transcribed version of this sequence was broken in both documents that carried it.
 
 The PR body follows [.github/pull_request_template.md](../.github/pull_request_template.md): which task, which suite cases, the gate transcript, any spec decision made along the way, and the areas the implementer most wants scrutinised. Claims in the PR body are *hints* for the reviewer, never evidence — the reviewer re-derives everything.
 
@@ -79,33 +78,20 @@ Keep that prompt short. §9 records it as the largest channel undermining the re
 Runs cold, in its own git worktree, against **what is on `origin`** — not the implementer's working tree.
 
 ```bash
-git fetch origin
-git checkout --detach origin/feat/tNN-<slug>   # detached: the branch is checked out in the implementer's tree
-
-cp "$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')/.env" .env
-                                               # .env is git-ignored, so a fresh worktree has none
-
-uv sync --extra dev                            # `dev` is an EXTRA — a bare `uv sync` uninstalls
-                                               # ruff, pytest, pytest-cov and hypothesis, and every
-                                               # check then fails for reasons unrelated to the branch
-set -a; . ./.env; set +a                       # tests read credentials from the environment
+./scripts/review-setup.sh <branch-under-review>
 ./scripts/gate.sh
+rm -f .env                                  # when you finish
 ```
 
-**Compound shell is unreliable in this harness, and shell state does not persist between commands.** Each command runs in a fresh shell, so a variable assigned in one is gone in the next — which is why the `cp` above inlines the substitution instead of setting `MAIN_TREE` first. `cd &&` chains, an assignment followed by a dependent command, heredocs inside pipelines: any may also be refused outright as too complex to verify they stay inside the worktree. Run one self-contained command at a time, or write a script to a scratch file and run that. If the inlined `cp` is refused, run `git worktree list --porcelain | head -1` on its own and use the literal path. A single bare heredoc carrying a long review body is refused too — build the body with one `>` then successive `>>` appends, each its own command.
+`review-setup.sh` fetches, checks out `origin/<branch>` **detached** — the branch is checked out in the implementer's tree, and reviewing origin's copy is what makes this a review of what was published — copies `.env` in from the main worktree, and installs the toolchain with `uv sync --extra dev`, since `dev` is an extra and a bare `uv sync` uninstalls ruff and pytest. It refuses to run in the main worktree, because detaching the tree someone else is working in would be destructive.
 
-When you finish, delete `.env` and any `run-gate.sh` from the worktree. `.env` is gitignored, so this is not about avoiding a stray commit — it is a real credentials file, and leaving copies of it scattered through disposable worktrees is how one eventually outlives the worktree. `run-gate.sh` is *not* gitignored and does show as untracked to whoever looks next.
+`gate.sh` reads `.env` itself, so there is no export step to forget. Both scripts exit 2 naming the fix when a precondition is unmet, rather than failing in a way that looks like a bad branch.
 
-`gate.sh` refuses to run rather than mislead you if either of those steps was missed: it checks the endpoint is reachable and that `ruff`/`pytest` are actually installed, and exits 2 with the fix.
+Delete `.env` when you finish. It is gitignored, so this is not about avoiding a stray commit — it is a real credentials file, and copies left in disposable worktrees are how one eventually outlives its worktree.
 
-If the harness refuses the inline `set -a; . ./.env; set +a` — it does for some worktree-isolated agents — put it in a wrapper instead:
+This is a script rather than a list of commands for a reason worth keeping: **shell state does not persist between an agent's commands.** A runbook that assigns a variable in one step and uses it in the next silently does the wrong thing — that defect shipped here three times, in prose four reviewers had already read. A script runs as one command, and `gate.sh` parses every script in `scripts/`.
 
-```bash
-printf '#!/usr/bin/env bash\nset -a; . ./.env; set +a\nexec ./scripts/gate.sh\n' > run-gate.sh
-chmod +x run-gate.sh && ./run-gate.sh
-```
-
-If the PR under review modifies `.claude/agents/code-reviewer.md` itself — as several have — your detached checkout swaps your own operating instructions mid-review. Follow the branch's version, and treat the differences from what you started with as part of the diff you are judging.
+If the PR modifies `.claude/agents/code-reviewer.md` itself — several have — the checkout swaps the reviewer's own operating instructions mid-review. Follow the branch's version, and treat what differs from the copy you started with as part of the diff you are judging.
 
 The compose stack is a **single shared instance** on fixed ports (`9000`/`9001`/`5000`). `docker-compose.yaml` pins `name: tuner`, so commands issued from a worktree address that same project rather than starting a second, port-colliding stack. If the stack is down, bring it up with `docker compose up -d minio minio-init mlflow` — from any directory.
 

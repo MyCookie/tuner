@@ -5,8 +5,8 @@
 # Every step runs even after an earlier one fails — a reviewer wants the whole
 # picture, not the first thing that broke. Exits non-zero if any step failed.
 #
-# Needs: the compose stack up (`docker compose up -d minio minio-init mlflow`)
-# and the .env vars exported (`set -a; . ./.env; set +a`).
+# Needs the compose stack up: `docker compose up -d minio minio-init mlflow`.
+# Credentials come from .env, which this script loads itself — nothing to export.
 set -uo pipefail
 
 cd "$(dirname "$0")/.."
@@ -32,9 +32,21 @@ skip() {
 
 # -- preflight: fail with an actionable message, not 50 confusing test errors --
 
+# Load .env ourselves rather than telling the caller to `set -a; . ./.env; set +a`.
+# That instruction was wrong for agents in the first place — shell state does not
+# persist between commands, so exporting in one call and running the gate in the
+# next leaves the gate with nothing. Anything already exported wins.
+if [ -z "${TUNER_S3_ENDPOINT:-}" ] && [ -f .env ]; then
+    set -a
+    # shellcheck disable=SC1091
+    . ./.env
+    set +a
+fi
+
 if [ -z "${TUNER_S3_ENDPOINT:-}" ]; then
-    echo "gate: TUNER_S3_ENDPOINT is unset — integration tests read credentials from the" >&2
-    echo "      environment. Run:  set -a; . ./.env; set +a" >&2
+    echo "gate: TUNER_S3_ENDPOINT is unset and no .env is present." >&2
+    echo "      cp .env.example .env  and fill it in (see .env.example for what a" >&2
+    echo "      local run needs), or export the TUNER_S3_* vars yourself." >&2
     exit 2
 fi
 
@@ -85,6 +97,17 @@ pickle_ban() {
     esac
 }
 step "pickle ban" pickle_ban
+
+# The runbook lives in scripts/ now (10-code-review.md §3, §4), so a broken one is
+# a broken process. Cheapest possible guard: it must parse.
+shell_syntax() {
+    local rc=0
+    for s in scripts/*.sh; do
+        bash -n "$s" || { echo "gate: $s does not parse" >&2; rc=1; }
+    done
+    return "$rc"
+}
+step "shell scripts parse" shell_syntax
 
 # -- tests: unit first (fast, no services), then unit+integration with coverage --
 

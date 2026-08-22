@@ -17,34 +17,25 @@ Your authority is real: you are the only actor permitted to merge. Use it honest
 
 ## 1. Set up your worktree
 
-You are running in your own git worktree. The branch under review is checked out in the *implementer's* tree, so check out its remote form, detached — this also guarantees you review what is actually on `origin`, not somebody's local state.
+You are running in your own git worktree. One command sets it up:
 
 ```bash
-git fetch origin
-git checkout --detach origin/<branch>
-
-cp "$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')/.env" .env
-                               # main checkout is always first; .env is git-ignored,
-                               # so a fresh worktree has none
-
-uv sync --extra dev            # `dev` is an EXTRA: a bare `uv sync` UNINSTALLS ruff,
-                               # pytest, pytest-cov and hypothesis, and then every check
-                               # fails for a reason that has nothing to do with the branch
-set -a; . ./.env; set +a
+./scripts/review-setup.sh <branch-under-review>
 ```
 
-**Compound shell is unreliable in this harness, and shell state does not persist between commands.** Each command runs in a fresh shell, so a variable assigned in one is gone in the next — which is why the `cp` above inlines the substitution instead of setting `MAIN_TREE` first. `cd &&` chains, an assignment followed by a dependent command, heredocs inside pipelines: any may also be refused outright as too complex to verify they stay inside your worktree. Run one self-contained command at a time, or write a script to a scratch file and run that. If the inlined `cp` is refused, run `git worktree list --porcelain | head -1` on its own and use the literal path. A single bare heredoc carrying a long review body is refused too — build the body with one `>` then successive `>>` appends, each its own command.
+It fetches, checks out `origin/<branch>` detached — the branch is checked out in the implementer's tree, and reviewing origin's copy is what makes this a review of what was published — copies `.env` in from the main worktree, and runs `uv sync --extra dev`. It refuses to run in the main worktree. If a precondition is unmet it exits 2 and names the fix; if it tells you the main worktree has no `.env`, stop and report that rather than inventing credentials or skipping the integration tests.
 
-If the main worktree has no `.env`, stop and say so — do not invent credentials or skip the integration tests. When you finish, delete `.env` and any `run-gate.sh` from the worktree. `.env` is gitignored, so this is not about avoiding a stray commit — it is a real credentials file, and leaving copies of it scattered through disposable worktrees is how one eventually outlives the worktree. `run-gate.sh` is *not* gitignored and does show as untracked to whoever looks next. If the harness refuses the inline `set -a; . ./.env; set +a` (it does for some worktree-isolated agents), put it in a wrapper:
+Then:
 
 ```bash
-printf '#!/usr/bin/env bash\nset -a; . ./.env; set +a\nexec ./scripts/gate.sh\n' > run-gate.sh
-chmod +x run-gate.sh && ./run-gate.sh
+./scripts/gate.sh
 ```
 
-`gate.sh` refuses to run rather than mislead you if either step was missed: it verifies the store is reachable and that `ruff`/`pytest` are installed, exiting 2 with the fix.
+`gate.sh` reads `.env` itself, so there is no export step. When you finish, `rm -f .env` — it is gitignored, so this is not about a stray commit, but it is a real credentials file and copies left in disposable worktrees eventually outlive them.
 
-If the PR modifies this file itself — several have — your detached checkout swaps your own operating instructions underneath you mid-review. Follow the branch's version, and treat what differs from the copy you started with as part of the diff you are judging.
+**Shell state does not persist between your commands, and compound shell is unreliable here.** Each command runs in a fresh shell, so a variable assigned in one is gone in the next — which is why the setup is a script and not a sequence you assemble. `cd &&` chains, an assignment followed by a dependent command, and heredocs inside pipelines may also be refused outright as too complex to verify they stay inside your worktree. Run one self-contained command at a time. A single bare heredoc carrying a long review body is refused too: build the body with one `>` then successive `>>` appends, each its own command.
+
+If the PR modifies this file itself — several have — your checkout swaps your own operating instructions underneath you mid-review. Follow the branch's version, and treat what differs from the copy you started with as part of the diff you are judging.
 
 The compose stack is a single shared instance on fixed ports (`9000`/`9001`/`5000`); `docker-compose.yaml` pins `name: tuner` so any directory addresses the same project. If it is down: `docker compose up -d minio minio-init mlflow`.
 
@@ -172,4 +163,4 @@ For a branch that is not a build task — `docs/`, `fix/`, `refactor/`, `chore/`
 
 ## 7. Report back
 
-Your final message is not shown to the user directly — the implementer relays it. Give it: the verdict, the gate summary, every finding with its severity, whether you merged, and the PR URL. Confirm you deleted `.env` and any `run-gate.sh` from the worktree (§1), and that no tracked file was modified. Be explicit about anything you could not verify and why.
+Your final message is not shown to the user directly — the implementer relays it. Give it: the verdict, the gate summary, every finding with its severity, whether you merged, and the PR URL. Confirm you deleted `.env` from the worktree (§1) and that no tracked file was modified. Be explicit about anything you could not verify and why.

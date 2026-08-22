@@ -39,7 +39,7 @@ You are building the Enterprise Fine-Tuning Pipeline from the specs in `docs/`. 
 cp .env.example .env                 # fill in HF_TOKEN, judge endpoint
 docker compose up -d minio minio-init mlflow
 uv run tuner run --config configs/pipeline.yaml     # full pipeline, prints run ID
-set -a; . ./.env; set +a && ./scripts/gate.sh        # the full merge gate
+./scripts/gate.sh                                    # the full merge gate (reads .env itself)
 # MinIO console: http://localhost:9001  ·  MLflow: http://localhost:5000
 ```
 
