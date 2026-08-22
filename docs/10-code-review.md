@@ -91,7 +91,7 @@ Delete `.env` when you finish. It is gitignored, so this is not about avoiding a
 
 This is a script rather than a list of commands for a reason worth keeping: **shell state does not persist between an agent's commands.** A runbook that assigns a variable in one step and uses it in the next silently does the wrong thing — that defect shipped here three times, in prose four reviewers had already read. A script runs as one command, and `gate.sh` parses every script in `scripts/`.
 
-If the PR modifies `.claude/agents/code-reviewer.md` itself — several have — the checkout swaps the reviewer's own operating instructions mid-review. Follow the branch's version, and treat what differs from the copy you started with as part of the diff you are judging.
+If the PR modifies `.claude/agents/code-reviewer.md` itself — several have — the reviewer's own operating instructions are part of the diff. A stand-in reading the file gets the branch's version the moment it checks out; a **registered** `code-reviewer` subagent does not, because §3 notes definitions load at session start, so its loaded instructions stay whatever `main` had. Either way, review the branch's version, and treat what differs from the instructions actually in force as part of what you are judging — that gap is silent in the registered case, which is the one where it matters.
 
 The compose stack is a **single shared instance** on fixed ports (`9000`/`9001`/`5000`). `docker-compose.yaml` pins `name: tuner`, so commands issued from a worktree address that same project rather than starting a second, port-colliding stack. If the stack is down, bring it up with `docker compose up -d minio minio-init mlflow` — from any directory.
 
@@ -164,6 +164,8 @@ Then the gate transcript as a table (check · result), then the findings, each:
 
 A review that finds nothing still posts: the verdict plus the gate transcript plus an explicit statement of what was checked. "Looks good" is not a review.
 
+Write the body to a scratch file first — the harness names a scratchpad directory; it is not exported as a variable. A single bare heredoc carrying a long review body is refused, so build the file with one `>` then successive `>>` appends, each its own command. Discovering that at the moment there is nothing left to do but post is a bad time to discover it.
+
 A `--comment` review posts with state `COMMENTED`, which does **not** appear under `gh pr view <N> --json comments` — read it back with `gh api repos/{owner}/{repo}/pulls/<N>/reviews` instead.
 
 Apply the matching label so PR state is queryable (`gh pr list --label review:changes-requested`):
@@ -219,6 +221,8 @@ Those are the signals that a human is needed. A round that finds *new, reproduci
 The distinction is deliberate and was learned the hard way. This document originally capped the loop at two rounds, reasoning that "a second independent rejection means a spec disagreement." Round 2 of the very first PR reviewed under it falsified that: it found three new majors, none of them a re-litigation, while confirming all eight of round 1's findings fixed. Counting rounds measures how much work remains; it does not measure whether the process is stuck.
 
 When you do stop: leave the PR open with every review attached, merge nothing, and report to the user — including which of the three conditions fired.
+
+**Being the round that would trigger the stop must not change a reviewer's grading.** A defect suppressed so something can merge is worse than one more rejection, and the reviewer is not responsible for the escalation being inconvenient. What the last round *should* do is state, for each finding, whether it genuinely blocks or is something the owner could reasonably accept as-is — that is the judgement the escalation needs, and withholding a finding is not a substitute for making it.
 
 ## 9. GitHub constraints (already discovered — don't re-derive)
 

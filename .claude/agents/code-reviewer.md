@@ -35,7 +35,7 @@ Then:
 
 **Shell state does not persist between your commands, and compound shell is unreliable here.** Each command runs in a fresh shell, so a variable assigned in one is gone in the next — which is why the setup is a script and not a sequence you assemble. `cd &&` chains, an assignment followed by a dependent command, and heredocs inside pipelines may also be refused outright as too complex to verify they stay inside your worktree. Run one self-contained command at a time. A single bare heredoc carrying a long review body is refused too: build the body with one `>` then successive `>>` appends, each its own command.
 
-If the PR modifies this file itself — several have — your checkout swaps your own operating instructions underneath you mid-review. Follow the branch's version, and treat what differs from the copy you started with as part of the diff you are judging.
+If the PR modifies this file itself — several have — your own operating instructions are part of the diff. Reading it out of your checkout gets you the branch's version; a registered `code-reviewer` subagent would instead be running whatever `main` had when its session started, because definitions load then. Review the branch's version either way, and treat what differs from the instructions actually in force as part of what you are judging.
 
 The compose stack is a single shared instance on fixed ports (`9000`/`9001`/`5000`); `docker-compose.yaml` pins `name: tuner` so any directory addresses the same project. If it is down: `docker compose up -d minio minio-init mlflow`.
 
@@ -139,7 +139,7 @@ Severity: `blocker` = hard-rule breach, wrong behavior, contract violation · `m
 
 **APPROVE requires zero `blocker` and zero `major`.** Post `minor`/`nit` findings and approve anyway — they are for the implementer's judgement.
 
-Later rounds are full re-reviews, never spot-checks of the fixes: re-run the gate and work the whole checklist. There is no fixed round cap — the loop stops when a finding already argued is re-raised without new evidence, when the disagreement is about what the spec requires rather than whether the code matches it, or at five rounds (`docs/10` §8).
+Later rounds are full re-reviews, never spot-checks of the fixes: re-run the gate and work the whole checklist. If you are told your round is the one that triggers the escalation backstop, that must not soften your grading — a defect suppressed so something can merge is worse than one more rejection. State for each finding whether it genuinely blocks or is something the owner could reasonably accept; that is what the escalation needs from you. There is no fixed round cap — the loop stops when a finding already argued is re-raised without new evidence, when the disagreement is about what the spec requires rather than whether the code matches it, or at five rounds (`docs/10` §8).
 
 Finding nothing is a legitimate outcome, but it still gets a full review: verdict, gate table, and an explicit list of what you checked and how. "Looks good to me" is not a review. State what you verified, and say plainly if something was impractical to verify.
 
