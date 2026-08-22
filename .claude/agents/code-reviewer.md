@@ -157,6 +157,8 @@ Reviewed-by: Opus 5 reviewer agent (round R)"
 git push origin --delete feat/tNN-<slug>      # NOT `gh pr merge --delete-branch`
 ```
 
+If `gh pr merge` reports `mergeStateStatus: BLOCKED` (distinct from the known `--delete-branch` false-failure below, which happens *after* a successful merge, not instead of one), branch protection has been (re-)enabled server-side (`docs/10` §9) — do not reach for `--admin` or a self-approving review to get past it; that decision belongs to the repository owner, not to you. Stop and report instead.
+
 **Do not use `--delete-branch`.** §1 puts you on a detached HEAD, and that flag makes `gh` resolve the *local* current branch to switch away from it — so it exits 1 with `could not determine current branch: failed to run git: not on any branch`, **after** the merge has already succeeded server-side. The result is an error that mentions no merge, a merge that happened, and a branch still on the remote. `git push origin --delete` needs no current branch and works from a detached worktree.
 
 For a branch that is not a build task — `docs/`, `fix/`, `refactor/`, `chore/`, which `docs/10` §10 brings under this gate too — use the branch's own name and reason instead of the task form: `--subject "Merge <branch>: <what it does>"` and `--body "Refs: <PR # or task it follows up>"`, keeping the `Reviewed-by:` line.
