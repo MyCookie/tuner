@@ -30,7 +30,7 @@ implementer:  branch  →  implement  →  ./scripts/gate.sh  →  git push -u  
                                                                  ↓                            ↓
                                                           Verdict: APPROVE          Verdict: REQUEST_CHANGES
                                                                  ↓                            ↓
-                                          gh pr merge --merge --delete-branch     implementer fixes on the branch,
+                                          gh pr merge (§7) + push --delete        implementer fixes on the branch,
                                                                  ↓                pushes, spawns a NEW reviewer
                                              implementer: git switch main               ↓
                                                           git pull --ff-only     finding re-argued, spec disputed,
@@ -51,14 +51,13 @@ git switch -c feat/tNN-<slug>
 # 3. the gate — the same script the reviewer will run
 ./scripts/gate.sh
 
-# 4. publish
-git push -u origin feat/tNN-<slug>
-cp .github/pull_request_template.md "$PR_BODY"     # gh does NOT apply the template
-$EDITOR "$PR_BODY"                                # non-interactively — fill it in yourself
-gh pr create --base main --title "TNN — <task title>" --body-file "$PR_BODY"
+# 4. publish — pushes the branch and opens the PR
+cp .github/pull_request_template.md /tmp/pr-body.md   # gh will not apply it non-interactively
+#   ...fill in /tmp/pr-body.md...
+./scripts/open-pr.sh "TNN — <task title>" /tmp/pr-body.md
 ```
 
-`--body-file` is mandatory, not stylistic: `gh pr create` refuses to run non-interactively without `--body`/`--body-file`, and it applies `.github/pull_request_template.md` only in an interactive terminal — so copy the template yourself.
+`open-pr.sh` refuses on a dirty tree, on `main`, on a detached HEAD, on a missing body file, and on a body that is still the unmodified template. It exists because the transcribed version of this sequence was broken in both documents that carried it.
 
 The PR body follows [.github/pull_request_template.md](../.github/pull_request_template.md): which task, which suite cases, the gate transcript, any spec decision made along the way, and the areas the implementer most wants scrutinised. Claims in the PR body are *hints* for the reviewer, never evidence — the reviewer re-derives everything.
 
@@ -70,32 +69,29 @@ Agent(subagent_type: "code-reviewer", isolation: "worktree",
       prompt: "Review PR #<N> — branch feat/tNN-<slug>, build task TNN.")
 ```
 
+Agent definitions in `.claude/agents/` are read when a session starts, so a newly added or edited one is **not** available as a `subagent_type` in the session that changed it. There, spawn a general-purpose agent and point it at `.claude/agents/code-reviewer.md` as its instructions instead — which also tests whether that file is self-sufficient.
+
+Keep that prompt short. §9 records it as the largest channel undermining the reviewer's independence: every risk it names, and the order it names them in, is the implementer deciding what gets looked at. Give the PR number, the branch, the task, and the facts the reviewer would otherwise waste time discovering — not a ranked list of what you think is risky.
+
 ## 4. Reviewer runbook
 
 Runs cold, in its own git worktree, against **what is on `origin`** — not the implementer's working tree.
 
 ```bash
-git fetch origin
-git checkout --detach origin/feat/tNN-<slug>   # detached: the branch is checked out in the implementer's tree
-
-MAIN_TREE=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
-cp "$MAIN_TREE/.env" .env                      # git-ignored, so absent from a fresh worktree
-
-uv sync --extra dev                            # `dev` is an EXTRA — a bare `uv sync` uninstalls
-                                               # ruff, pytest, pytest-cov and hypothesis, and every
-                                               # check then fails for reasons unrelated to the branch
-set -a; . ./.env; set +a                       # tests read credentials from the environment
+./scripts/review-setup.sh <branch-under-review>
 ./scripts/gate.sh
+rm -f .env                                  # when you finish
 ```
 
-`gate.sh` refuses to run rather than mislead you if either of those steps was missed: it checks the endpoint is reachable and that `ruff`/`pytest` are actually installed, and exits 2 with the fix.
+`review-setup.sh` fetches, checks out `origin/<branch>` **detached** — the branch is checked out in the implementer's tree, and reviewing origin's copy is what makes this a review of what was published — copies `.env` in from the main worktree, and installs the toolchain with `uv sync --extra dev`, since `dev` is an extra and a bare `uv sync` uninstalls ruff and pytest. It refuses to run in the main worktree, because detaching the tree someone else is working in would be destructive.
 
-If the harness refuses the inline `set -a; . ./.env; set +a` — it does for some worktree-isolated agents — put it in a wrapper instead:
+`gate.sh` reads `.env` itself, so there is no export step to forget — and it refuses, naming the missing variables, when credentials are incomplete rather than proceeding on a partial set. Both scripts exit 2 naming the fix when a precondition is unmet, rather than failing in a way that looks like a bad branch.
 
-```bash
-printf '#!/usr/bin/env bash\nset -a; . ./.env; set +a\nexec ./scripts/gate.sh\n' > run-gate.sh
-chmod +x run-gate.sh && ./run-gate.sh
-```
+Delete `.env` when you finish. It is gitignored, so this is not about avoiding a stray commit — it is a real credentials file, and copies left in disposable worktrees are how one eventually outlives its worktree.
+
+This is a script rather than a list of commands for a reason worth keeping: **no shell state persists between an agent's commands** — not variables, and not even the working directory. A runbook that assigns a variable in one step and uses it in the next silently does the wrong thing; that defect shipped here three times, in prose four reviewers had already read. A script runs as one command, and `gate.sh` syntax-checks every shell script in `scripts/` — identified by shebang, not by a `*.sh` glob, which silently skipped `scripts/pre-commit`.
+
+If the PR modifies `.claude/agents/code-reviewer.md` itself — several have — the reviewer's own instructions are part of the diff, and it does **not** get the branch's version for free. A worktree starts at `main`, so a stand-in reads `main`'s copy, and a registered `code-reviewer` subagent is running whatever `main` had when its session began. Either way: **after `review-setup.sh` checks the branch out, re-read the file and work from the branch's version**, treating what differs from the instructions actually in force as part of what is being judged. Nothing about this is automatic. And while a branch is the one introducing `scripts/review-setup.sh`, that script does not exist on `main` — run it by absolute path from the main worktree, or do its steps by hand, until it has merged.
 
 The compose stack is a **single shared instance** on fixed ports (`9000`/`9001`/`5000`). `docker-compose.yaml` pins `name: tuner`, so commands issued from a worktree address that same project rather than starting a second, port-colliding stack. If the stack is down, bring it up with `docker compose up -d minio minio-init mlflow` — from any directory.
 
@@ -129,7 +125,11 @@ Edits to **pre-existing** tests are the strongest signal that a test was bent to
 
 ### Reviewing a checker
 
+This applies to any change that greps, bans, validates or filters — and to changes to the *guidance* about such checks, which are judged by whether they would have caught the most recent defect found in that check's own history.
+
 Running the gate proves nothing about a change *to* the gate. Anything that greps, bans, validates or filters needs its own controls, built by the reviewer — never reused from the implementer, since a check validated only against its author's examples is validated against its author's blind spots. Build true positives covering every form the check exists to catch (including awkward real-world ones), and **negative controls of legitimate code that superficially resembles what is banned** — that is where the defects are. A false positive in a gate blocks every future task and fails loudly on correct work, which is worse than failing open. Extract the pattern from the file under review rather than retyping it, and prove failure propagation by breaking something deliberately rather than by reasoning about shell semantics.
+
+- **When a fix *widens* a check, ask what it now catches that it did not before.** "Does it still catch X, does it still allow Y" only tests properties someone already thought of; a widening fix's characteristic failure is a new false positive nobody was looking for. Recover the previous pattern with `git show origin/main:<file>`, run old and new over the same corpus, and read the difference — the lines the new one matches and the old one did not are the entire risk surface of the change. Prove the corpus is live before trusting the delta: at least one control must match the **old** pattern. A corpus that matches neither yields a clean, plausible, empty delta indistinguishable from "no new risk" — this failure mode looks exactly like success.
 
 ## 6. Verdict
 
@@ -146,7 +146,7 @@ Then the gate transcript as a table (check · result), then the findings, each:
 #### N. [blocker] <one-line claim>
 **Where:** path/to/file.py:123
 **Why required:** <which rule or spec section this breaks, and the consequence>
-**Suggested fix:** <concrete — not "consider refactoring">
+**Suggested fix:** <concrete — not "consider refactoring">; say so if you have not tested it
 ```
 
 | Severity | Meaning | Blocks merge |
@@ -163,6 +163,10 @@ Then the gate transcript as a table (check · result), then the findings, each:
 **APPROVE requires zero `blocker` and zero `major`.** `minor`/`nit` findings are posted and left to the implementer's judgement — they never hold up a merge on their own.
 
 A review that finds nothing still posts: the verdict plus the gate transcript plus an explicit statement of what was checked. "Looks good" is not a review.
+
+Write the body to a scratch file first — the harness names a scratchpad directory; it is not exported as a variable. A single bare heredoc carrying a long review body is refused, so build the file with one `>` then successive `>>` appends, each its own command. Discovering that at the moment there is nothing left to do but post is a bad time to discover it.
+
+A `--comment` review posts with state `COMMENTED`, which does **not** appear under `gh pr view <N> --json comments` — read it back with `gh api repos/{owner}/{repo}/pulls/<N>/reviews` instead.
 
 Apply the matching label so PR state is queryable (`gh pr list --label review:changes-requested`):
 
@@ -190,6 +194,8 @@ git push origin --delete feat/tNN-<slug>      # NOT `gh pr merge --delete-branch
 
 **Do not use `--delete-branch`.** §4 puts you on a detached HEAD, and that flag makes `gh` resolve the *local* current branch to switch away from it — so it exits 1 with `could not determine current branch: failed to run git: not on any branch`, **after** the merge has already succeeded server-side. The result is an error that mentions no merge, a merge that happened, and a branch still on the remote. `git push origin --delete` needs no current branch and works from a detached worktree.
 
+For a branch that is not a build task — `docs/`, `fix/`, `refactor/`, `chore/`, which §10 brings under this gate too — use the branch's own name and reason in place of the task form: `--subject "Merge <branch>: <what it does>"`, `--body "Refs: <PR # or task it follows up>"`, keeping the `Reviewed-by:` line.
+
 `--merge` produces a merge commit, preserving the feature boundary in history exactly as the local `--no-ff` merges of T01–T04 did. The implementer then updates its local trunk:
 
 ```bash
@@ -199,6 +205,8 @@ git switch main && git pull --ff-only
 If that pull is not a fast-forward, something wrote to `main` outside this workflow — stop and report rather than reconciling.
 
 ## 8. Rework loop
+
+**A reviewer's `Suggested fix:` is an argument, not a verified patch.** It was written by someone who had just found a defect, not by someone who then tested the remedy — reviewers do not run their own suggestions, and §1 forbids them from applying one. Adopting the wording verbatim is how a reviewer's blind spot becomes the next commit's defect. That is measured, not hypothetical: it happened twice on `docs/merge-authority`, the branch that added this rule — once producing a claim that was false *in the same direction the same review had just rejected*. Check a suggested fix exactly as the reviewer is required to check a claim in the PR body, then write your own.
 
 `REQUEST_CHANGES` ⇒ the implementer addresses every `blocker` and `major` on the same branch, in atomic commits that reference the finding, re-runs `./scripts/gate.sh`, and pushes. The next round is a **brand-new reviewer** with fresh context that re-runs the entire gate and the entire checklist. It is never asked to "just re-check the fix" — a targeted re-check inherits the previous reviewer's blind spots, and in practice each fresh pass finds defects its predecessor missed.
 
@@ -214,10 +222,25 @@ The distinction is deliberate and was learned the hard way. This document origin
 
 When you do stop: leave the PR open with every review attached, merge nothing, and report to the user — including which of the three conditions fired.
 
+**Being the round that would trigger the stop must not change a reviewer's grading.** A defect suppressed so something can merge is worse than one more rejection, and the reviewer is not responsible for the escalation being inconvenient. What the last round *should* do is state, for each finding, whether it genuinely blocks or is something the owner could reasonably accept as-is — that is the judgement the escalation needs, and withholding a finding is not a substitute for making it.
+
 ## 9. GitHub constraints (already discovered — don't re-derive)
 
-- **Self-approval is assumed impossible — this one is inferred, not measured.** Both agents authenticate as the same GitHub user, who is the PR author, and GitHub is documented to reject `APPROVE` and `REQUEST_CHANGES` reviews on your own PR with HTTP 422. **No reviewer has verified it, and none should:** confirming it requires the author submitting a real approving review on their own PR, which is precisely what the rule exists to prevent. Three rounds have now declined to test it, correctly. `--comment` reviews are permitted and appear in the review timeline, which is why the verdict is a parseable line in the body rather than a native review state — and that design costs nothing even if the 422 assumption is wrong. Treat it as the one claim in this section that rests on documentation rather than on a command someone ran.
+- **Self-approval is assumed impossible — this one is inferred, not measured.** Both agents authenticate as the same GitHub user, who is the PR author, and GitHub is documented to reject `APPROVE` and `REQUEST_CHANGES` reviews on your own PR with HTTP 422. **No reviewer has verified it, and none should:** confirming it requires the author submitting a real approving review on their own PR, which is precisely what the rule exists to prevent. No review round has tested it, and none should — a standing, deliberate abstention rather than an oversight. `--comment` reviews are permitted and appear in the review timeline, which is why the verdict is a parseable line in the body rather than a native review state — and that design costs nothing even if the 422 assumption is wrong. Treat it as the one claim in this section that rests on documentation rather than on a command someone ran.
 - **Branch protection is unavailable on this repository — and not because of the token.** `gh api repos/MyCookie/tuner/branches/main/protection` returns 403 *"Upgrade to GitHub Pro or make this repository public to enable this feature."* `MyCookie/tuner` is a private repo on a free personal account, and GitHub gates branch protection and rulesets behind plan-and-visibility there. So there is no UI toggle to flip and no scope to grant: *Require a pull request before merging* is simply not offered, and required status checks will **not** become available at T14 merely because CI starts existing ([06 §6](06-testing.md)). Server-side enforcement needs one of — make the repository public, upgrade the account to Pro, or move it to an organisation on a plan that includes rulesets. Until one of those happens the gate in this document rests on agent discipline alone, which is why §1's role boundaries are written as rules rather than inferred from tooling.
+
+- **`main` advances on agent judgement alone, and that is a deliberate choice — not an oversight.** Recorded 2026-08-21 by the repository owner, having been shown: both agents authenticate as the same GitHub user, so nothing on GitHub distinguishes reviewer from author; branch protection is unavailable (above); and the reviewer is a subagent that the implementer spawns, briefs, and whose output the implementer relays. The separation is real — a separate context window, its own worktree, and it has caught defects the implementer would otherwise have shipped — but it is a **process control, not an access control**, and must never be described as though it were. Concretely: the reviewer runs as the same OS user as the implementer. It *can* read the implementer's working tree — §4 requires exactly that, to copy `.env` — and it could read the session transcripts under `~/.claude/projects/`, which are readable by that user. It does not, and that abstention is a convention, not a boundary. Nothing here withholds access from anyone; it only asks.
+
+  *What compensates:* the reviewer re-runs the gate itself and re-derives the claims that are checkable, rather than trusting the PR body; each round is a fresh instance rather than a continuation of the last; and the verdict, findings and rebuttals stay on the PR, auditable afterwards.
+
+  *What does not compensate, stated at full strength:*
+  - **The implementer writes the reviewer's spawn prompt.** It chooses which risks are named, in what order, and with what framing — so the implementer's reasoning reaches the reviewer intact, through a channel the reviewer cannot audit and this document cannot constrain. The PR body is a second such channel, which is why §3 calls it a hint rather than evidence. Of everything on this list, this is the one that most undercuts the word "independent".
+  - Later rounds read earlier rounds' findings, so blind spots are correlated across rounds, not independent.
+  - The PR trail is editable by the same account that merges.
+  - Not every claim is checkable: bullet 1 above is an assumption no reviewer should test, so it is trusted afresh by every round and verified by none.
+  - Nothing stops a determined implementer from merging its own work.
+
+  Revisit if the repository gains a plan supporting rulesets, or when a stage begins producing artifacts whose defects are expensive to discover late.
 
 ## 10. Scope
 
