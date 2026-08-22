@@ -11,8 +11,9 @@ import sys
 import click
 
 from tuner.core.config import DEFAULT_CONFIG_PATH
+from tuner.ingestor.cli import ingest_command
 
-STAGES = ("ingest", "clean", "judge", "tokenize", "train", "smoke")
+STAGES = ("clean", "judge", "tokenize", "train", "smoke")
 
 
 @click.group()
@@ -36,6 +37,7 @@ def _make_stage_stub(stage: str) -> click.Command:
     return _stub
 
 
+cli.add_command(ingest_command)
 for _stage in STAGES:
     cli.add_command(_make_stage_stub(_stage))
 

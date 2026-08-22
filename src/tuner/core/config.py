@@ -32,7 +32,14 @@ class IngestSourceMapping(_Strict):
 
 
 class IngestSourceConfig(_Strict):
-    type: Literal["csv", "jsonl"]
+    # `str`, not `Literal["csv", "jsonl"]`: the registry in tuner.ingestor.sources
+    # is the thing that validates known types and rejects unknown ones with a
+    # clear message (03-components/ingestor.md: "Registered by type string ...
+    # sql, pdf, api reserved (Future). Unknown type => exit 2"). A Literal here
+    # would make pydantic double as that gate and would reject a config naming
+    # a reserved-but-not-yet-implemented type outright, instead of failing with
+    # a message that names what's actually supported today.
+    type: str
     uri: str
     mapping: IngestSourceMapping | None = None
 

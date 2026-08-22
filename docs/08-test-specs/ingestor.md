@@ -4,7 +4,7 @@ Spec under test: [ingestor.md](../03-components/ingestor.md). Files: `tests/unit
 
 ## Setup
 
-Unit cases use temp files. Integration cases use compose MinIO + `fixtures/`.
+Unit cases use temp files (local paths only¹). Integration cases use compose MinIO + `fixtures/`.
 
 ## Sources (unit)
 
@@ -14,8 +14,12 @@ Unit cases use temp files. Integration cases use compose MinIO + `fixtures/`.
 | ING-U-002 | CSV `mapping` referencing a column absent from the header | Config validation error → exit 2, no records yielded |
 | ING-U-003 | `JsonlSource` over 3-line temp file | Locators `line:1..3`; `raw` = parsed objects |
 | ING-U-004 | `JsonlSource` hitting a malformed line (`fixtures/bad_lines.jsonl`) | Raises parse error carrying the line number (CLI → exit 2) |
-| ING-U-005 | Unknown `type: parquet` in source config | Exit 2 naming known types |
+| ING-U-005 | Unknown `type: parquet` in source config | Exit 2 naming known types² |
 | ING-U-006 | Byte fidelity: CSV cell with leading/trailing spaces, embedded quotes, unicode | `raw` values byte-identical to source (no trimming at Bronze) |
+
+¹ **Scope decision (T06):** [ingestor.md](../03-components/ingestor.md)'s Input line specs `csv`/`jsonl` sources from "local file paths or `s3://` URIs readable via `StorageClient`". No case in this suite exercises an `s3://` source URI, and `StorageClient` has no primitive for reading an arbitrary single object by key today (`read_json`/`read_jsonl` assume the tier-manifest layout). T06 implements local file paths only; `s3://` source URIs are deferred to whichever later task first needs them, at which point `StorageClient` gains the primitive and this ID list gains its own case rather than retrofitting one here.
+
+² **Scope decision (T06):** `IngestSourceConfig.type` ([core/config.py](../../src/tuner/core/config.py)) is `str`, not the `Literal["csv", "jsonl"]` T01 originally gave it — ING-U-005 needs `sources.py`'s own registry to be the thing that rejects an unknown type (per [ingestor.md](../03-components/ingestor.md): "Registered by type string ... `sql`, `pdf`, `api` reserved (Future). Unknown type ⇒ exit 2"), not pydantic short-circuiting first. A `Literal` would also reject a config naming a reserved-but-unimplemented type outright instead of failing with a message naming what's actually supported today. No existing test relied on the `Literal`.
 
 ## Pipeline behavior (integration)
 
