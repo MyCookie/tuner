@@ -52,7 +52,7 @@ Registered by `type` string: `csv` → `CsvSource`, `jsonl` → `JsonlSource` (M
 
 ## MVP scope
 
-`CsvSource` and `JsonlSource` only, from local paths or `s3://` URIs. Sharding logic included (fixtures fit in one shard).
+`CsvSource` and `JsonlSource` only, from local paths or `s3://` URIs — `s3://` is deferred at T06 to whichever task first needs it (see the footnote on this scope in [08 ingestor.md](../08-test-specs/ingestor.md)). Sharding logic included (fixtures fit in one shard).
 
 ## Future phases
 

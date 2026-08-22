@@ -187,3 +187,35 @@ def test_storage_client_unreachable_endpoint_fails_fast(monkeypatch):
     elapsed = time.monotonic() - start
 
     assert elapsed < 30, f"took {elapsed:.1f}s — retries/timeout not bounded"
+
+
+@pytest.mark.integration
+def test_ingest_cli_against_unreachable_store_fails_fast(monkeypatch, run_id, tmp_path, capsys):
+    """INF-I-005 (CLI companion, deferred from T04 — see the footnote on this case in
+    08 infra.md): a real `tuner ingest` against an unreachable object store exits 1 with a
+    connection-error message and no partial manifest (nothing ever reaches the real store —
+    every I/O in this run targets the unreachable endpoint, so there is nothing to write)."""
+    csv_path = tmp_path / "dialogs.csv"
+    csv_path.write_text("question,answer\nq1,a1\n")
+    config_path = tmp_path / "pipeline.yaml"
+    config_path.write_text(
+        json.dumps(
+            {
+                "model": {"adapter": "gemma-e4b"},
+                "ingest": {"sources": [{"type": "csv", "uri": str(csv_path)}]},
+            }
+        )
+    )
+    monkeypatch.setenv("TUNER_S3_ENDPOINT", "http://localhost:1")
+    monkeypatch.setenv("TUNER_S3_ACCESS_KEY", "unreachable")
+    monkeypatch.setenv("TUNER_S3_SECRET_KEY", "unreachable")
+
+    from tuner.ingestor.cli import ingest
+
+    start = time.monotonic()
+    exit_code = ingest(run_id, str(config_path))
+    elapsed = time.monotonic() - start
+
+    assert exit_code == 1
+    assert elapsed < 30, f"took {elapsed:.1f}s — retries/timeout not bounded"
+    assert "connect" in capsys.readouterr().err.lower()
