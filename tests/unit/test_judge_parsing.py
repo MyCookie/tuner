@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import random
+import time
 
 import httpx
 import pytest
@@ -147,6 +148,40 @@ def test_out_of_range_or_wrong_type_score_rejected(score):
     (strict types, not "close enough")."""
     with pytest.raises(ParseError):
         parse_reply(f'{{"score": {score!r}, "reasoning": "x"}}'.replace("'", '"'))
+
+
+def test_invalid_first_score_object_is_fatal_not_skipped():
+    """JDG-U-023: once a candidate parses as JSON and carries a `score` key, it IS "the
+    first JSON object" -- an invalid score there is a parse failure, not a reason to
+    keep scanning for a second, better-looking object (PR #8 review round 3 finding 1:
+    an earlier version returned the *second* object's valid score instead of raising)."""
+    reply = '{"score": 11, "reasoning": "a"} and {"score": 5, "reasoning": "b"}'
+    with pytest.raises(ParseError):
+        parse_reply(reply)
+
+
+def test_score_nested_inside_malformed_object_not_rescued():
+    """JDG-U-024: a `{"score": N}`-shaped fragment sitting *inside* a span that itself
+    fails to parse as JSON (here, the outer object's own reasoning string breaks its
+    quoting) must not be rescued and treated as the real answer (PR #8 review round 3
+    finding 2: an earlier version returned the nested fragment's score, 10, instead of
+    treating the whole malformed reply as a parse failure)."""
+    reply = '{"score": 3, "reasoning": "example {"score": 10}"}'
+    with pytest.raises(ParseError):
+        parse_reply(reply)
+
+
+def test_pathological_unmatched_braces_bounded_scan_time():
+    """JDG-U-025: a reply consisting of thousands of unmatched `{` characters (no valid
+    JSON anywhere) is rejected quickly, not scanned at the O(n^2) worst case over the
+    full length -- PR #8 review round 3 finding 3 measured ~6.6s for 20,000 unclosed
+    braces; the scan is length-capped so a pathological reply can't stall a worker
+    thread that long."""
+    reply = "{" * 20_000
+    start = time.monotonic()
+    with pytest.raises(ParseError):
+        parse_reply(reply)
+    assert time.monotonic() - start < 1.0
 
 
 def test_normalization_exact():

@@ -26,14 +26,23 @@ MAX_DELAY_SECONDS = 60.0
 # other 5xx (504, 520, ...) as fatal.
 _RETRYABLE_4XX = frozenset({429})
 
+# The rubric prompt instructs the judge to return ONLY a JSON object, so a genuine
+# reply's score object sits at or near the start; a reply that needs more than this to
+# find one is already a malformed/pathological case. Capped so a pathological reply
+# (e.g. tens of thousands of unclosed `{`) can't force the O(n^2) worst case of
+# _iter_balanced_brace_spans trying every start position against the full length
+# (PR #8 review round 3 finding 3: 20,000 unclosed braces took ~6.6s per attempt).
+_MAX_SCAN_CHARS = 4_000
+
 
 class ParseError(Exception):
     """The judge's reply had no valid `{"score": <int 1-10>, "reasoning": ...}` JSON object."""
 
 
-def _iter_balanced_braces(text: str) -> Iterator[str]:
-    """Yield every balanced `{...}` substring in `text`, in the order their opening
-    brace appears, trying every possible start position -- not just the first `{`.
+def _iter_balanced_brace_spans(text: str) -> Iterator[tuple[int, int]]:
+    """Yield the `(start, end)` index (end inclusive) of every balanced `{...}` span in
+    `text`, in the order their opening brace appears, trying every possible start
+    position -- not just the first `{`.
 
     Not a regex (`\\{.*?\\}` can't do this correctly): a non-greedy brace regex stops at
     the *first* closing brace, which can be inside the JSON string content itself --
@@ -86,19 +95,41 @@ def _iter_balanced_braces(text: str) -> Iterator[str]:
         # as proof no valid object exists anywhere in the text.
         search_from = start + 1
         if end is not None:
-            yield text[start : end + 1]
+            yield start, end
 
 
 def parse_reply(text: str) -> tuple[int, str]:
-    """Extract the first JSON object in `text` that actually validates as a score
-    (strict int in [1, 10], no float/str coercion — JDG-U-013), and return
-    `(score, reasoning)`. Raises `ParseError` if no candidate in the reply qualifies
-    (JDG-U-010..013); a parse failure counts as a retryable attempt, not a fatal one
-    (docs/03-components/judge.md scoring protocol)."""
-    for candidate in _iter_balanced_braces(text):
+    """Extract the first JSON object in `text` -- the first balanced `{...}` span that
+    both parses as JSON and carries a `score` key -- and validate it (strict int in
+    [1, 10], no float/str coercion — JDG-U-013), returning `(score, reasoning)`.
+
+    Once a span qualifies as "the first JSON object" (valid JSON, has a `score` key),
+    an invalid score there is a parse failure, full stop -- it does not fall through to
+    a later brace group. `docs/03-components/judge.md`'s parsing rule is "extract the
+    first JSON object; validate score"; scanning past a genuine-but-invalid object to
+    find a second, better-looking one would silently launder a bad reply into a valid
+    score (PR #8 review round 3 finding 1). Spans that fail `json.loads` outright are
+    true false starts (not-JSON prose, e.g. round 2's brace-shaped text) and are simply
+    skipped -- but any later span *nested inside* one of those failed spans is skipped
+    too, without even attempting it: a `{"score": N}`-shaped fragment sitting inside a
+    reply's own broken quoting must not be rescued and treated as the real answer
+    (PR #8 review round 3 finding 2).
+
+    Raises `ParseError` if no candidate in the reply qualifies (JDG-U-010..013); a parse
+    failure counts as a retryable attempt, not a fatal one (docs/03-components/judge.md
+    scoring protocol)."""
+    scan_text = text if len(text) <= _MAX_SCAN_CHARS else text[:_MAX_SCAN_CHARS]
+
+    failed_spans: list[tuple[int, int]] = []
+    for start, end in _iter_balanced_brace_spans(scan_text):
+        if any(fs <= start and end <= fe for fs, fe in failed_spans):
+            continue
+
+        candidate = scan_text[start : end + 1]
         try:
             obj = json.loads(candidate)
         except json.JSONDecodeError:
+            failed_spans.append((start, end))
             continue
         if not isinstance(obj, dict) or "score" not in obj:
             continue
@@ -107,7 +138,7 @@ def parse_reply(text: str) -> tuple[int, str]:
         # `type(...) is int`, not `isinstance`: bool is an int subclass in Python, and a
         # float/str score (even "7" or 7.0) must be rejected, not coerced (JDG-U-013).
         if type(score) is not int or not (1 <= score <= 10):
-            continue
+            raise ParseError(f"first score object had an invalid score: {obj!r}")
 
         return score, obj.get("reasoning", "")
 
