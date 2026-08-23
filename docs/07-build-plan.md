@@ -72,7 +72,7 @@ A spec ambiguity found along the way is resolved **in the docs**, not in a code 
 
 ### T08 — Judge
 **Files:** `src/tuner/judge/` (`client.py`, `prompts.py`, `cli.py`), `tests/unit/test_judge_parsing.py`, `tests/integration/test_judge.py` (against mock judge).
-**Suite:** `JDG-U-010..017`, `JDG-I-020..029` ([08 judge.md](08-test-specs/judge.md)).
+**Suite:** `JDG-U-010..017`, `JDG-I-020..031` ([08 judge.md](08-test-specs/judge.md)).
 **Spec:** [judge.md](03-components/judge.md), incl. the >10 % judge_error abort.
 **Verify:** integration run promotes exactly the `[[score>=threshold]]` fixtures; MLflow shows the judge run.
 

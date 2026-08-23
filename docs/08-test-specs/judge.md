@@ -42,3 +42,7 @@ Integration cases mount the `mock_judge` fixture (in-process ASGI, `TUNER_JUDGE_
 | JDG-I-027 | Empty `judge.model` / unset `TUNER_JUDGE_BASE_URL` (parametrized) | Exit 2 before any Silver read (mock records zero calls) |
 | JDG-I-028 | All records score below threshold | Exit 3 |
 | JDG-I-029 | Re-run same run ID | Gold prefix rebuilt; single manifest (idempotency) |
+| JDG-I-030 | Missing Silver manifest | Exit 2 (upstream incomplete) |
+| JDG-I-031 | Seeded invalid Silver record (schema-breaking) | Exit 2 naming record id — invalid input is an abort, not a drop |
+
+JDG-I-030/031 mirror CLN-I-035/034 (Cleaner's own upstream-validation cases) — the original table above omitted the Judge's equivalent of "validate schema" in [judge.md core logic 1](../03-components/judge.md), even though the implementation handles it the same way Ingestor and Cleaner do. Added while implementing T08, as a spec gap noticed against the sibling stages' suites, rather than left as an untested code path with no case to justify it.
