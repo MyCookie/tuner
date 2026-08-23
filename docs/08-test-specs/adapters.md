@@ -10,6 +10,10 @@ Spec under test: [04-model-adapters.md](../04-model-adapters.md). File: `tests/u
 | ADP-U-002 | `to_chat_messages` on a 2-turn text conversation | Returns a list of role/content dicts accepted by `apply_chat_template` (validated against a stub tokenizer contract) |
 | ADP-U-003 | `to_chat_messages` with an `image` content part | Raises `UnsupportedModalityError` (until the adapter declares the modality, [04 §5](../04-model-adapters.md)) |
 | ADP-U-004 | Multiple text parts in one turn | Joined with `\n\n` |
+| ADP-U-005 | `load_tokenizer` default impl | Calls `AutoTokenizer.from_pretrained(hf_model_id, revision=hf_revision)` |
+| ADP-U-006 | `load_base_model` default impl, `quantized=True` vs. `False` | `quantized=True` passes `self.quantization` through as a `BitsAndBytesConfig` `quantization_config`; `quantized=False` omits it entirely |
+
+ADP-U-005/006 aren't in `04-model-adapters.md`'s interface table as named scenarios, but the suite's own coverage target ("100 % of `tuner/models/*`") makes `ModelAdapter`'s two default-impl methods untested code otherwise. Added in the numbering gap this section already leaves open (001..004, then 010) rather than appended after 031, since they're interface-compliance cases in kind, not registry or Gemma-specific ones.
 
 ## Registry
 

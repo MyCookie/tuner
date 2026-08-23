@@ -64,8 +64,8 @@ Selection: `model.adapter` in `configs/pipeline.yaml`. Config `train.hyperparame
 | Field | Value |
 | :--- | :--- |
 | `name` | `gemma-e4b` |
-| `hf_model_id` | `google/gemma-4-e4b-it` — **verify against the team's HF access at implementation time**; this string is the only place the repo id exists |
-| `hf_revision` | pin to the current commit hash of that repo at implementation time |
+| `hf_model_id` | `google/gemma-3n-E4B-it`¹ — this string is the only place the repo id exists |
+| `hf_revision` | `c1221e9c62e34a43ab7ffacd1be0ea71f126ef10`¹ |
 | `max_seq_len` | 4096 |
 | `supports_full_ft` | `False` (E4B ≈ 4B effective params; QLoRA only) |
 | `lora_target_modules` | `["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]` |
@@ -74,6 +74,8 @@ Selection: `model.adapter` in `configs/pipeline.yaml`. Config `train.hyperparame
 | `to_chat_messages` | Gemma templates reject a standalone `system` role → prepend the system text to the first user turn as `"{system}\n\n{user}"` |
 
 These defaults are starting points sized for the 128 GB coherent-memory dev box; tune via `train.hyperparameters`.
+
+¹ **Verification (T09):** this doc's placeholder, `google/gemma-4-e4b-it`, doesn't exist — there is no "Gemma 4" family. The real model is Google's Gemma 3n family, whose MatFormer architecture lets an 8B-parameter checkpoint run with the memory footprint of a ~4B model ("E4B" is Google's own name for that effective size). Confirmed against the live, public repo via the HF API (`GET /api/models/google/gemma-3n-E4B-it`, 2026-08-23): `sha` = the pinned revision above; the repo ships SafeTensors only (no `.bin`, consistent with CLAUDE.md's pickle ban). **Not verified, and not verifiable from a repo-id lookup:** whether this team's `HF_TOKEN` has been granted access — the repo is gated behind Google's license, a per-account grant on huggingface.co that only shows up as a 401 at actual download time (`load_tokenizer`/`load_base_model`, first exercised for real in T10/T11). If that grant hasn't happened yet, it needs to before either of those tasks can run against the real adapter (the `tiny-test` adapter, ungated, is what those tasks' own test suites use instead).
 
 ## 4. Adding a model — checklist
 

@@ -7,7 +7,14 @@ import re
 import subprocess
 from pathlib import Path
 
+import httpx
+import pytest
+from huggingface_hub.utils import GatedRepoError, LocalTokenNotFoundError
 from scripts.bootstrap_minio import IAM_MATRIX, _env_prefix
+
+from tuner.models.base import HFAuthError, ModelAdapter
+from tuner.models.gemma_e4b import GemmaE4BAdapter
+from tuner.models.registry import ADAPTERS
 
 REPO_ROOT = Path(__file__).parents[2]
 
@@ -88,3 +95,66 @@ def test_compose_defines_no_credential_literal():
         assert value.startswith("${") and value.endswith("}"), (
             f"docker-compose.yaml:{lineno} sets a credential-shaped key to a literal: {line!r}"
         )
+
+
+# --- Hugging Face interaction (built at T09, once tuner.models exists) -------------
+
+
+def _gated_repo_error() -> GatedRepoError:
+    # HfHubHTTPError (GatedRepoError's base) requires a real httpx.Response -- this is
+    # the minimal stub that satisfies its constructor without any network access.
+    response = httpx.Response(401, request=httpx.Request("GET", "https://huggingface.co/x"))
+    return GatedRepoError("access to this repo is gated", response=response)
+
+
+@pytest.mark.parametrize(
+    "auth_error",
+    [LocalTokenNotFoundError("no token found"), _gated_repo_error()],
+    ids=["missing-token", "gated-no-access"],
+)
+def test_load_tokenizer_hf_auth_error_is_actionable(monkeypatch, auth_error):
+    """INF-U-010: a gated-model / missing-or-invalid HF_TOKEN error, mocked at the
+    huggingface_hub client boundary, becomes an actionable HFAuthError naming HF_TOKEN
+    and the model id -- not a raw traceback."""
+
+    def _raise(*args, **kwargs):
+        raise auth_error
+
+    monkeypatch.setattr("tuner.models.base.AutoTokenizer.from_pretrained", _raise)
+    adapter = GemmaE4BAdapter()
+
+    with pytest.raises(HFAuthError) as exc_info:
+        adapter.load_tokenizer()
+
+    message = str(exc_info.value)
+    assert "HF_TOKEN" in message
+    assert adapter.hf_model_id in message
+
+
+def test_load_base_model_hf_auth_error_is_actionable(monkeypatch):
+    """INF-U-010 (load_base_model path): the same translation applies to the
+    load_base_model default impl, not just load_tokenizer."""
+
+    class _RaisingAutoModel:
+        @staticmethod
+        def from_pretrained(*args, **kwargs):
+            raise _gated_repo_error()
+
+    monkeypatch.setattr("tuner.models.base.AutoModelForCausalLM", _RaisingAutoModel)
+    adapter = GemmaE4BAdapter()
+
+    with pytest.raises(HFAuthError) as exc_info:
+        adapter.load_base_model(quantized=False)
+
+    message = str(exc_info.value)
+    assert "HF_TOKEN" in message
+    assert adapter.hf_model_id in message
+
+
+@pytest.mark.parametrize("adapter", [cls() for cls in ADAPTERS.values()], ids=list(ADAPTERS))
+def test_revision_pinning_never_main_or_none(adapter: ModelAdapter):
+    """INF-U-011: every adapter in ADAPTERS has hf_revision set to a commit hash or
+    tag -- never "main"/None; reproducibility depends on it."""
+    assert adapter.hf_revision is not None
+    assert adapter.hf_revision != "main"
+    assert isinstance(adapter.hf_revision, str) and adapter.hf_revision.strip()

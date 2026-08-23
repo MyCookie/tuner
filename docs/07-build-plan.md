@@ -78,7 +78,7 @@ A spec ambiguity found along the way is resolved **in the docs**, not in a code 
 
 ### T09 — Model-adapter layer
 **Files:** `src/tuner/models/` (`base.py`, `registry.py`, `gemma_e4b.py`, `tiny_test.py` — SmolLM2-135M-Instruct test adapter, [06 §5](06-testing.md)), `tests/unit/test_adapters.py`.
-**Suite:** `ADP-U-001..004`, `ADP-U-010..011`, `ADP-U-020..022`, `ADP-U-030..031` ([08 adapters.md](08-test-specs/adapters.md)); `INF-U-010..011` ([08 infra.md](08-test-specs/infra.md)).
+**Suite:** `ADP-U-001..006`, `ADP-U-010..011`, `ADP-U-020..022`, `ADP-U-030..031` ([08 adapters.md](08-test-specs/adapters.md)); `INF-U-010..011` ([08 infra.md](08-test-specs/infra.md), tested in `tests/unit/test_infra_static.py` per that suite's own file ownership).
 **Spec:** [04](04-model-adapters.md) — confirm the real Gemma E4B HF repo id available to the team and set it in `gemma_e4b.py`.
 **Verify:** `uv run pytest tests/unit/test_adapters.py`.
 
