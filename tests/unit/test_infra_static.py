@@ -15,6 +15,7 @@ from scripts.bootstrap_minio import IAM_MATRIX, _env_prefix
 from tuner.models.base import HFAuthError, ModelAdapter
 from tuner.models.gemma_e4b import GemmaE4BAdapter
 from tuner.models.registry import ADAPTERS
+from tuner.tokenizer.cli import tokenize
 
 REPO_ROOT = Path(__file__).parents[2]
 
@@ -149,6 +150,23 @@ def test_load_base_model_hf_auth_error_is_actionable(monkeypatch):
     message = str(exc_info.value)
     assert "HF_TOKEN" in message
     assert adapter.hf_model_id in message
+
+
+def test_tokenize_cli_exits_2_on_hf_auth_error(monkeypatch):
+    """INF-U-010, CLI-level companion (deferred from T09's own version of this case,
+    since no stage CLI existed yet): `tuner tokenize` catches `HFAuthError` from
+    `adapter.load_tokenizer()` and exits 2 -- not a raw traceback. Needs no real
+    storage: the failure happens before Gold is ever read, mirroring `INF-I-005`'s own
+    T04->T06 deferral pattern for a CLI-level companion case."""
+
+    def _raise(self) -> None:
+        raise HFAuthError(self.hf_model_id, LocalTokenNotFoundError("no token"))
+
+    monkeypatch.setattr(GemmaE4BAdapter, "load_tokenizer", _raise)
+
+    exit_code = tokenize("run-doesnt-matter", str(REPO_ROOT / "configs" / "pipeline.yaml"))
+
+    assert exit_code == 2
 
 
 @pytest.mark.parametrize("adapter", [cls() for cls in ADAPTERS.values()], ids=list(ADAPTERS))

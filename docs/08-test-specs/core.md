@@ -65,3 +65,6 @@ Doc-02 examples are stored under `tests/fixtures_schemas/` verbatim; drift betwe
 | CORE-I-044 | `delete_prefix` of `{run_id}/` | Own prefix gone; a sibling run's objects untouched |
 | CORE-I-045 | Client honors `TUNER_S3_ENDPOINT`/creds from env only | Constructing with env unset raises config error; no boto3 default-chain fallback |
 | CORE-U-046 | Static: `grep -r "import boto3" src/tuner --include="*.py"` matches only `core/storage.py` | Rule [CLAUDE.md hard rule 1] holds (implemented as a real test) |
+| CORE-I-047 | `write_bytes` / `read_bytes` round-trip, including a non-UTF-8 payload | Identical bytes; absent key returns `None` |
+
+CORE-I-047 was added at T10: SafeTensors shards are raw binary, and `StorageClient` had no raw-bytes path — only jsonl and JSON. Added the same paired `write_x`/`read_x` shape the class already uses for `json`/`jsonl`, rather than a write-only method.
