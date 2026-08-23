@@ -48,7 +48,7 @@ One API call per record. The request renders the record's conversation into a ru
 
 ## Error handling
 
-- Missing `TUNER_JUDGE_BASE_URL` or empty `judge.model` ⇒ exit 2 before reading data.
+- Missing `TUNER_JUDGE_BASE_URL`, empty `judge.model`, or missing `MLFLOW_TRACKING_URI` ⇒ exit 2 before reading data. `MLFLOW_TRACKING_URI` is checked here rather than left to fail inside the MLflow logging step, so a missing value can't surface as an exit-1 failure after Gold was already committed.
 - Determinism caveat: judge output is inherently nondeterministic across endpoints; the manifest records rubric version and judge model so Gold tiers are comparable, not reproducible bit-for-bit.
 
 ## Acceptance criteria
