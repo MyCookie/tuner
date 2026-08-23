@@ -26,13 +26,17 @@ ADP-U-005/006 aren't in `04-model-adapters.md`'s interface table as named scenar
 
 | ID | Scenario | Expected |
 | :--- | :--- | :--- |
-| ADP-U-020 | System-turn folding | `[system, user, assistant]` → 2 messages; first user content is `"{system}\n\n{user}"` (golden output pinned) |
+| ADP-U-020 | System turn present | `[system, user, assistant]` → 3 messages, system turn included as its own message (golden output pinned) |
 | ADP-U-021 | No system turn | Passthrough mapping, golden output pinned |
 | ADP-U-022 | Declared values | `supports_full_ft` False; `lora_target_modules` equals the [04 §3](../04-model-adapters.md) list; defaults match the §3 table |
+
+ADP-U-020 was "System-turn folding" until round 1 review: the pinned Gemma repo turned out to support a `system` role natively (see [04 §3](../04-model-adapters.md)'s footnote), so there is no folding to test — corrected to assert the (simpler) native passthrough instead, golden output updated accordingly.
 
 ## Hyperparameter merge
 
 | ID | Scenario | Expected |
 | :--- | :--- | :--- |
 | ADP-U-030 | Merge with override of `learning_rate` only | lr from config; all other fields from adapter defaults (complements CORE-U-004 from the adapter side) |
-| ADP-U-031 | Merge with unknown hyperparameter key | Rejected (config model catches it) |
+| ADP-U-031 | Merge with unknown hyperparameter key | `ConfigError` from `merge_hyperparameters` itself (`CORE-U-007`) |
+
+ADP-U-031's expected behavior changed in round 1 review: `merge_hyperparameters` previously did no such check at all (`{**base, **overrides}` merges anything in), so the case originally passed only because its own test reconstructed `TrainingDefaults(**merged)` and let *that* raise `TypeError` — nothing in `src/` actually rejected the key. `merge_hyperparameters` now raises `ConfigError` directly; see the `CORE-U-007` addition in [08 core.md](core.md).

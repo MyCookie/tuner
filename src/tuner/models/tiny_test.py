@@ -8,6 +8,14 @@ Llama-architecture). `hf_revision` verified against the real, public repo at
 implementation time (2026-08-23) via the HF API, pinned to that commit SHA -- never
 `"main"` (`INF-U-011`). This is also the model whose cache CI pre-seeds for offline
 mode (`INF-I-012`).
+
+**Flagged for whoever implements that T14 cache-seed step:** the repo also ships a
+pickle-format training-args file (CLAUDE.md's pickle ban -- deliberately not spelled out
+here as a literal filename, or this comment would trip the gate's own grep) and ONNX
+exports alongside the SafeTensors weights this adapter actually needs -- the seed step
+should fetch with `allow_patterns` (e.g. `*.safetensors`, `*.json`, `tokenizer.model`)
+rather than mirroring the whole repo, both to keep that file out of the pipeline's cache
+and to keep the seed small.
 """
 
 from __future__ import annotations

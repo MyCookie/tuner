@@ -11,7 +11,7 @@ import dataclasses
 
 import pytest
 
-from tuner.core.config import merge_hyperparameters
+from tuner.core.config import ConfigError, merge_hyperparameters
 from tuner.core.schemas import ContentPart, Turn
 from tuner.models.base import (
     ModelAdapter,
@@ -180,9 +180,11 @@ def test_get_adapter_unknown_name_lists_known_names():
 # --- Gemma E4B specifics --------------------------------------------------------------
 
 
-def test_gemma_system_turn_folded_into_first_user_turn():
-    """ADP-U-020: [system, user, assistant] -> 2 messages; first user content is
-    "{system}\\n\\n{user}" (golden output pinned)."""
+def test_gemma_system_turn_is_native_passthrough():
+    """ADP-U-020: [system, user, assistant] -> 3 messages, system turn included as its
+    own message (golden output pinned). Gemma 4's chat template handles a `system` role
+    natively (a dedicated `<|turn>system` segment) -- unlike the folding earlier Gemma
+    generations needed, there is no special-casing here (round 1 review correction)."""
     conversation = [
         _turn("system", "You are a helpful assistant."),
         _turn("user", "How do I reset my password?"),
@@ -192,10 +194,8 @@ def test_gemma_system_turn_folded_into_first_user_turn():
     messages = GemmaE4BAdapter().to_chat_messages(conversation)
 
     assert messages == [
-        {
-            "role": "user",
-            "content": "You are a helpful assistant.\n\nHow do I reset my password?",
-        },
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "How do I reset my password?"},
         {"role": "assistant", "content": "Go to Settings > Security."},
     ]
 
@@ -255,12 +255,10 @@ def test_merge_overrides_single_field_keeps_the_rest():
 
 
 def test_merge_unknown_hyperparameter_key_rejected():
-    """ADP-U-031: an unknown hyperparameter key is rejected once the merged dict is
-    used to reconstruct the real TrainingDefaults -- the dataclass itself is the config
-    model that catches it."""
+    """ADP-U-031: an unknown hyperparameter key is rejected by merge_hyperparameters
+    itself (ConfigError, CORE-U-007) -- not merged in silently and left to fail later,
+    somewhere downstream, in a way that wouldn't name the actual mistake."""
     adapter = TinyTestAdapter()
 
-    merged = merge_hyperparameters(adapter.training_defaults, {"not_a_real_field": 1})
-
-    with pytest.raises(TypeError):
-        TrainingDefaults(**merged)
+    with pytest.raises(ConfigError, match="not_a_real_field"):
+        merge_hyperparameters(adapter.training_defaults, {"not_a_real_field": 1})
