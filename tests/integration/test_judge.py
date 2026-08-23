@@ -346,6 +346,23 @@ def test_missing_model_or_base_url_exits_2_before_any_call(
 
 
 @pytest.mark.integration
+def test_missing_mlflow_tracking_uri_exits_2_before_any_call(
+    storage, run_id, tmp_path, mock_http_client, monkeypatch
+):
+    """JDG-I-032: unset MLFLOW_TRACKING_URI exits 2 before any Silver read, same as a
+    missing judge.model/TUNER_JUDGE_BASE_URL -- checked early so a missing value can't
+    surface as an exit-1 failure after Gold was already committed (PR #8 review round 1
+    finding 7; regression-tested per round 2 minor finding)."""
+    monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
+    config_path = _write_config(tmp_path)
+
+    exit_code = judge(run_id, str(config_path), storage=storage, http_client=mock_http_client)
+
+    assert exit_code == 2
+    assert sum(mock_app.state.call_counts.values()) == 0
+
+
+@pytest.mark.integration
 def test_all_below_threshold_exits_3(storage, run_id, tmp_path, mock_http_client):
     """JDG-I-028: all records score below threshold -> exit 3."""
     records = [

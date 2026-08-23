@@ -79,6 +79,17 @@ def test_clean_json_reply_extracted():
         # An escaped quote inside the string must not be mistaken for the string's end
         # (which would then miscount a later structural brace as inside/outside a string).
         (r'{"score": 7, "reasoning": "she said \"hi\" back"}', 7),
+        # Brace-shaped prose BEFORE the real JSON object: "{a, b}" balances into a
+        # complete-but-non-JSON group. A single-shot scan would stop there and never
+        # reach the real object (PR #8 review round 2 finding 1).
+        ('Consider the set {a, b}. Verdict: {"score": 7, "reasoning": "ok"}', 7),
+        ('**{score}**: {"score": 7, "reasoning": "ok"}', 7),
+        # A stray, unescaped quote in surrounding prose (not JSON) throws off in-string
+        # tracking for a candidate starting before it -- the scanner must still recover
+        # by trying the next `{` with fresh state, not give up on the whole reply.
+        ('He said "use { for objects" then {"score": 7, "reasoning": "ok"}', 7),
+        # An unclosed brace group, followed by a real, complete one.
+        ('{"score": broken, then: {"score": 7, "reasoning": "ok"}', 7),
     ],
     ids=[
         "leading-prose",
@@ -88,6 +99,10 @@ def test_clean_json_reply_extracted():
         "brace-inside-reasoning-string",
         "nested-object",
         "escaped-quote-inside-string",
+        "brace-shaped-prose-before-real-object",
+        "brace-shaped-markdown-before-real-object",
+        "stray-quote-in-prose-before-real-object",
+        "unclosed-object-before-real-one",
     ],
 )
 def test_json_embedded_in_prose_extracted(reply, expected_score):

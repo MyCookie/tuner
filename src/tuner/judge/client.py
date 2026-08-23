@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import random
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import Any, Literal
 
 import httpx
@@ -31,66 +31,87 @@ class ParseError(Exception):
     """The judge's reply had no valid `{"score": <int 1-10>, "reasoning": ...}` JSON object."""
 
 
-def _find_first_json_object(text: str) -> str | None:
-    """The substring of the first balanced `{...}` in `text`, or None if there isn't one.
+def _iter_balanced_braces(text: str) -> Iterator[str]:
+    """Yield every balanced `{...}` substring in `text`, in the order their opening
+    brace appears, trying every possible start position -- not just the first `{`.
 
     Not a regex (`\\{.*?\\}` can't do this correctly): a non-greedy brace regex stops at
     the *first* closing brace, which can be inside the JSON string content itself --
     `{"score": 7, "reasoning": "use {braces} here"}` would extract just
-    `{"score": 7, "reasoning": "use {braces}` and fail to parse. This scans character by
-    character, tracking string-literal state (respecting `\\"` escapes) so a brace inside
-    a quoted string never affects nesting depth (PR #8 review round 1 finding 4)."""
-    start = text.find("{")
-    if start == -1:
-        return None
+    `{"score": 7, "reasoning": "use {braces}` and fail to parse. This tracks
+    string-literal state (respecting `\\"` escapes) so a brace inside a quoted string
+    never affects nesting depth (PR #8 review round 1 finding 4).
 
-    depth = 0
-    in_string = False
-    escaped = False
-    for i in range(start, len(text)):
-        char = text[i]
-        if in_string:
-            if escaped:
-                escaped = False
-            elif char == "\\":
-                escaped = True
-            elif char == '"':
-                in_string = False
-            continue
-        if char == '"':
-            in_string = True
-        elif char == "{":
-            depth += 1
-        elif char == "}":
-            depth -= 1
-            if depth == 0:
-                return text[start : i + 1]
-    return None
+    Trying every start position, not just the first `{` in the text, is what round 2
+    finding 1 added: brace-shaped prose *before* the real JSON object -- e.g.
+    "Consider the set {a, b}. Verdict: {\"score\": 7, ...}" -- balances into a complete
+    but non-JSON group (`{a, b}`) that a single-shot scan would return and stop at,
+    never reaching the real object that follows.
+    """
+    search_from = 0
+    while True:
+        start = text.find("{", search_from)
+        if start == -1:
+            return
+
+        depth = 0
+        in_string = False
+        escaped = False
+        end = None
+        for i in range(start, len(text)):
+            char = text[i]
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == '"':
+                    in_string = False
+                continue
+            if char == '"':
+                in_string = True
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+
+        # Always advance and keep trying, even when this start never closes: stray
+        # quote characters in surrounding prose (not JSON) can throw off `in_string`
+        # tracking enough that depth never returns to 0 from *this* start, while a
+        # later `{` -- scanning with fresh, uncorrupted string-tracking state -- finds
+        # a perfectly good close. Giving up here would treat a confused first attempt
+        # as proof no valid object exists anywhere in the text.
+        search_from = start + 1
+        if end is not None:
+            yield text[start : end + 1]
 
 
 def parse_reply(text: str) -> tuple[int, str]:
-    """Extract the first JSON object in `text`, validate `score` is a strict int in
-    [1, 10] (no float/str coercion — JDG-U-013), and return `(score, reasoning)`.
-    Raises `ParseError` otherwise (JDG-U-010..013); a parse failure counts as a
-    retryable attempt, not a fatal one (docs/03-components/judge.md scoring protocol)."""
-    candidate = _find_first_json_object(text)
-    if candidate is None:
-        raise ParseError(f"no JSON object found in reply: {text!r}")
-    try:
-        obj = json.loads(candidate)
-    except json.JSONDecodeError as exc:
-        raise ParseError(f"reply is not valid JSON: {text!r}") from exc
-    if not isinstance(obj, dict) or "score" not in obj:
-        raise ParseError(f"reply JSON has no 'score' field: {text!r}")
+    """Extract the first JSON object in `text` that actually validates as a score
+    (strict int in [1, 10], no float/str coercion — JDG-U-013), and return
+    `(score, reasoning)`. Raises `ParseError` if no candidate in the reply qualifies
+    (JDG-U-010..013); a parse failure counts as a retryable attempt, not a fatal one
+    (docs/03-components/judge.md scoring protocol)."""
+    for candidate in _iter_balanced_braces(text):
+        try:
+            obj = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(obj, dict) or "score" not in obj:
+            continue
 
-    score = obj["score"]
-    # `type(...) is int`, not `isinstance`: bool is an int subclass in Python, and a
-    # float/str score (even "7" or 7.0) must be rejected, not coerced (JDG-U-013).
-    if type(score) is not int or not (1 <= score <= 10):
-        raise ParseError(f"score must be an integer in [1, 10], got {score!r}")
+        score = obj["score"]
+        # `type(...) is int`, not `isinstance`: bool is an int subclass in Python, and a
+        # float/str score (even "7" or 7.0) must be rejected, not coerced (JDG-U-013).
+        if type(score) is not int or not (1 <= score <= 10):
+            continue
 
-    reasoning = obj.get("reasoning", "")
-    return score, reasoning
+        return score, obj.get("reasoning", "")
+
+    raise ParseError(f"no valid score JSON object found in reply: {text!r}")
 
 
 def normalize_score(score: int) -> float:
