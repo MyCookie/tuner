@@ -9,6 +9,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+import yaml
 from huggingface_hub.utils import GatedRepoError, LocalTokenNotFoundError
 from scripts.bootstrap_minio import IAM_MATRIX, _env_prefix
 
@@ -152,19 +153,29 @@ def test_load_base_model_hf_auth_error_is_actionable(monkeypatch):
     assert adapter.hf_model_id in message
 
 
-def test_tokenize_cli_exits_2_on_hf_auth_error(monkeypatch):
+def test_tokenize_cli_exits_2_on_hf_auth_error(monkeypatch, tmp_path):
     """INF-U-010, CLI-level companion (deferred from T09's own version of this case,
     since no stage CLI existed yet): `tuner tokenize` catches `HFAuthError` from
     `adapter.load_tokenizer()` and exits 2 -- not a raw traceback. Needs no real
     storage: the failure happens before Gold is ever read, mirroring `INF-I-005`'s own
-    T04->T06 deferral pattern for a CLI-level companion case."""
+    T04->T06 deferral pattern for a CLI-level companion case.
+
+    Uses its own minimal config naming `gemma-e4b` explicitly, not the shipped
+    `configs/pipeline.yaml` -- coupling to that file's current default would let this
+    test silently stop testing what it claims (monkeypatching a class the CLI no
+    longer even loads) if that default ever changed, instead of failing loudly
+    (PR #10 review round 1 nit)."""
+    config_path = tmp_path / "pipeline.yaml"
+    config_path.write_text(
+        yaml.safe_dump({"model": {"adapter": "gemma-e4b"}, "ingest": {"sources": []}})
+    )
 
     def _raise(self) -> None:
         raise HFAuthError(self.hf_model_id, LocalTokenNotFoundError("no token"))
 
     monkeypatch.setattr(GemmaE4BAdapter, "load_tokenizer", _raise)
 
-    exit_code = tokenize("run-doesnt-matter", str(REPO_ROOT / "configs" / "pipeline.yaml"))
+    exit_code = tokenize("run-doesnt-matter", str(config_path))
 
     assert exit_code == 2
 

@@ -185,3 +185,37 @@ def test_prefix_property_violation_raises_masking_mismatch():
         build_labels(messages, tokenizer)
 
     assert exc_info.value.turn_index == 1
+
+
+class _EmptyConversationRejectingTokenizer(_StubTokenizer):
+    """Raises on an empty message list, like a real chat template that refuses
+    `add_generation_prompt=True` on zero turns (confirmed: SmolLM2 raises
+    `ValueError("Cannot apply chat template to an empty conversation.")`) -- TOK-U-015."""
+
+    def apply_chat_template(
+        self, messages: list[dict[str, str]], *, tokenize: bool, add_generation_prompt: bool
+    ) -> list[int]:
+        if not messages:
+            raise ValueError("Cannot apply chat template to an empty conversation.")
+        return super().apply_chat_template(
+            messages, tokenize=tokenize, add_generation_prompt=add_generation_prompt
+        )
+
+
+def test_leading_assistant_turn_tokenizer_error_raises_masking_mismatch():
+    """TOK-U-015: an assistant-first conversation (the schema permits it: >=1 user and
+    >=1 assistant turn, last must be assistant -- nothing requires the *first* turn to
+    be user or system) whose tokenizer raises on the resulting empty prefix is
+    converted to MaskingMismatch, not left to escape as an uncaught tokenizer error
+    that would abort the whole run over one record (PR #10 review round 1 finding 1)."""
+    tokenizer = _EmptyConversationRejectingTokenizer()
+    messages = [
+        {"role": "assistant", "content": "Hi there"},
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "ok"},
+    ]
+
+    with pytest.raises(MaskingMismatch) as exc_info:
+        build_labels(messages, tokenizer)
+
+    assert exc_info.value.turn_index == 0

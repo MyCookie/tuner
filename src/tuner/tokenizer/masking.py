@@ -14,14 +14,17 @@ import numpy as np
 
 
 class MaskingMismatch(Exception):
-    """A prefix-property assertion failed while building labels for message index
-    `turn_index`: re-tokenizing a longer prefix of the conversation did not extend the
-    shorter prefix's own tokens, so the assistant span's boundaries can't be trusted.
-    This is the adapter's chat template merging tokens across a turn boundary in a way
-    the incremental-prefix method can't safely locate -- a data problem only in the
-    sense that padding/formatting quirks in the record's text can trigger it, but the
-    template interaction itself is what's broken (docs/03-components/tokenizer.md core
-    logic 6). The caller drops the record with reason `masking_mismatch`."""
+    """The assistant span at message index `turn_index` can't be trusted, either
+    because a prefix-property assertion failed (re-tokenizing a longer prefix of the
+    conversation did not extend the shorter prefix's own tokens -- the chat template
+    merging tokens across a turn boundary in a way the incremental-prefix method can't
+    safely locate), or because the tokenizer's own `apply_chat_template` call raised
+    while rendering one of the prefixes needed to locate it (e.g. an assistant turn
+    with nothing before it at all -- some templates refuse `add_generation_prompt` on
+    an empty message list outright, PR #10 review round 1 finding 1). Either way this
+    is a data problem only in the sense that a record's shape or text can trigger it,
+    not something a stage bug caused (docs/03-components/tokenizer.md core logic 6).
+    The caller drops the record with reason `masking_mismatch`."""
 
     def __init__(self, turn_index: int) -> None:
         self.turn_index = turn_index
@@ -67,8 +70,24 @@ def build_labels(messages: list[dict[str, Any]], tokenizer: ChatTemplateTokenize
         if message["role"] != "assistant":
             continue
 
-        ids_before = tokenize_prefix(messages[:k], True)
-        ids_with = tokenize_prefix(messages[: k + 1], False)
+        try:
+            ids_before = tokenize_prefix(messages[:k], True)
+            ids_with = tokenize_prefix(messages[: k + 1], False)
+        except Exception as exc:
+            # The tokenizer itself couldn't render one of the prefixes needed to
+            # locate this turn's span -- e.g. an assistant turn with nothing before
+            # it at all (messages[:0] == []): the schema permits a conversation
+            # starting with "assistant" (SilverGoldRecord only requires >=1 user and
+            # >=1 assistant turn, last must be assistant), but a real chat template
+            # can refuse add_generation_prompt=True on an empty message list outright
+            # (confirmed: SmolLM2 raises ValueError, "Cannot apply chat template to
+            # an empty conversation") rather than returning a normal
+            # generation-prompt-only sequence. Treated the same as a violated prefix
+            # property -- this boundary can't be trusted either way -- so the record
+            # is dropped, not the run (PR #10 review round 1 finding 1: this
+            # previously escaped uncaught into the CLI's generic exit-1 handler,
+            # aborting the whole run over one record).
+            raise MaskingMismatch(k) from exc
 
         if ids_with[: len(ids_before)] != ids_before or ids_full[: len(ids_with)] != ids_with:
             raise MaskingMismatch(k)

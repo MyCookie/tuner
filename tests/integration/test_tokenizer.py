@@ -241,6 +241,47 @@ def test_image_part_dropped_unsupported_modality(storage, run_id, tmp_path):
 
 
 @pytest.mark.integration
+def test_assistant_first_record_dropped_not_run_aborted(storage, run_id, tmp_path):
+    """TOK-I-034: a contract-valid Gold record whose first turn is `assistant`
+    (`SilverGoldRecord` only requires >=1 user and >=1 assistant turn, last must be
+    assistant -- nothing pins the *first* turn to user/system) is dropped
+    `masking_mismatch`, not left to crash the whole run with the real tokenizer's own
+    "empty conversation" error (PR #10 review round 1 finding 1 -- reproduced here
+    against real MinIO + the real tiny-test adapter, matching how the reviewer found
+    it)."""
+    assistant_first_id = new_record_id()
+    assistant_first_record = {
+        "id": assistant_first_id,
+        "run_id": run_id,
+        "lineage": {"bronze_content_hash": f"sha256:{'0' * 64}", "cleaner_version": "0.1.0"},
+        "conversation": [
+            {"role": "assistant", "content": [{"type": "text", "value": "Hi there"}]},
+            {"role": "user", "content": [{"type": "text", "value": "hello"}]},
+            {"role": "assistant", "content": [{"type": "text", "value": "ok"}]},
+        ],
+        "evaluation": _DEFAULT_EVALUATION,
+    }
+    # 101 clean records, not 9: the masking_mismatch abort threshold (TOK-I-032) is
+    # >1% -- 1/10 would trip it, masking the very drop this test wants to observe.
+    # 1/102 (~0.98%) stays under it.
+    records = [_gold_record(run_id, f"Q{i}", f"A{i}") for i in range(101)] + [
+        assistant_first_record
+    ]
+    _seed_gold(storage, run_id, records)
+    config_path = _write_config(tmp_path)
+
+    try:
+        exit_code = tokenize(run_id, str(config_path), storage=storage)
+        assert exit_code == 0
+
+        index_map = _index_map(storage, run_id)
+        drop_reasons = {d["record_id"]: d["reason"] for d in index_map["dropped"]}
+        assert drop_reasons.get(assistant_first_id) == "masking_mismatch"
+    finally:
+        _cleanup(storage, run_id)
+
+
+@pytest.mark.integration
 def test_full_output_label_invariant_sweep(storage, run_id, tmp_path):
     """TOK-I-024: TOK-U-013's invariant (every label is -100 or its input_ids value;
     >=1 non-masked token) holds for every row of both splits, checked against the

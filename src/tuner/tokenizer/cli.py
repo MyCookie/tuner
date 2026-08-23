@@ -90,8 +90,10 @@ def _process_records(
             # No truncation in MVP -- truncation silently destroys assistant answers
             # (tokenizer.md step 7) -- so an over-length record is dropped whole,
             # before spending the extra incremental-prefix encode calls build_labels
-            # needs (tokenizer.md's own step numbering lists this after masking, but
-            # nothing in the record's final state depends on which check runs first).
+            # needs. This ordering is a documented deviation from tokenizer.md's own
+            # step numbering (which lists over_max_len after masking) -- see the
+            # round-1-review note in docs/08-test-specs/tokenizer.md for what actually
+            # changes for a record that would fail both checks.
             dropped.append(IndexMapDrop(record_id=record_id, reason="over_max_len"))
             over_max_len_count += 1
             continue
