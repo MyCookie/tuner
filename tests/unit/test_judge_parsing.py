@@ -215,6 +215,23 @@ def test_rubric_instructions_never_contain_mock_judge_marker_syntax():
     assert "[[" not in _INSTRUCTIONS
 
 
+@pytest.mark.parametrize(
+    "reasoning",
+    [{"summary": "good"}, ["fine"], 7, None, True],
+    ids=["dict", "list", "number", "null", "bool"],
+)
+def test_non_string_reasoning_rejected(reasoning):
+    """JDG-U-029: `reasoning` gets the same strictness as `score` -- a non-string value
+    (dict, list, number, null, bool) is a parse failure, not passed through. `evaluation
+    .reasoning` is a required `str` field (docs/02-data-contracts.md §2); an untrusted
+    external LLM value landing there unchecked would only fail downstream, after
+    judge() had already exited 0 on a Gold record that can't validate (PR #8 review
+    round 5 finding 1: an earlier version returned whatever `reasoning` held, untyped)."""
+    reply = json.dumps({"score": 7, "reasoning": reasoning})
+    with pytest.raises(ParseError):
+        parse_reply(reply)
+
+
 def test_normalization_exact():
     """JDG-U-014: score 7 -> evaluation.score == 0.7 exactly."""
     assert normalize_score(7) == 0.7

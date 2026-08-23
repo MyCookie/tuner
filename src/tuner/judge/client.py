@@ -115,7 +115,8 @@ def _iter_balanced_brace_spans(text: str) -> Iterator[tuple[int, int]]:
 def parse_reply(text: str) -> tuple[int, str]:
     """Extract the first JSON object in `text` -- the first balanced `{...}` span that
     both parses as JSON and carries a `score` key -- and validate it (strict int in
-    [1, 10], no float/str coercion — JDG-U-013), returning `(score, reasoning)`.
+    [1, 10], no float/str coercion — JDG-U-013; `reasoning` must be a string if present
+    — JDG-U-029), returning `(score, reasoning)`.
 
     Once a span qualifies as "the first JSON object" (valid JSON, has a `score` key),
     an invalid score there is a parse failure, full stop -- it does not fall through to
@@ -154,7 +155,18 @@ def parse_reply(text: str) -> tuple[int, str]:
         if type(score) is not int or not (1 <= score <= 10):
             raise ParseError(f"first score object had an invalid score: {obj!r}")
 
-        return score, obj.get("reasoning", "")
+        # `reasoning` gets the same strictness as `score`, not a free pass:
+        # `evaluation.reasoning` is a required `str` field (docs/02-data-contracts.md §2,
+        # tuner.core.schemas.Evaluation) and this is the one place an untrusted external
+        # LLM value lands directly in a contract-typed field. A non-string reasoning
+        # (missing entirely defaults to "", which is fine) would otherwise reach Gold
+        # unvalidated and only fail downstream, after judge() already exited 0
+        # (PR #8 review round 5 finding 1).
+        reasoning = obj.get("reasoning", "")
+        if not isinstance(reasoning, str):
+            raise ParseError(f"first score object had a non-string reasoning: {obj!r}")
+
+        return score, reasoning
 
     raise ParseError(f"no valid score JSON object found in reply of length {len(text)}")
 

@@ -174,17 +174,24 @@ def judge(
             normalized = normalize_score(raw_score)
             all_scores.append(normalized)
             if normalized >= config.judge.threshold:
-                gold_records.append(
-                    {
-                        **record,
-                        "evaluation": {
-                            "score": normalized,
-                            "judge_model": config.judge.model,
-                            "reasoning": reasoning,
-                            "evaluated_at": _utc_now(),
-                        },
-                    }
-                )
+                gold_record = {
+                    **record,
+                    "evaluation": {
+                        "score": normalized,
+                        "judge_model": config.judge.model,
+                        "reasoning": reasoning,
+                        "evaluated_at": _utc_now(),
+                    },
+                }
+                # Defense in depth, matching the Silver-side validation on the way in
+                # (above): parse_reply already rejects a non-string reasoning, but a
+                # Gold record is still worth validating against the contract itself
+                # before it's committed, not just trusted because it was built here
+                # (PR #8 review round 5 finding 1). A failure here is this stage's own
+                # bug, not a config/input problem -- it propagates to the generic
+                # exit-1 handler below rather than being caught as a drop.
+                SilverGoldRecord.model_validate(gold_record)
+                gold_records.append(gold_record)
             else:
                 drops["below_threshold"] = drops.get("below_threshold", 0) + 1
 
