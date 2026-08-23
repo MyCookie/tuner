@@ -16,6 +16,9 @@ Unit cases need nothing. `CORE-I-*` need compose MinIO (`storage`, `run_id` fixt
 | CORE-U-004 | Precedence: adapter defaults vs. `train.hyperparameters` override of a single field | Overridden field wins; untouched fields keep adapter defaults |
 | CORE-U-005 | `judge.model` empty string | Accepted at load (it's the Judge that rejects, JDG-I-027) — documents the boundary |
 | CORE-U-006 | Type errors: `threshold: "high"`, negative `max_concurrency`, `eval_fraction: 1.5` (parametrized) | Each rejected with a field-specific error |
+| CORE-U-007 | `merge_hyperparameters` with an override key that isn't one of the defaults' own fields | `ConfigError` naming the unknown key |
+
+CORE-U-007 was added at T09 (round 1 review on PR #9): `merge_hyperparameters` originally did no such check (`{**base, **overrides}` merges anything in silently); `ADP-U-031` needed this from the adapter side, which surfaced that nothing in `src/` actually rejected an unknown key at all.
 
 ## IDs (`test_ids.py`)
 

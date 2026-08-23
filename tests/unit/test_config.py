@@ -118,6 +118,24 @@ def test_hyperparameter_override_precedence():
     assert merged["lora_r"] == 16
 
 
+def test_hyperparameter_override_unknown_key_rejected():
+    """CORE-U-007: an override key that isn't one of the defaults' own fields raises
+    ConfigError naming it -- a typo'd hyperparameter name fails loudly at merge time
+    rather than merging in silently as an unused dict entry (complements ADP-U-031 from
+    the config side; round 1 review finding on PR #9 -- the merge previously did no such
+    check at all)."""
+
+    @dataclasses.dataclass(frozen=True)
+    class FakeTrainingDefaults:
+        learning_rate: float
+        epochs: int
+
+    defaults = FakeTrainingDefaults(learning_rate=2e-4, epochs=3)
+
+    with pytest.raises(ConfigError, match="not_a_real_field"):
+        merge_hyperparameters(defaults, {"not_a_real_field": 1})
+
+
 def test_judge_model_empty_string_accepted_at_load(tmp_path):
     """CORE-U-005: judge.model empty string accepted at load (the Judge rejects it, JDG-I-027)."""
     data = _base_config_dict()

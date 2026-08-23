@@ -64,16 +64,18 @@ Selection: `model.adapter` in `configs/pipeline.yaml`. Config `train.hyperparame
 | Field | Value |
 | :--- | :--- |
 | `name` | `gemma-e4b` |
-| `hf_model_id` | `google/gemma-4-e4b-it` — **verify against the team's HF access at implementation time**; this string is the only place the repo id exists |
-| `hf_revision` | pin to the current commit hash of that repo at implementation time |
+| `hf_model_id` | `google/gemma-4-E4B-it`¹ — this string is the only place the repo id exists |
+| `hf_revision` | `ee0ef6023621cff504d758262d4e04895a5af4a2`¹ |
 | `max_seq_len` | 4096 |
 | `supports_full_ft` | `False` (E4B ≈ 4B effective params; QLoRA only) |
 | `lora_target_modules` | `["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]` |
 | `training_defaults` | lr `2e-4`, epochs `3`, batch `4`, grad-accum `4`, warmup `0.03`, r `16`, alpha `32`, dropout `0.05` |
 | `quantization` | 4-bit NF4, double quant, compute dtype bfloat16 |
-| `to_chat_messages` | Gemma templates reject a standalone `system` role → prepend the system text to the first user turn as `"{system}\n\n{user}"` |
+| `to_chat_messages` | Gemma 4's chat template accepts a `system` role natively (a dedicated `<\|turn>system` segment) → plain passthrough, no folding |
 
 These defaults are starting points sized for the 128 GB coherent-memory dev box; tune via `train.hyperparameters`.
+
+¹ **Verification (T09, corrected in round 1 review):** this doc's placeholder, `google/gemma-4-e4b-it`, was assumed non-existent ("no Gemma 4 family") and swapped for the prior Gemma 3n generation without first checking whether the literal placeholder itself resolved. It does: `google/gemma-4-E4B-it` is real, current, and — unlike the 3n-generation repo substituted in its place during the initial pass — **ungated**. Confirmed against the live, public repo via the HF API (`GET /api/models/google/gemma-4-E4B-it`): `sha` = the pinned revision above, `gated: false`, SafeTensors only (no `.bin`, consistent with CLAUDE.md's pickle ban). Its `chat_template.jinja` was also checked directly, which is what corrected the `to_chat_messages` row above — the fold-into-first-user-turn behavior an earlier Gemma generation needed doesn't apply here. The repo is `Gemma4ForConditionalGeneration` (architecturally multimodal — text/vision/audio configs) but is registered in `transformers`' causal-LM auto-mapping alongside its image-text-to-text one, so `ModelAdapter`'s inherited `load_base_model` (`AutoModelForCausalLM.from_pretrained`) resolves it correctly for this pipeline's text-only use without an adapter-level override. Being ungated removes the earlier "HF_TOKEN license grant" concern for this specific repo; `HF_TOKEN` is presumably still required for the download itself per [01 §4.3](01-architecture.md)'s env var list. **Not independently confirmed:** the exact LoRA target-module names for this generation's text backbone (not visible in `config.json`, only in the model's own Python implementation) — `lora_target_modules` above keeps the naming every prior Gemma generation has used; if this generation renamed them, PEFT raises a clear error at LoRA-injection time (T11) rather than silently targeting nothing.
 
 ## 4. Adding a model — checklist
 

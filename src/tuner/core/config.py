@@ -104,6 +104,13 @@ def load_config(path: str | Path = DEFAULT_CONFIG_PATH) -> PipelineConfig:
 
 
 def merge_hyperparameters(defaults: Any, overrides: Mapping[str, Any]) -> dict[str, Any]:
-    """Merge config overrides onto adapter defaults, field by field (01-architecture.md §6)."""
+    """Merge config overrides onto adapter defaults, field by field (01-architecture.md §6).
+    Raises `ConfigError` naming any override key that isn't one of `defaults`' own fields
+    (CORE-U-007, ADP-U-031) -- an unrecognized `train.hyperparameters` key is a config
+    mistake (e.g. a typo'd field name) that should fail loudly, not merge in silently and
+    surface as an unused dict entry."""
     base = dataclasses.asdict(defaults) if dataclasses.is_dataclass(defaults) else dict(defaults)
+    unknown = set(overrides) - set(base)
+    if unknown:
+        raise ConfigError(f"unknown train.hyperparameters key(s): {sorted(unknown)}")
     return {**base, **overrides}

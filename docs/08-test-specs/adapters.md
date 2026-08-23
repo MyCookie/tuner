@@ -10,6 +10,10 @@ Spec under test: [04-model-adapters.md](../04-model-adapters.md). File: `tests/u
 | ADP-U-002 | `to_chat_messages` on a 2-turn text conversation | Returns a list of role/content dicts accepted by `apply_chat_template` (validated against a stub tokenizer contract) |
 | ADP-U-003 | `to_chat_messages` with an `image` content part | Raises `UnsupportedModalityError` (until the adapter declares the modality, [04 §5](../04-model-adapters.md)) |
 | ADP-U-004 | Multiple text parts in one turn | Joined with `\n\n` |
+| ADP-U-005 | `load_tokenizer` default impl | Calls `AutoTokenizer.from_pretrained(hf_model_id, revision=hf_revision)` |
+| ADP-U-006 | `load_base_model` default impl, `quantized=True` vs. `False` | `quantized=True` passes `self.quantization` through as a `BitsAndBytesConfig` `quantization_config`; `quantized=False` omits it entirely |
+
+ADP-U-005/006 aren't in `04-model-adapters.md`'s interface table as named scenarios, but the suite's own coverage target ("100 % of `tuner/models/*`") makes `ModelAdapter`'s two default-impl methods untested code otherwise. Added in the numbering gap this section already leaves open (001..004, then 010) rather than appended after 031, since they're interface-compliance cases in kind, not registry or Gemma-specific ones.
 
 ## Registry
 
@@ -22,13 +26,17 @@ Spec under test: [04-model-adapters.md](../04-model-adapters.md). File: `tests/u
 
 | ID | Scenario | Expected |
 | :--- | :--- | :--- |
-| ADP-U-020 | System-turn folding | `[system, user, assistant]` → 2 messages; first user content is `"{system}\n\n{user}"` (golden output pinned) |
+| ADP-U-020 | System turn present | `[system, user, assistant]` → 3 messages, system turn included as its own message (golden output pinned) |
 | ADP-U-021 | No system turn | Passthrough mapping, golden output pinned |
 | ADP-U-022 | Declared values | `supports_full_ft` False; `lora_target_modules` equals the [04 §3](../04-model-adapters.md) list; defaults match the §3 table |
+
+ADP-U-020 was "System-turn folding" until round 1 review: the pinned Gemma repo turned out to support a `system` role natively (see [04 §3](../04-model-adapters.md)'s footnote), so there is no folding to test — corrected to assert the (simpler) native passthrough instead, golden output updated accordingly.
 
 ## Hyperparameter merge
 
 | ID | Scenario | Expected |
 | :--- | :--- | :--- |
 | ADP-U-030 | Merge with override of `learning_rate` only | lr from config; all other fields from adapter defaults (complements CORE-U-004 from the adapter side) |
-| ADP-U-031 | Merge with unknown hyperparameter key | Rejected (config model catches it) |
+| ADP-U-031 | Merge with unknown hyperparameter key | `ConfigError` from `merge_hyperparameters` itself (`CORE-U-007`) |
+
+ADP-U-031's expected behavior changed in round 1 review: `merge_hyperparameters` previously did no such check at all (`{**base, **overrides}` merges anything in), so the case originally passed only because its own test reconstructed `TrainingDefaults(**merged)` and let *that* raise `TypeError` — nothing in `src/` actually rejected the key. `merge_hyperparameters` now raises `ConfigError` directly; see the `CORE-U-007` addition in [08 core.md](core.md).

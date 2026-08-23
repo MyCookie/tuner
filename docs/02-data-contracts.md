@@ -149,7 +149,7 @@ Bucket `tuner-artifacts`, prefix `{run_id}/tokens/`. Producer: Tokenizer.
 {
   "run_id": "run-20260720-142201-a3f9c2",
   "adapter": "gemma-e4b",
-  "tokenizer_id": "google/gemma-4-e4b-it",
+  "tokenizer_id": "google/gemma-4-E4B-it",
   "max_seq_len": 4096,
   "gold_manifest_uri": "s3://tuner-gold/run-20260720-142201-a3f9c2/manifest.json",
   "splits": {
@@ -189,7 +189,7 @@ One object per trained model version: `{model_version}/manifest.json`, written b
   "model_version": "gemma-e4b-run-20260720-142201-a3f9c2",
   "run_id": "run-20260720-142201-a3f9c2",
   "adapter_name": "gemma-e4b",
-  "base_model": "google/gemma-4-e4b-it",
+  "base_model": "google/gemma-4-E4B-it",
   "method": "qlora",
   "created_at": "2026-07-20T16:05:00Z",
   "gold_manifest_uri": "s3://tuner-gold/run-20260720-142201-a3f9c2/manifest.json",
