@@ -131,7 +131,11 @@ def judge(
         # a stale copy from a previous run that this run's failure gives no reason to trust.
         storage.delete_prefix(GOLD_BUCKET, f"{run_id}/")
 
-        results: dict[str, tuple[int, str] | None] = {}
+        # Keyed by index into silver_records, not record id: two records could in
+        # principle share an id, and a dict keyed by id would silently collapse them --
+        # one task's outcome overwriting the other's, and total_read (len(silver_records))
+        # no longer matching len(results) (PR #8 review round 4 minor finding 4).
+        results: list[tuple[int, str] | None] = [None] * len(silver_records)
         with ThreadPoolExecutor(max_workers=config.judge.max_concurrency) as pool:
             futures = {
                 pool.submit(
@@ -143,17 +147,17 @@ def judge(
                     random.Random(),  # a fresh instance per task -- random.Random isn't
                     # safe to share across the worker pool's threads
                     sleep,
-                ): record["id"]
-                for record in silver_records
+                ): index
+                for index, record in enumerate(silver_records)
             }
             for future in as_completed(futures):
                 results[futures[future]] = future.result()
 
         total_read = len(silver_records)
-        judge_error_ids = [rid for rid, outcome in results.items() if outcome is None]
-        if total_read > 0 and len(judge_error_ids) / total_read > JUDGE_ERROR_ABORT_FRACTION:
+        judge_error_count = sum(1 for outcome in results if outcome is None)
+        if total_read > 0 and judge_error_count / total_read > JUDGE_ERROR_ABORT_FRACTION:
             click.echo(
-                f"judge: judge_error rate {len(judge_error_ids)}/{total_read} exceeds "
+                f"judge: judge_error rate {judge_error_count}/{total_read} exceeds "
                 f"{JUDGE_ERROR_ABORT_FRACTION:.0%} -- endpoint looks unhealthy, aborting",
                 err=True,
             )
@@ -162,8 +166,7 @@ def judge(
         gold_records: list[dict[str, Any]] = []
         drops: dict[str, int] = {}
         all_scores: list[float] = []
-        for record in silver_records:
-            outcome = results[record["id"]]
+        for record, outcome in zip(silver_records, results, strict=True):
             if outcome is None:
                 drops["judge_error"] = drops.get("judge_error", 0) + 1
                 continue
@@ -210,9 +213,7 @@ def judge(
         )
         storage.write_json(GOLD_BUCKET, f"{run_id}/manifest.json", manifest.model_dump(mode="json"))
 
-        _log_to_mlflow(
-            config, run_id, all_scores, len(gold_records), len(judge_error_ids), total_read
-        )
+        _log_to_mlflow(config, run_id, all_scores, len(gold_records), judge_error_count, total_read)
     except Exception as exc:  # unexpected mid-run failure (I/O, storage, MLflow, ...) -> exit 1
         click.echo(f"judge: {exc}", err=True)
         return 1

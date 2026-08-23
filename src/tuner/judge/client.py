@@ -26,13 +26,17 @@ MAX_DELAY_SECONDS = 60.0
 # other 5xx (504, 520, ...) as fatal.
 _RETRYABLE_4XX = frozenset({429})
 
-# The rubric prompt instructs the judge to return ONLY a JSON object, so a genuine
-# reply's score object sits at or near the start; a reply that needs more than this to
-# find one is already a malformed/pathological case. Capped so a pathological reply
-# (e.g. tens of thousands of unclosed `{`) can't force the O(n^2) worst case of
-# _iter_balanced_brace_spans trying every start position against the full length
-# (PR #8 review round 3 finding 3: 20,000 unclosed braces took ~6.6s per attempt).
-_MAX_SCAN_CHARS = 4_000
+# A budget on total *work* (characters actually visited by the inner scan, summed
+# across every start position tried), not on input length: PR #8 review round 3 capped
+# `text` itself at a fixed length to bound the O(n^2) worst case of
+# _iter_balanced_brace_spans trying every start position (20,000 unclosed `{` took
+# ~6.6s per attempt) -- but that also truncates the *legitimate* case of one long, valid
+# JSON object (a verbose `reasoning` field, or a reasoning model's chain-of-thought
+# preceding its answer), rejecting a well-formed reply purely for length (round 4
+# finding 1). A single long-but-valid object only ever gets scanned once, so it costs
+# O(its own length) regardless of this budget; only a text with many *failing* start
+# attempts (each rescanning toward the end without closing) burns through it quickly.
+_MAX_SCAN_STEPS = 200_000
 
 
 class ParseError(Exception):
@@ -56,8 +60,15 @@ def _iter_balanced_brace_spans(text: str) -> Iterator[tuple[int, int]]:
     "Consider the set {a, b}. Verdict: {\"score\": 7, ...}" -- balances into a complete
     but non-JSON group (`{a, b}`) that a single-shot scan would return and stop at,
     never reaching the real object that follows.
+
+    Bounded by `_MAX_SCAN_STEPS` total characters visited across every start position
+    tried (round 4 finding 1) -- not by `len(text)`, so one long, genuinely valid object
+    is scanned in full (it costs one pass over its own length) while a text full of
+    failing start attempts (each re-scanning toward the end without closing) exhausts
+    the budget and gives up quickly instead of retrying from every remaining `{`.
     """
     search_from = 0
+    steps_used = 0
     while True:
         start = text.find("{", search_from)
         if start == -1:
@@ -68,6 +79,9 @@ def _iter_balanced_brace_spans(text: str) -> Iterator[tuple[int, int]]:
         escaped = False
         end = None
         for i in range(start, len(text)):
+            steps_used += 1
+            if steps_used > _MAX_SCAN_STEPS:
+                return
             char = text[i]
             if in_string:
                 if escaped:
@@ -117,15 +131,15 @@ def parse_reply(text: str) -> tuple[int, str]:
 
     Raises `ParseError` if no candidate in the reply qualifies (JDG-U-010..013); a parse
     failure counts as a retryable attempt, not a fatal one (docs/03-components/judge.md
-    scoring protocol)."""
-    scan_text = text if len(text) <= _MAX_SCAN_CHARS else text[:_MAX_SCAN_CHARS]
-
+    scoring protocol). The error message reports only the reply's length, not its full
+    text -- an arbitrarily long judge reply has no place being echoed whole into a log
+    line (PR #8 review round 4 finding 3)."""
     failed_spans: list[tuple[int, int]] = []
-    for start, end in _iter_balanced_brace_spans(scan_text):
+    for start, end in _iter_balanced_brace_spans(text):
         if any(fs <= start and end <= fe for fs, fe in failed_spans):
             continue
 
-        candidate = scan_text[start : end + 1]
+        candidate = text[start : end + 1]
         try:
             obj = json.loads(candidate)
         except json.JSONDecodeError:
@@ -142,7 +156,7 @@ def parse_reply(text: str) -> tuple[int, str]:
 
         return score, obj.get("reasoning", "")
 
-    raise ParseError(f"no valid score JSON object found in reply: {text!r}")
+    raise ParseError(f"no valid score JSON object found in reply of length {len(text)}")
 
 
 def normalize_score(score: int) -> float:

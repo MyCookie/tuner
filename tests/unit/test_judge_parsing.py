@@ -20,7 +20,7 @@ from tuner.judge.client import (
     parse_reply,
     score_record,
 )
-from tuner.judge.prompts import RUBRIC_V1, render_rubric_prompt
+from tuner.judge.prompts import _INSTRUCTIONS, RUBRIC_V1, render_rubric_prompt
 
 _CONVERSATION = [
     {"role": "user", "content": [{"type": "text", "value": "hi"}]},
@@ -175,13 +175,44 @@ def test_pathological_unmatched_braces_bounded_scan_time():
     """JDG-U-025: a reply consisting of thousands of unmatched `{` characters (no valid
     JSON anywhere) is rejected quickly, not scanned at the O(n^2) worst case over the
     full length -- PR #8 review round 3 finding 3 measured ~6.6s for 20,000 unclosed
-    braces; the scan is length-capped so a pathological reply can't stall a worker
-    thread that long."""
+    braces; the scan is work-budgeted (not length-capped, round 4 finding 1) so a
+    pathological reply can't stall a worker thread that long."""
     reply = "{" * 20_000
     start = time.monotonic()
     with pytest.raises(ParseError):
         parse_reply(reply)
     assert time.monotonic() - start < 1.0
+
+
+def test_long_valid_reasoning_still_parses():
+    """JDG-U-026: a single, genuinely valid JSON object with a long `reasoning` field is
+    parsed in full, not rejected for length -- PR #8 review round 3's fix bounded the
+    scan by truncating `text` itself, which silently rejected exactly this shape (round
+    4 finding 1). A long-but-valid object costs one pass over its own length, regardless
+    of how the pathological case above is bounded."""
+    long_reasoning = "a" * 20_000
+    reply = json.dumps({"score": 7, "reasoning": long_reasoning})
+    score, reasoning = parse_reply(reply)
+    assert (score, reasoning) == (7, long_reasoning)
+
+
+def test_valid_object_after_long_preamble_still_parses():
+    """JDG-U-027: a real score object preceded by a long run of ordinary prose (e.g. a
+    reasoning model's chain-of-thought before its answer) is still found -- the scan
+    budget is spent on failing brace attempts, not on prose with no braces in it at all
+    (round 4 finding 1's "reasoning-model preamble" scenario)."""
+    preamble = "Let me think step by step. " * 300  # ~8,400 chars, no braces at all
+    reply = preamble + json.dumps({"score": 7, "reasoning": "ok"})
+    score, _ = parse_reply(reply)
+    assert score == 7
+
+
+def test_rubric_instructions_never_contain_mock_judge_marker_syntax():
+    """JDG-U-028: RUBRIC_V1's instructional text must never contain anything shaped like
+    a mock-judge marker (`[[...]]`) -- every call would otherwise match it as an
+    unintended marker regardless of the record's own content (docs/06-testing.md §4;
+    PR #8 review round 4 minor finding 2 -- this was asserted only in prose, untested)."""
+    assert "[[" not in _INSTRUCTIONS
 
 
 def test_normalization_exact():
