@@ -127,14 +127,14 @@ def _is_well_structured(turns: list[Any]) -> bool:
             return False
         role = turn.get("role")
         content = turn.get("content")
-        if role not in _VALID_ROLES:
+        if not isinstance(role, str) or role not in _VALID_ROLES:
             return False
         if not isinstance(content, list) or len(content) < 1:
             return False
         for part in content:
             if not isinstance(part, dict) or set(part.keys()) != {"type", "value"}:
                 return False
-            if part["type"] not in _VALID_CONTENT_TYPES:
+            if not isinstance(part["type"], str) or part["type"] not in _VALID_CONTENT_TYPES:
                 return False
             if not isinstance(part["value"], str):
                 return False

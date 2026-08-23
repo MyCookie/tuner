@@ -200,6 +200,17 @@ def test_filter_empty_turn_one_blank_part_among_non_blank_ones():
             {"role": "user", "content": [{"type": "text", "value": "hi", "lang": "en"}]},
             {"role": "assistant", "content": [{"type": "text", "value": "hello"}]},
         ],
+        [
+            # unhashable role (PR #7 review round 3): `role in _VALID_ROLES` would raise
+            # TypeError on a list rather than return False, without an isinstance guard first
+            {"role": ["user"], "content": [{"type": "text", "value": "hi"}]},
+            {"role": "assistant", "content": [{"type": "text", "value": "hello"}]},
+        ],
+        [
+            # unhashable content-part type, same defect one level down
+            {"role": "user", "content": [{"type": {"t": "text"}, "value": "hi"}]},
+            {"role": "assistant", "content": [{"type": "text", "value": "hello"}]},
+        ],
     ],
     ids=[
         "no-assistant-turn",
@@ -216,6 +227,8 @@ def test_filter_empty_turn_one_blank_part_among_non_blank_ones():
         "content-part-invalid-type",
         "content-part-value-not-a-string",
         "content-part-extra-key",
+        "unhashable-role",
+        "unhashable-content-part-type",
     ],
 )
 def test_bad_structure_dropped_not_crashed(conversation):
@@ -390,10 +403,10 @@ def test_scrub_property_idempotent_no_pii_bounded_length(text):
 
 
 def test_clean_command_missing_run_id_is_a_usage_error():
-    """PR #7 review round 1 finding 5: `clean_command` is exercised at least once via
-    CliRunner, matching the exit-code-assertion convention (docs/08-test-specs/README.md) --
-    every other case in this file calls `clean_record`/`scrub` directly, which never
-    touches the click wiring (the `--run-id`/`--config` options, `sys.exit`) at all."""
+    """CLN-U-011: `clean_command` is exercised at least once via CliRunner, matching the
+    exit-code-assertion convention (docs/08-test-specs/README.md) -- every other case in
+    this file calls `clean_record`/`scrub` directly, which never touches the click wiring
+    (the `--run-id`/`--config` options, `sys.exit`) at all."""
     result = CliRunner().invoke(clean_command, [])
     assert result.exit_code != 0
     assert "run-id" in result.output.lower()
