@@ -23,19 +23,21 @@ EMAIL_RE = re.compile(
     r"\.[A-Za-z]{2,}"
 )
 
-# Three shapes, each anchored to the exact digit-group layout of a real phone number so
+# Four shapes, each anchored to the exact digit-group layout of a real phone number so
 # structurally-similar non-phone strings don't match:
 #   +1 (555) 123-4567   -- country code, parenthesized area code, hyphenated local number
+#   (555) 123-4567       -- same, without the country code (PR #7 review round 1 finding 4)
 #   +44 20 7946 0958     -- country code, then 2-4 space-separated digit groups
 #   555-123-4567         -- bare 3-3-4 hyphenated groups
 # None of these accept `.` as a separator, which is what keeps a version string like
 # `v2.10.3` out. The 3-3-4 shape is what distinguishes a hyphenated phone number from an
 # ISO date (4-2-2, e.g. `2026-07-20`) using the same hyphen separator. A bare digit run
-# with no separator at all (a zip code, `port 8080`) never matches any of the three shapes.
+# with no separator at all (a zip code, `port 8080`) never matches any of the four shapes.
 PHONE_RE = re.compile(
     r"(?<!\d)"
     r"(?:"
     r"\+\d{1,3}[ ]?\(\d{3}\)[ ]?\d{3}[-\s]?\d{4}"
+    r"|\(\d{3}\)[ ]?\d{3}[-\s]?\d{4}"
     r"|\+\d{1,3}(?:[ ]\d{2,4}){2,4}"
     r"|\d{3}-\d{3}-\d{4}"
     r")"

@@ -135,11 +135,20 @@ def test_judge_model_empty_string_accepted_at_load(tmp_path):
         lambda d: d["judge"].update(threshold="high"),
         lambda d: d["judge"].update(max_concurrency=-1),
         lambda d: d["tokenize"].update(eval_fraction=1.5),
+        lambda d: d["clean"].update(pii=["ssn"]),
     ],
-    ids=["threshold-wrong-type", "negative-max-concurrency", "eval-fraction-out-of-range"],
+    ids=[
+        "threshold-wrong-type",
+        "negative-max-concurrency",
+        "eval-fraction-out-of-range",
+        "unknown-pii-scrubber",
+    ],
 )
 def test_type_and_range_errors_rejected(tmp_path, mutate):
-    """CORE-U-006: type/range errors are each rejected with a field-specific error."""
+    """CORE-U-006: type/range errors are each rejected with a field-specific error. An
+    unknown clean.pii scrubber name (PR #7 review round 1 finding 3) must fail here, at
+    config-load time, rather than reach tuner.cleaner.rules.scrub()'s lookup and raise an
+    uncaught KeyError deep in a Cleaner run."""
     data = _base_config_dict()
     mutate(data)
     path = _write_config(tmp_path, data)

@@ -118,24 +118,31 @@ def clean(run_id: str, config_path: str, storage: StorageClient | None = None) -
             return 3
 
         storage.write_jsonl(SILVER_BUCKET, f"{run_id}/records-00000.jsonl", silver_records)
+
+        manifest = TierManifest(
+            tier="silver",
+            run_id=run_id,
+            created_at=_utc_now(),
+            producer=ManifestProducer(stage=STAGE, version=STAGE_VERSION),
+            input=ManifestInputRef(
+                tier="bronze", manifest_uri=f"s3://{BRONZE_BUCKET}/{run_id}/manifest.json"
+            ),
+            files=["records-00000.jsonl"],
+            records_hash=records_hash([_shard_bytes(silver_records)]),
+            counts=ManifestCounts(
+                read=total_read, written=total_written, dropped=sum(drops.values())
+            ),
+            drops=[
+                ManifestDrop(reason=reason, count=count) for reason, count in sorted(drops.items())
+            ],
+        )
+        storage.write_json(
+            SILVER_BUCKET, f"{run_id}/manifest.json", manifest.model_dump(mode="json")
+        )
     except Exception as exc:  # unexpected mid-run failure (I/O, storage, ...) -> exit 1
         click.echo(f"clean: {exc}", err=True)
         return 1
 
-    manifest = TierManifest(
-        tier="silver",
-        run_id=run_id,
-        created_at=_utc_now(),
-        producer=ManifestProducer(stage=STAGE, version=STAGE_VERSION),
-        input=ManifestInputRef(
-            tier="bronze", manifest_uri=f"s3://{BRONZE_BUCKET}/{run_id}/manifest.json"
-        ),
-        files=["records-00000.jsonl"],
-        records_hash=records_hash([_shard_bytes(silver_records)]),
-        counts=ManifestCounts(read=total_read, written=total_written, dropped=sum(drops.values())),
-        drops=[ManifestDrop(reason=reason, count=count) for reason, count in sorted(drops.items())],
-    )
-    storage.write_json(SILVER_BUCKET, f"{run_id}/manifest.json", manifest.model_dump(mode="json"))
     return 0
 
 

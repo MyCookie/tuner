@@ -21,6 +21,7 @@ DROP_REASONS = frozenset(
 )
 
 _VALID_ROLES = frozenset({"system", "user", "assistant"})
+_VALID_CONTENT_TYPES = frozenset({"text", "image", "audio"})
 _SCRUBBERS: dict[str, re.Pattern[str]] = {"email": EMAIL_RE, "phone": PHONE_RE}
 _BLANK_LINE_RUN_RE = re.compile(r"\n{4,}")
 
@@ -131,7 +132,11 @@ def _is_well_structured(turns: list[Any]) -> bool:
         if not isinstance(content, list) or len(content) < 1:
             return False
         for part in content:
-            if not isinstance(part, dict) or "type" not in part or "value" not in part:
+            if not isinstance(part, dict) or set(part.keys()) != {"type", "value"}:
+                return False
+            if part["type"] not in _VALID_CONTENT_TYPES:
+                return False
+            if not isinstance(part["value"], str):
                 return False
         roles.append(role)
 
@@ -158,10 +163,13 @@ def _scrub_turns(turns: list[dict[str, Any]], pii_scrubbers: Iterable[str]) -> l
 
 
 def _turn_is_empty(turn: dict[str, Any]) -> bool:
+    """True if the turn has any text part that's blank after scrub. `any`, not `all`: the
+    Multimodal Contract requires *every* ContentPart's text be non-empty after trim
+    (02-data-contracts.md §2), so a turn with one blank text part alongside a non-blank one
+    is just as unwritable as a turn that's blank all over -- keeping it would produce Silver
+    output that fails its own schema."""
     text_values = [p["value"] for p in turn["content"] if p.get("type") == "text"]
-    if not text_values:
-        return False
-    return all(not value.strip() for value in text_values)
+    return any(not value.strip() for value in text_values)
 
 
 def _total_chars(turns: list[dict[str, Any]]) -> int:

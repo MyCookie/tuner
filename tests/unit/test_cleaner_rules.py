@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import pytest
+from click.testing import CliRunner
 from hypothesis import given
 from hypothesis import strategies as st
 
+from tuner.cleaner.cli import clean_command
 from tuner.cleaner.patterns import EMAIL_RE, PHONE_RE
 from tuner.cleaner.rules import Deduplicator, clean_record, scrub
 from tuner.core.config import IngestSourceMapping
@@ -58,11 +60,12 @@ def test_email_negatives_unchanged(text):
 
 @pytest.mark.parametrize(
     "phone",
-    ["+1 (555) 123-4567", "555-123-4567", "+44 20 7946 0958"],
-    ids=["us-parens", "us-hyphen", "uk-intl"],
+    ["+1 (555) 123-4567", "(555) 123-4567", "555-123-4567", "+44 20 7946 0958"],
+    ids=["us-parens-intl", "us-parens-no-country-code", "us-hyphen", "uk-intl"],
 )
 def test_phone_scrubbed(phone):
-    """CLN-U-003: phone scrubber replaces each format with [PHONE]."""
+    """CLN-U-003: phone scrubber replaces each format with [PHONE], including a
+    parenthesized area code with no country code (PR #7 review round 1 finding 4)."""
     assert scrub(f"Call {phone} anytime.") == "Call [PHONE] anytime."
 
 
@@ -114,6 +117,27 @@ def test_filter_empty_turn():
     assert (turns, reason) == (None, "empty_turn")
 
 
+def test_filter_empty_turn_one_blank_part_among_non_blank_ones():
+    """CLN-U-007 (PR #7 review round 1 finding 1): a turn with one blank text part
+    alongside a non-blank one also drops empty_turn -- every ContentPart's text must be
+    non-empty after trim (02-data-contracts.md §2), so "some parts blank" is just as
+    unwritable as "all parts blank", not something that silently keeps only the good part."""
+    conversation = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "value": "A perfectly good question."},
+                {"type": "text", "value": "   "},
+            ],
+        },
+        {"role": "assistant", "content": [{"type": "text", "value": "A perfectly good answer."}]},
+    ]
+    turns, reason = _clean(
+        {"conversation": conversation}, source_type="jsonl", mapping=None, min_chars=1
+    )
+    assert (turns, reason) == (None, "empty_turn")
+
+
 @pytest.mark.parametrize(
     "conversation",
     [
@@ -158,6 +182,19 @@ def test_filter_empty_turn():
             {"role": "narrator", "content": [{"type": "text", "value": "hi"}]},
             {"role": "assistant", "content": [{"type": "text", "value": "hello"}]},
         ],
+        [
+            {"role": "user", "content": [{"type": "video", "value": "hi"}]},  # invalid type
+            {"role": "assistant", "content": [{"type": "text", "value": "hello"}]},
+        ],
+        [
+            {"role": "user", "content": [{"type": "text", "value": 42}]},  # value not a str
+            {"role": "assistant", "content": [{"type": "text", "value": "hello"}]},
+        ],
+        [
+            # extra key beyond type/value -- ContentPart is `extra="forbid"`
+            {"role": "user", "content": [{"type": "text", "value": "hi", "lang": "en"}]},
+            {"role": "assistant", "content": [{"type": "text", "value": "hello"}]},
+        ],
     ],
     ids=[
         "no-assistant-turn",
@@ -170,6 +207,9 @@ def test_filter_empty_turn():
         "content-part-not-a-dict",
         "content-part-missing-value",
         "invalid-role",
+        "content-part-invalid-type",
+        "content-part-value-not-a-string",
+        "content-part-extra-key",
     ],
 )
 def test_bad_structure_dropped_not_crashed(conversation):
@@ -341,3 +381,13 @@ def test_scrub_property_idempotent_no_pii_bounded_length(text):
     assert EMAIL_RE.search(once) is None
     assert PHONE_RE.search(once) is None
     assert len(once) <= 8 * len(text) + 8
+
+
+def test_clean_command_missing_run_id_is_a_usage_error():
+    """PR #7 review round 1 finding 5: `clean_command` is exercised at least once via
+    CliRunner, matching the exit-code-assertion convention (docs/08-test-specs/README.md) --
+    every other case in this file calls `clean_record`/`scrub` directly, which never
+    touches the click wiring (the `--run-id`/`--config` options, `sys.exit`) at all."""
+    result = CliRunner().invoke(clean_command, [])
+    assert result.exit_code != 0
+    assert "run-id" in result.output.lower()
