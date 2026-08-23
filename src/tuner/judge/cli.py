@@ -30,6 +30,7 @@ from tuner.core.schemas import (
     ManifestProducer,
     SilverGoldRecord,
     TierManifest,
+    validate_gold,
 )
 from tuner.core.storage import StorageClient
 from tuner.judge.client import build_http_client, normalize_score, score_record
@@ -187,10 +188,14 @@ def judge(
                 # (above): parse_reply already rejects a non-string reasoning, but a
                 # Gold record is still worth validating against the contract itself
                 # before it's committed, not just trusted because it was built here
-                # (PR #8 review round 5 finding 1). A failure here is this stage's own
-                # bug, not a config/input problem -- it propagates to the generic
-                # exit-1 handler below rather than being caught as a drop.
-                SilverGoldRecord.model_validate(gold_record)
+                # (PR #8 review round 5 finding 1). validate_gold, not a bare
+                # SilverGoldRecord.model_validate, since a Gold record's evaluation must
+                # be non-null -- the Silver-side check above allows null, correctly,
+                # since Silver hasn't been judged yet (round 6 minor finding 2). A
+                # failure here is this stage's own bug, not a config/input problem -- it
+                # propagates to the generic exit-1 handler below rather than being
+                # caught as a drop.
+                validate_gold(gold_record)
                 gold_records.append(gold_record)
             else:
                 drops["below_threshold"] = drops.get("below_threshold", 0) + 1

@@ -152,8 +152,13 @@ def parse_reply(text: str) -> tuple[int, str]:
         score = obj["score"]
         # `type(...) is int`, not `isinstance`: bool is an int subclass in Python, and a
         # float/str score (even "7" or 7.0) must be rejected, not coerced (JDG-U-013).
+        # The message reports only the value's type, not the value itself -- an invalid
+        # score could in principle be an arbitrarily long string, and round 4 finding 3
+        # already established that unbounded judge output has no place in a log line.
         if type(score) is not int or not (1 <= score <= 10):
-            raise ParseError(f"first score object had an invalid score: {obj!r}")
+            raise ParseError(
+                f"first score object had an invalid score of type {type(score).__name__}"
+            )
 
         # `reasoning` gets the same strictness as `score`, not a free pass:
         # `evaluation.reasoning` is a required `str` field (docs/02-data-contracts.md §2,
@@ -164,7 +169,9 @@ def parse_reply(text: str) -> tuple[int, str]:
         # (PR #8 review round 5 finding 1).
         reasoning = obj.get("reasoning", "")
         if not isinstance(reasoning, str):
-            raise ParseError(f"first score object had a non-string reasoning: {obj!r}")
+            raise ParseError(
+                f"first score object had a non-string reasoning of type {type(reasoning).__name__}"
+            )
 
         return score, reasoning
 
@@ -235,8 +242,21 @@ def score_record(
 
         try:
             content = response.json()["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError, ValueError):
+            continue  # malformed reply shape -- retryable (JDG-U-012)
+
+        # A non-string content -- `null` (the standard shape for a refusal or a
+        # tool-call-only message) or a content-parts list -- isn't something
+        # parse_reply can scan; passing it through raised an uncaught AttributeError
+        # (`.find` on a non-str) that escaped score_record entirely and aborted the
+        # whole run with exit 1 instead of being retried like any other malformed reply
+        # (PR #8 review round 6 finding 1).
+        if not isinstance(content, str):
+            continue  # retryable, same as any other malformed reply (JDG-U-030)
+
+        try:
             return parse_reply(content)
-        except (ParseError, KeyError, IndexError, TypeError, ValueError):
+        except ParseError:
             continue  # malformed reply -- retryable (JDG-U-012)
 
     return None

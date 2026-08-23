@@ -332,14 +332,23 @@ def test_score_record_fatal_status_returns_none_without_further_retries():
 
 
 def test_score_record_malformed_reply_body_is_retried():
-    """JDG-U-021: a 200 response whose body doesn't parse to a valid score (missing
-    'choices', or parse_reply itself raising ParseError) is retried, not fatal."""
-    client = _FakeClient([_FakeResponse(200, {"unexpected": "shape"}), _ok_response(6)])
+    """JDG-U-021: a 200 response whose body doesn't parse to a valid score -- either the
+    response shape itself is malformed (missing 'choices') or the content is a string
+    that parse_reply itself rejects (garbage, no JSON) -- is retried, not fatal. These
+    are two distinct except blocks in score_record (split apart in round 6 to catch a
+    non-string content separately, JDG-U-030), so both need their own coverage here."""
+    client = _FakeClient(
+        [
+            _FakeResponse(200, {"unexpected": "shape"}),
+            _FakeResponse(200, {"choices": [{"message": {"content": "not json at all"}}]}),
+            _ok_response(6),
+        ]
+    )
 
-    result = score_record(client, "m", _CONVERSATION, max_retries=1, sleep=lambda s: None)
+    result = score_record(client, "m", _CONVERSATION, max_retries=2, sleep=lambda s: None)
 
     assert result == (6, "fine")
-    assert client.calls == 2
+    assert client.calls == 3
 
 
 def test_score_record_exhausts_retries_returns_none():
@@ -350,4 +359,24 @@ def test_score_record_exhausts_retries_returns_none():
     result = score_record(client, "m", _CONVERSATION, max_retries=2, sleep=lambda s: None)
 
     assert result is None
+    assert client.calls == 3
+
+
+def test_score_record_non_string_content_is_retried_not_raised():
+    """JDG-U-030: a 200 reply whose `message.content` is `null` (the standard OpenAI
+    shape for a refusal or a tool-call-only message) or a content-parts list is
+    malformed and retried like any other malformed reply -- not an uncaught
+    AttributeError that escapes score_record entirely and aborts the whole run with
+    exit 1 instead of a per-record retry-then-drop (PR #8 review round 6 finding 1)."""
+    client = _FakeClient(
+        [
+            _FakeResponse(200, {"choices": [{"message": {"content": None}}]}),
+            _FakeResponse(200, {"choices": [{"message": {"content": [{"type": "text"}]}}]}),
+            _ok_response(6),
+        ]
+    )
+
+    result = score_record(client, "m", _CONVERSATION, max_retries=2, sleep=lambda s: None)
+
+    assert result == (6, "fine")
     assert client.calls == 3
