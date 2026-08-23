@@ -51,7 +51,11 @@ class IngestConfig(_Strict):
 class CleanConfig(_Strict):
     min_chars: int = Field(default=20, ge=0)
     max_chars: int = Field(default=32000, ge=0)
-    pii: list[str] = Field(default_factory=lambda: ["email", "phone"])
+    # Literal, not `list[str]`: an unknown scrubber name (e.g. "ssn", not yet implemented)
+    # must fail at config-load time (exit 2 via ConfigError) rather than reach
+    # tuner.cleaner.rules.scrub()'s lookup and raise an uncaught KeyError there
+    # (PR #7 review round 1 finding 3).
+    pii: list[Literal["email", "phone"]] = Field(default_factory=lambda: ["email", "phone"])
 
 
 class JudgeConfig(_Strict):

@@ -1,7 +1,7 @@
 """`tuner` entrypoint — subcommand skeleton (01-architecture.md §4.4).
 
-`ingest` is real (T06); the rest of STAGES plus `run` are still T01 stubs that
-exit 1 until their build task implements them.
+`ingest` (T06) and `clean` (T07) are real; the rest of STAGES plus `run` are still T01
+stubs that exit 1 until their build task implements them.
 """
 
 from __future__ import annotations
@@ -10,10 +10,11 @@ import sys
 
 import click
 
+from tuner.cleaner.cli import clean_command
 from tuner.core.config import DEFAULT_CONFIG_PATH
 from tuner.ingestor.cli import ingest_command
 
-STAGES = ("clean", "judge", "tokenize", "train", "smoke")
+STAGES = ("judge", "tokenize", "train", "smoke")
 
 
 @click.group()
@@ -38,6 +39,7 @@ def _make_stage_stub(stage: str) -> click.Command:
 
 
 cli.add_command(ingest_command)
+cli.add_command(clean_command)
 for _stage in STAGES:
     cli.add_command(_make_stage_stub(_stage))
 

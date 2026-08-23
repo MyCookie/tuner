@@ -66,7 +66,7 @@ A spec ambiguity found along the way is resolved **in the docs**, not in a code 
 
 ### T07 — Cleaner
 **Files:** `src/tuner/cleaner/` (`patterns.py`, `rules.py`, `cli.py`), `tests/unit/test_cleaner_rules.py`, `tests/integration/test_cleaner.py`.
-**Suite:** `CLN-U-001..010`, `CLN-U-020..024`, `CLN-U-030`, `CLN-I-030..036` ([08 cleaner.md](08-test-specs/cleaner.md)).
+**Suite:** `CLN-U-001..011`, `CLN-U-020..024`, `CLN-U-030`, `CLN-I-030..036` ([08 cleaner.md](08-test-specs/cleaner.md)).
 **Spec:** [cleaner.md](03-components/cleaner.md).
 **Verify:** integration test asserts drop counts equal `expected_counts.json`.
 
