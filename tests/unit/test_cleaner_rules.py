@@ -167,6 +167,11 @@ def test_filter_empty_turn_one_blank_part_among_non_blank_ones():
             {"role": "assistant", "content": [{"type": "text", "value": "hello"}]},
         ],
         [
+            # extra key beyond role/content -- Turn is `extra="forbid"` (PR #7 review round 2)
+            {"role": "user", "content": [{"type": "text", "value": "hi"}], "name": "bob"},
+            {"role": "assistant", "content": [{"type": "text", "value": "hello"}]},
+        ],
+        [
             {"role": "user", "content": "not array-wrapped"},
             {"role": "assistant", "content": [{"type": "text", "value": "hello"}]},
         ],
@@ -203,6 +208,7 @@ def test_filter_empty_turn_one_blank_part_among_non_blank_ones():
         "system-not-first",
         "single-turn",
         "turn-not-a-dict",
+        "turn-extra-key",
         "content-not-array-wrapped",
         "content-part-not-a-dict",
         "content-part-missing-value",

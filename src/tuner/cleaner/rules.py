@@ -123,7 +123,7 @@ def _is_well_structured(turns: list[Any]) -> bool:
 
     roles = []
     for turn in turns:
-        if not isinstance(turn, dict):
+        if not isinstance(turn, dict) or set(turn.keys()) != {"role", "content"}:
             return False
         role = turn.get("role")
         content = turn.get("content")
