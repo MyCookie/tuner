@@ -18,6 +18,7 @@ from tests.mock_judge.app import app as mock_app
 from tests.mock_judge.app import reset_state
 
 from tuner.core.ids import canonical_hash, new_record_id
+from tuner.core.schemas import SilverGoldRecord
 from tuner.core.storage import StorageClient
 from tuner.judge.cli import judge
 from tuner.judge.prompts import RUBRIC_V1, render_rubric_prompt
@@ -45,12 +46,19 @@ def mock_http_client():
 
 
 @pytest.fixture(autouse=True)
-def _judge_base_url_env(monkeypatch):
-    """Every case except JDG-I-027's own parametrization needs this set -- the judge()
-    entrypoint checks it exists before doing anything, even though the injected
-    `http_client` fixture never actually dials out to it."""
+def _judge_env(tmp_path, monkeypatch):
+    """Every case except JDG-I-027's own parametrization needs TUNER_JUDGE_BASE_URL set --
+    the judge() entrypoint checks it exists before doing anything, even though the
+    injected `http_client` fixture never actually dials out to it. MLFLOW_TRACKING_URI is
+    needed by every case that reaches a successful promotion (_log_to_mlflow runs
+    unconditionally on that path) -- file-backed per-test, matching
+    docs/08-test-specs/judge.md's Setup note ("no server needed"), not the ambient
+    environment's real compose server, which would make every case here depend on
+    docker being up regardless of what it's actually testing."""
     monkeypatch.setenv("TUNER_JUDGE_BASE_URL", "http://mock-judge")
     monkeypatch.setenv("TUNER_JUDGE_API_KEY", "unused-mock-key")
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", (tmp_path / "mlruns").as_uri())
+    monkeypatch.setenv("MLFLOW_ALLOW_FILE_STORE", "true")
 
 
 def _write_config(
@@ -163,6 +171,7 @@ def test_promoted_records_evaluation_fully_populated(storage, run_id, tmp_path, 
         assert judge(run_id, str(config_path), storage=storage, http_client=mock_http_client) == 0
 
         [gold] = _records(storage, GOLD_BUCKET, run_id)
+        SilverGoldRecord.model_validate(gold)
         assert gold["id"] == silver["id"]
         assert gold["lineage"] == silver["lineage"]
         assert gold["evaluation"]["score"] == 0.9
@@ -252,7 +261,10 @@ def test_transient_failure_recovers_on_retry(storage, run_id, tmp_path, mock_htt
 @pytest.mark.integration
 def test_max_concurrency_respected(storage, run_id, tmp_path, mock_http_client):
     """JDG-I-025: max_concurrency=3 with a mock that records concurrent in-flight count ->
-    peak in-flight <= 3."""
+    peak in-flight <= 3. Also asserts >= 2 (not just the upper bound): 10 records, an
+    artificial per-call delay, and 3 workers should make concurrency observable, not
+    just theoretically bounded -- a fully-serialized implementation would still pass a
+    bare "<= 3" and this is meant to catch that."""
     records = [_silver_record(run_id, f"Q{i}", f"A{i}") for i in range(10)]
     _seed_silver(storage, run_id, records)
     config_path = _write_config(tmp_path, max_concurrency=3)
@@ -266,23 +278,19 @@ def test_max_concurrency_respected(storage, run_id, tmp_path, mock_http_client):
             sleep=lambda s: None,
         )
         assert exit_code == 0
-        assert mock_app.state.peak_in_flight <= 3
+        assert 2 <= mock_app.state.peak_in_flight <= 3
     finally:
         _cleanup(storage, run_id)
 
 
 @pytest.mark.integration
-def test_mlflow_run_logged(storage, run_id, tmp_path, mock_http_client, monkeypatch):
+def test_mlflow_run_logged(storage, run_id, tmp_path, mock_http_client):
     """JDG-I-026: MLflow run exists tagged tuner.run_id and tuner.stage: judge; params
     judge model/threshold/rubric version; metrics mean/median/promotion_rate/
-    judge_error_rate; a score histogram artifact is present."""
+    judge_error_rate; a score histogram artifact is present. MLFLOW_TRACKING_URI (a
+    file-backed temp dir, per docs/08-test-specs/judge.md's Setup note) is already set
+    by the autouse _judge_env fixture, same as every other case in this file."""
     mlflow_dir = tmp_path / "mlruns"
-    monkeypatch.setenv("MLFLOW_TRACKING_URI", mlflow_dir.as_uri())
-    # Newer MLflow treats the file store as maintenance-mode-only and refuses it outright
-    # unless explicitly allowed -- a test-environment concession only; production always
-    # points MLFLOW_TRACKING_URI at a real server (docs/08-test-specs/judge.md Setup still
-    # calls for file-backed tracking here, "no server needed").
-    monkeypatch.setenv("MLFLOW_ALLOW_FILE_STORE", "true")
     records = [
         _silver_record(run_id, f"Q{i}", f"A{i} [[score={score}]]")
         for i, score in enumerate([5, 7, 8, 9])

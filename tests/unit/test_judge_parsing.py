@@ -63,19 +63,39 @@ def test_clean_json_reply_extracted():
 
 
 @pytest.mark.parametrize(
-    "reply",
+    "reply, expected_score",
     [
-        'Sure, here is my evaluation: {"score": 9, "reasoning": "Excellent."}',
-        '```json\n{"score": 6, "reasoning": "Adequate."}\n```',
-        'Let me think...\n```json\n{"score": 8, "reasoning": "Good."}\n```\nDone.',
+        ('Sure, here is my evaluation: {"score": 9, "reasoning": "Excellent."}', 9),
+        ('```json\n{"score": 6, "reasoning": "Adequate."}\n```', 6),
+        ('Let me think...\n```json\n{"score": 8, "reasoning": "Good."}\n```\nDone.', 8),
+        # Two JSON objects in one reply: the FIRST one wins, not the last.
+        ('{"score": 3, "reasoning": "first"} then: {"score": 9, "reasoning": "second"}', 3),
+        # A brace inside the reasoning string itself must not truncate extraction --
+        # a naive non-greedy `\{.*?\}` regex stops at *a* `}`, not necessarily the
+        # object's own closing one (PR #8 review round 1 finding 4).
+        ('{"score": 7, "reasoning": "the answer used {curly braces} correctly"}', 7),
+        # A genuinely nested object: the inner `}` must not end extraction early.
+        ('{"score": 7, "reasoning": "ok", "meta": {"nested": true}}', 7),
+        # An escaped quote inside the string must not be mistaken for the string's end
+        # (which would then miscount a later structural brace as inside/outside a string).
+        (r'{"score": 7, "reasoning": "she said \"hi\" back"}', 7),
     ],
-    ids=["leading-prose", "json-fence", "leading-prose-and-fence"],
+    ids=[
+        "leading-prose",
+        "json-fence",
+        "leading-prose-and-fence",
+        "two-objects-first-wins",
+        "brace-inside-reasoning-string",
+        "nested-object",
+        "escaped-quote-inside-string",
+    ],
 )
-def test_json_embedded_in_prose_extracted(reply):
-    """JDG-U-011: JSON embedded in prose (```json fences, leading text) -- first JSON
-    object extracted."""
+def test_json_embedded_in_prose_extracted(reply, expected_score):
+    """JDG-U-011: JSON embedded in prose (```json fences, leading text, a second JSON
+    object later in the reply, a brace inside the reasoning string itself) -- the first
+    complete JSON object is extracted, exactly."""
     score, _ = parse_reply(reply)
-    assert isinstance(score, int)
+    assert score == expected_score
 
 
 @pytest.mark.parametrize(
@@ -85,8 +105,15 @@ def test_json_embedded_in_prose_extracted(reply):
         "{}",
         '{"reasoning": "no score field"}',
         "{not valid json}",
+        '{"score": 7, "reasoning": "unterminated',
     ],
-    ids=["no-json", "empty-object", "json-without-score", "brace-shaped-but-invalid"],
+    ids=[
+        "no-json",
+        "empty-object",
+        "json-without-score",
+        "brace-shaped-but-invalid",
+        "unclosed-brace",
+    ],
 )
 def test_garbage_or_missing_score_raises_parse_error(reply):
     """JDG-U-012: garbage / no JSON / JSON without score -> ParseError (counts as a
@@ -119,6 +146,11 @@ def test_normalization_exact():
         (500, True),
         (502, True),
         (503, True),
+        # 504/599 are not in any small fixed set of "known" 5xx codes -- PR #8 review
+        # round 1 found an earlier version narrowed to {429, 500, 502, 503} exactly,
+        # silently treating every other 5xx as fatal. "429/5xx" means *every* 5xx.
+        (504, True),
+        (599, True),
         ("timeout", True),
         (400, False),
         (401, False),
@@ -126,7 +158,7 @@ def test_normalization_exact():
     ],
 )
 def test_retryability_classifier(outcome, expected):
-    """JDG-U-015: 429/5xx/timeout retryable; 400/401/404 fatal (core logic 3)."""
+    """JDG-U-015: 429/any 5xx/timeout retryable; 400/401/404 fatal (core logic 3)."""
     assert is_retryable(outcome) is expected
 
 
@@ -169,8 +201,8 @@ def test_rubric_prompt_rendering_three_turn_conversation():
 
 
 def test_build_http_client_configures_base_url_and_auth_header():
-    """build_http_client wires the base URL and bearer-token header a real endpoint
-    needs; a falsy api_key sends no Authorization header at all."""
+    """JDG-U-018: build_http_client wires the base URL and bearer-token header a real
+    endpoint needs; a falsy api_key sends no Authorization header at all."""
     with build_http_client("http://example.test", "secret-key") as client:
         assert str(client.base_url) == "http://example.test"
         assert client.headers["authorization"] == "Bearer secret-key"
@@ -180,8 +212,8 @@ def test_build_http_client_configures_base_url_and_auth_header():
 
 
 def test_score_record_transport_error_is_retried():
-    """A transport-level failure (no HTTP response at all) is retried like a timeout,
-    not treated as fatal -- the second attempt succeeds."""
+    """JDG-U-019: a transport-level failure (no HTTP response at all) is retried like a
+    timeout, not treated as fatal -- the second attempt succeeds."""
     client = _FakeClient([httpx.ConnectError("boom"), _ok_response(8)])
 
     result = score_record(client, "m", _CONVERSATION, max_retries=1, sleep=lambda s: None)
@@ -191,8 +223,8 @@ def test_score_record_transport_error_is_retried():
 
 
 def test_score_record_fatal_status_returns_none_without_further_retries():
-    """A fatal (non-retryable) status stops the attempt loop immediately -- it doesn't
-    spend the rest of max_retries retrying something that will never succeed."""
+    """JDG-U-020: a fatal (non-retryable) status stops the attempt loop immediately --
+    it doesn't spend the rest of max_retries retrying something that will never succeed."""
     client = _FakeClient([_FakeResponse(404)])
 
     result = score_record(client, "m", _CONVERSATION, max_retries=3, sleep=lambda s: None)
@@ -202,8 +234,8 @@ def test_score_record_fatal_status_returns_none_without_further_retries():
 
 
 def test_score_record_malformed_reply_body_is_retried():
-    """A 200 response whose body doesn't parse to a valid score (missing 'choices', or
-    parse_reply itself raising ParseError) is retried, not treated as fatal."""
+    """JDG-U-021: a 200 response whose body doesn't parse to a valid score (missing
+    'choices', or parse_reply itself raising ParseError) is retried, not fatal."""
     client = _FakeClient([_FakeResponse(200, {"unexpected": "shape"}), _ok_response(6)])
 
     result = score_record(client, "m", _CONVERSATION, max_retries=1, sleep=lambda s: None)
@@ -213,8 +245,8 @@ def test_score_record_malformed_reply_body_is_retried():
 
 
 def test_score_record_exhausts_retries_returns_none():
-    """Every attempt failing with a retryable status exhausts max_retries and reports
-    judge_error (None) rather than raising."""
+    """JDG-U-022: every attempt failing with a retryable status exhausts max_retries and
+    reports judge_error (None) rather than raising."""
     client = _FakeClient([_FakeResponse(500), _FakeResponse(500), _FakeResponse(500)])
 
     result = score_record(client, "m", _CONVERSATION, max_retries=2, sleep=lambda s: None)

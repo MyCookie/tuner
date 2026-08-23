@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import random
-import re
 import time
 from collections.abc import Callable
 from typing import Any, Literal
@@ -18,17 +17,55 @@ from tuner.judge.prompts import render_rubric_prompt
 BASE_DELAY_SECONDS = 2.0
 MAX_DELAY_SECONDS = 60.0
 
-# 429 and 5xx are transient-endpoint signals worth retrying; other 4xx are the endpoint
-# telling us the request itself is wrong, so retrying changes nothing (judge.md core
-# logic 3). A timeout or any other transport-level failure (no status code at all) is
-# grouped with "timeout" -- there's no response to classify, so it's retried the same way.
-_RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503})
-
-_JSON_OBJECT_RE = re.compile(r"\{.*?\}", re.DOTALL)
+# 429 and any 5xx are transient-endpoint signals worth retrying; other 4xx are the
+# endpoint telling us the request itself is wrong, so retrying changes nothing (judge.md
+# core logic 3, literally "429/5xx"). A timeout or any other transport-level failure (no
+# status code at all) is grouped with "timeout" -- there's no response to classify, so
+# it's retried the same way. PR #8 review round 1 found an earlier version of this
+# narrowed to a fixed set of three 5xx codes {500, 502, 503}, silently treating every
+# other 5xx (504, 520, ...) as fatal.
+_RETRYABLE_4XX = frozenset({429})
 
 
 class ParseError(Exception):
     """The judge's reply had no valid `{"score": <int 1-10>, "reasoning": ...}` JSON object."""
+
+
+def _find_first_json_object(text: str) -> str | None:
+    """The substring of the first balanced `{...}` in `text`, or None if there isn't one.
+
+    Not a regex (`\\{.*?\\}` can't do this correctly): a non-greedy brace regex stops at
+    the *first* closing brace, which can be inside the JSON string content itself --
+    `{"score": 7, "reasoning": "use {braces} here"}` would extract just
+    `{"score": 7, "reasoning": "use {braces}` and fail to parse. This scans character by
+    character, tracking string-literal state (respecting `\\"` escapes) so a brace inside
+    a quoted string never affects nesting depth (PR #8 review round 1 finding 4)."""
+    start = text.find("{")
+    if start == -1:
+        return None
+
+    depth = 0
+    in_string = False
+    escaped = False
+    for i in range(start, len(text)):
+        char = text[i]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : i + 1]
+    return None
 
 
 def parse_reply(text: str) -> tuple[int, str]:
@@ -36,11 +73,11 @@ def parse_reply(text: str) -> tuple[int, str]:
     [1, 10] (no float/str coercion — JDG-U-013), and return `(score, reasoning)`.
     Raises `ParseError` otherwise (JDG-U-010..013); a parse failure counts as a
     retryable attempt, not a fatal one (docs/03-components/judge.md scoring protocol)."""
-    match = _JSON_OBJECT_RE.search(text)
-    if match is None:
+    candidate = _find_first_json_object(text)
+    if candidate is None:
         raise ParseError(f"no JSON object found in reply: {text!r}")
     try:
-        obj = json.loads(match.group(0))
+        obj = json.loads(candidate)
     except json.JSONDecodeError as exc:
         raise ParseError(f"reply is not valid JSON: {text!r}") from exc
     if not isinstance(obj, dict) or "score" not in obj:
@@ -62,11 +99,11 @@ def normalize_score(score: int) -> float:
 
 
 def is_retryable(outcome: int | Literal["timeout"]) -> bool:
-    """JDG-U-015: 429/500/502/503 and "timeout" are retryable; every other status
+    """JDG-U-015: 429, any 5xx, and "timeout" are retryable; every other status
     (400/401/404, ...) is fatal (docs/03-components/judge.md core logic 3)."""
     if outcome == "timeout":
         return True
-    return outcome in _RETRYABLE_STATUS_CODES
+    return outcome in _RETRYABLE_4XX or 500 <= outcome < 600
 
 
 def backoff_delay(attempt: int, rng: random.Random) -> float:

@@ -90,6 +90,14 @@ def judge(
         )
         return 2
 
+    # Checked here, not just left to _log_to_mlflow's os.environ[...] lookup: without
+    # this, a missing MLFLOW_TRACKING_URI raised a KeyError only after the Gold shard and
+    # manifest were already committed -- exit 1 reporting failure on a run that had
+    # actually succeeded (PR #8 review round 1 finding 7).
+    if not os.environ.get("MLFLOW_TRACKING_URI"):
+        click.echo("judge: MLFLOW_TRACKING_URI must be set", err=True)
+        return 2
+
     storage = storage or StorageClient()
 
     try:
