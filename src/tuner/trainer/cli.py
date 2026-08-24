@@ -175,21 +175,28 @@ def train(
 
     with tempfile.TemporaryDirectory() as work_dir_str:
         work_dir = Path(work_dir_str)
-        tokens_dir = work_dir / "tokens"
-        storage.download_dir(ARTIFACTS_BUCKET, f"{run_id}/tokens/", tokens_dir)
 
-        train_tensors = st_load_file(str(tokens_dir / "train.safetensors"))
-        eval_tensors = st_load_file(str(tokens_dir / "eval.safetensors"))
-        train_dataset = _TensorDataset(train_tensors)
-        has_eval = eval_tensors["input_ids"].shape[0] > 0
-        eval_dataset = _TensorDataset(eval_tensors) if has_eval else None
-
-        mlflow.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"])
-        mlflow.set_experiment(config.train.mlflow_experiment)
-
-        out_subdir = "model" if config.train.method == "full" else "adapter"
-
+        # Everything through mlflow.start_run is inside the same try/except as the
+        # run body below: a failure downloading tokens, loading SafeTensors, or
+        # reaching the tracking server used to escape as a raw traceback instead of
+        # the "train: ..." message every other failure mode gets (exit code was
+        # already 1 either way, but the message wasn't -- PR #11 review round 2
+        # finding 3).
         try:
+            tokens_dir = work_dir / "tokens"
+            storage.download_dir(ARTIFACTS_BUCKET, f"{run_id}/tokens/", tokens_dir)
+
+            train_tensors = st_load_file(str(tokens_dir / "train.safetensors"))
+            eval_tensors = st_load_file(str(tokens_dir / "eval.safetensors"))
+            train_dataset = _TensorDataset(train_tensors)
+            has_eval = eval_tensors["input_ids"].shape[0] > 0
+            eval_dataset = _TensorDataset(eval_tensors) if has_eval else None
+
+            mlflow.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"])
+            mlflow.set_experiment(config.train.mlflow_experiment)
+
+            out_subdir = "model" if config.train.method == "full" else "adapter"
+
             with mlflow.start_run(run_name=run_id) as run:
                 try:
                     mlflow.set_tags(
@@ -233,8 +240,12 @@ def train(
                         # made every method: full run fail on hardware without CUDA --
                         # exactly the CPU-capable path this suite's own header and
                         # trainer.md's footnote promise (PR #11 review round 1 finding
-                        # 1). GPU training still gets bf16; CPU training runs fp32.
-                        bf16=torch.cuda.is_available(),
+                        # 1). Also checks the device's own bf16 support, not just CUDA
+                        # presence -- some CUDA devices lack bf16 tensor cores and
+                        # would hit the same failure the round-1 fix was meant to
+                        # prevent (PR #11 review round 2 finding 2). GPU training with
+                        # bf16 support gets bf16; everything else runs fp32.
+                        bf16=torch.cuda.is_available() and torch.cuda.is_bf16_supported(),
                         gradient_checkpointing=True,
                         logging_steps=10,
                         eval_strategy="epoch" if has_eval else "no",
@@ -266,7 +277,14 @@ def train(
                     model.save_pretrained(str(final_dir), safe_serialization=True)
                     hf_tokenizer.save_pretrained(str(final_dir))
 
-                    storage.delete_prefix(ARTIFACTS_BUCKET, f"{run_id}/{out_subdir}/")
+                    # Both possible output subdirs, not just this run's -- if
+                    # train.method flips between runs sharing a run_id, deleting only
+                    # out_subdir would leave the other method's stale output orphaned
+                    # under the same run prefix forever (PR #11 review round 2 finding
+                    # 3; idempotency per CLAUDE.md hard rule 4 means the whole run
+                    # prefix is rebuilt, not just the current method's slice of it).
+                    storage.delete_prefix(ARTIFACTS_BUCKET, f"{run_id}/model/")
+                    storage.delete_prefix(ARTIFACTS_BUCKET, f"{run_id}/adapter/")
                     storage.upload_dir(ARTIFACTS_BUCKET, f"{run_id}/{out_subdir}/", final_dir)
 
                     registry_manifest = RegistryManifest(

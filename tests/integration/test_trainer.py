@@ -16,6 +16,7 @@ registry manifest -- never to `{run_id}/tokens/`, which the shared fixture owns.
 from __future__ import annotations
 
 import dataclasses
+import math
 import os
 import tempfile
 from pathlib import Path
@@ -174,6 +175,17 @@ def _cleanup_model_output(storage: StorageClient, run_id: str, model_version: st
     storage.delete_prefix(REGISTRY_BUCKET, f"{model_version}/")
 
 
+def _parse_s3_uri(uri: str) -> tuple[str, str]:
+    # RegistryManifest URIs are "s3://bucket/key-or-prefix" (02-data-contracts.md
+    # §5.2). TRN-I-004 resolves the manifest's *own* field values against real
+    # storage with this -- rebuilding an equivalent-looking key independently, as the
+    # original version did, proves nothing about whether those fields are correct
+    # (PR #11 review round 2 finding 1).
+    assert uri.startswith("s3://"), f"not an s3:// URI: {uri!r}"
+    bucket, _, key = uri.removeprefix("s3://").partition("/")
+    return bucket, key
+
+
 def _all_object_keys(storage: StorageClient, bucket: str, prefix: str) -> list[str]:
     # StorageClient has no public "list" method (only read/write/delete verbs) --
     # download_dir gives us the same key set via the local file tree it produces,
@@ -205,8 +217,11 @@ def test_full_happy_path(storage, tokenized_run_id, tmp_path):
         assert manifest is not None
         train_loss = manifest["eval"]["final_train_loss"]
         eval_loss = manifest["eval"]["final_eval_loss"]
-        assert train_loss == train_loss  # not NaN
-        assert eval_loss == eval_loss  # not NaN
+        # math.isfinite rejects inf too, not just NaN -- `x == x` (the original
+        # check) is False only for NaN and would let a runaway/overflowed loss
+        # through silently (PR #11 review round 2 finding 4).
+        assert math.isfinite(train_loss)
+        assert math.isfinite(eval_loss)
     finally:
         _cleanup_model_output(storage, tokenized_run_id, model_version)
 
@@ -278,12 +293,18 @@ def test_registry_manifest_contents(storage, tokenized_run_id, tmp_path):
         assert manifest.base_model == TinyTestAdapter.hf_model_id
         assert manifest.method == "full"
 
-        assert storage.read_json(GOLD_BUCKET, f"{tokenized_run_id}/manifest.json") is not None
-        assert (
-            storage.read_json(ARTIFACTS_BUCKET, f"{tokenized_run_id}/tokens/index_map.json")
-            is not None
-        )
-        assert _all_object_keys(storage, ARTIFACTS_BUCKET, f"{tokenized_run_id}/model/")
+        # The manifest's *own* URI fields, not independently-rebuilt keys that happen
+        # to match by construction (PR #11 review round 2 finding 1: the original
+        # version asserted nothing about weights_uri/gold_manifest_uri/index_map_uri
+        # specifically -- a wrong URI in any of them would have gone undetected).
+        gold_bucket, gold_key = _parse_s3_uri(manifest.gold_manifest_uri)
+        assert storage.read_json(gold_bucket, gold_key) is not None
+
+        index_bucket, index_key = _parse_s3_uri(manifest.index_map_uri)
+        assert storage.read_json(index_bucket, index_key) is not None
+
+        weights_bucket, weights_prefix = _parse_s3_uri(manifest.weights_uri)
+        assert _all_object_keys(storage, weights_bucket, weights_prefix)
 
         found_run = mlflow.get_run(manifest.mlflow_run_id)
         assert found_run is not None
