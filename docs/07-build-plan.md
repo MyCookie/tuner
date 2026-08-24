@@ -84,7 +84,7 @@ A spec ambiguity found along the way is resolved **in the docs**, not in a code 
 
 ### T10 — Tokenizer
 **Files:** `src/tuner/tokenizer/` (`masking.py`, `split.py`, `cli.py`), `tests/unit/test_split.py`, `tests/unit/test_masking.py`, `tests/integration/test_tokenizer.py` (uses `tiny-test` adapter).
-**Suite:** `TOK-U-001..004`, `TOK-U-010..014`, `TOK-I-020..030` ([08 tokenizer.md](08-test-specs/tokenizer.md)).
+**Suite:** `TOK-U-001..004`, `TOK-U-010..015`, `TOK-I-020..034` ([08 tokenizer.md](08-test-specs/tokenizer.md)); `CORE-I-047` ([08 core.md](08-test-specs/core.md)).
 **Spec:** [tokenizer.md](03-components/tokenizer.md).
 **Verify:** integration test asserts index-map lineage + label masking on a handcrafted record.
 

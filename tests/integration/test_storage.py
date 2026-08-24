@@ -102,6 +102,33 @@ def test_json_read_other_client_error_propagates(storage):
 
 
 @pytest.mark.integration
+def test_bytes_round_trip(storage, run_id):
+    """CORE-I-047: write_bytes/read_bytes round-trip — identical bytes, including a
+    payload that isn't valid UTF-8 (SafeTensors shards are raw binary, T10)."""
+    payload = b"\x00\x01\xffnot valid utf-8 \xfe\xfd"
+    try:
+        storage.write_bytes(BUCKET, f"{run_id}/tokens/train.safetensors", payload)
+
+        assert storage.read_bytes(BUCKET, f"{run_id}/tokens/train.safetensors") == payload
+    finally:
+        storage.delete_prefix(BUCKET, f"{run_id}/")
+
+
+@pytest.mark.integration
+def test_bytes_read_missing_key_returns_none(storage, run_id):
+    """CORE-I-047: read_bytes on an absent key returns None, matching read_json's contract."""
+    assert storage.read_bytes(BUCKET, f"{run_id}/tokens/train.safetensors") is None
+
+
+@pytest.mark.integration
+def test_bytes_read_other_client_error_propagates(storage):
+    """CORE-I-047: read_bytes re-raises non-NoSuchKey errors (e.g. missing bucket)
+    unchanged, matching read_json's contract."""
+    with pytest.raises(ClientError):
+        storage.read_bytes("tuner-bucket-does-not-exist", "whatever.safetensors")
+
+
+@pytest.mark.integration
 def test_upload_download_dir_byte_identical(storage, run_id, tmp_path):
     """CORE-I-043: upload_dir/download_dir of a nested dir — byte-identical tree."""
     src = tmp_path / "src"

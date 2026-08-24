@@ -63,8 +63,12 @@ Env: `TUNER_S3_*`, `HF_TOKEN`. Exit 3 if the train split ends up empty.
 
 - For the fixture Gold tier: `n_train + n_eval + len(dropped)` = Gold record count; every `index_map` record ID exists in Gold; split is stable across re-runs and across machines.
 - `labels` verification on a known fixture: user/system token positions are `-100`, assistant token positions equal `input_ids`.
-- Output loads via `safetensors.torch.load_file` with expected shapes/dtypes.
+- Output loads via `safetensors.torch.load_file` with expected shapes/dtypes.¹
 - Changing `model.adapter` to a second registered adapter (test stub) re-tokenizes without any Tokenizer code change.
+
+¹ **Implementation note (T10):** the Tokenizer writes with `safetensors.numpy`, not `safetensors.torch` — `torch` isn't in the dev extra, and the SafeTensors format is framework-agnostic by design (a `numpy`-written int64 tensor's on-disk bytes and header are identical to what `safetensors.torch` would write for the same array). Verified against a real `torch` install at review time: `safetensors.torch.load_file` reads the Tokenizer's own output correctly, including the `(0, 0)`-shaped empty-split case, with the right dtype and shape. This acceptance criterion constrains the *output format*, not which library writes it.
+
+² **Step-order deviation (T10, round 1 review on PR #10):** step 7 (over-length drop) is checked *before* step 6 (masking) in the implementation, reversed from this document's own numbering — an over-length record is dropped without ever calling `build_labels` on it, avoiding the extra incremental-prefix encode calls for a record that's getting dropped regardless. This changes one observable thing: a record that would fail *both* checks is counted and reported as `over_max_len`, not `masking_mismatch`. Given `over_max_len` is already the documented, expected outcome for a too-long record, and no record is silently kept under one ordering that would've been dropped under the other, this is treated as an acceptable implementation-order choice rather than a behavior change worth reversing.
 
 ## MVP scope
 

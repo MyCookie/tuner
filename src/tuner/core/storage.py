@@ -101,6 +101,20 @@ class StorageClient:
             Bucket=bucket, Key=key, Body=json.dumps(obj, ensure_ascii=False).encode("utf-8")
         )
 
+    # -- raw bytes (SafeTensors shards; anything that isn't jsonl/json) ---------
+
+    def read_bytes(self, bucket: str, key: str) -> bytes | None:
+        """Read a raw object; None if absent, matching `read_json`'s absent-key contract."""
+        try:
+            return self._client.get_object(Bucket=bucket, Key=key)["Body"].read()
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") in ("NoSuchKey", "404"):
+                return None
+            raise
+
+    def write_bytes(self, bucket: str, key: str, data: bytes) -> None:
+        self._client.put_object(Bucket=bucket, Key=key, Body=data)
+
     # -- directories (adapter weights, transcripts) -----------------------------
 
     def upload_dir(self, bucket: str, prefix: str, local_dir: str | Path) -> None:

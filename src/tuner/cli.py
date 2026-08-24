@@ -1,7 +1,7 @@
 """`tuner` entrypoint — subcommand skeleton (01-architecture.md §4.4).
 
-`ingest` (T06), `clean` (T07), and `judge` (T08) are real; the rest of STAGES plus
-`run` are still T01 stubs that exit 1 until their build task implements them.
+`ingest` (T06), `clean` (T07), `judge` (T08), and `tokenize` (T10) are real; the rest of
+STAGES plus `run` are still T01 stubs that exit 1 until their build task implements them.
 """
 
 from __future__ import annotations
@@ -14,8 +14,9 @@ from tuner.cleaner.cli import clean_command
 from tuner.core.config import DEFAULT_CONFIG_PATH
 from tuner.ingestor.cli import ingest_command
 from tuner.judge.cli import judge_command
+from tuner.tokenizer.cli import tokenize_command
 
-STAGES = ("tokenize", "train", "smoke")
+STAGES = ("train", "smoke")
 
 
 @click.group()
@@ -42,6 +43,7 @@ def _make_stage_stub(stage: str) -> click.Command:
 cli.add_command(ingest_command)
 cli.add_command(clean_command)
 cli.add_command(judge_command)
+cli.add_command(tokenize_command)
 for _stage in STAGES:
     cli.add_command(_make_stage_stub(_stage))
 

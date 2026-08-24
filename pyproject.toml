@@ -16,6 +16,7 @@ dependencies = [
   "minio>=7.2.20",
   "httpx>=0.27",  # tuner.judge.client — the OpenAI-compatible judge HTTP calls
   "huggingface-hub>=0.23",  # tuner.models.base — HF auth error types, imported directly
+  "numpy>=1.26",  # tuner.tokenizer.cli — SafeTensors tensor construction, torch-free
 ]
 
 [project.optional-dependencies]
