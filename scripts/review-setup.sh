@@ -49,8 +49,13 @@ cp "$main_tree/.env" .env
 echo "review-setup: copied .env from the main worktree (delete it when you finish)"
 
 # `dev` is an extra, so a bare `uv sync` uninstalls ruff, pytest and hypothesis.
-uv sync --extra dev --quiet
-echo "review-setup: toolchain installed (uv sync --extra dev)"
+# `train` is also needed from T11 on: tests/integration/test_trainer.py imports
+# torch/peft/accelerate at collection time, so without it pytest fails to even
+# collect the file rather than cleanly skipping it -- always synced together with
+# `dev`, not conditionally, to keep this script the one thing that can't drift from
+# what gate.sh itself needs (10-code-review.md §3, §4).
+uv sync --extra dev --extra train --quiet
+echo "review-setup: toolchain installed (uv sync --extra dev --extra train)"
 
 echo
 echo "Ready. Next:  ./scripts/gate.sh        # reads .env itself; no wrapper needed"

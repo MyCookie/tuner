@@ -83,7 +83,7 @@ Runs cold, in its own git worktree, against **what is on `origin`** — not the 
 rm -f .env                                  # when you finish
 ```
 
-`review-setup.sh` fetches, checks out `origin/<branch>` **detached** — the branch is checked out in the implementer's tree, and reviewing origin's copy is what makes this a review of what was published — copies `.env` in from the main worktree, and installs the toolchain with `uv sync --extra dev`, since `dev` is an extra and a bare `uv sync` uninstalls ruff and pytest. It refuses to run in the main worktree, because detaching the tree someone else is working in would be destructive.
+`review-setup.sh` fetches, checks out `origin/<branch>` **detached** — the branch is checked out in the implementer's tree, and reviewing origin's copy is what makes this a review of what was published — copies `.env` in from the main worktree, and installs the toolchain with `uv sync --extra dev --extra train`, since `dev` is an extra and a bare `uv sync` uninstalls ruff and pytest, and `train` is needed from T11 on so `tests/integration/test_trainer.py` (which imports torch/peft/accelerate at collection time) doesn't fail the whole gate on a collection error. It refuses to run in the main worktree, because detaching the tree someone else is working in would be destructive.
 
 `gate.sh` reads `.env` itself, so there is no export step to forget — and it refuses, naming the missing variables, when credentials are incomplete rather than proceeding on a partial set. Both scripts exit 2 naming the fix when a precondition is unmet, rather than failing in a way that looks like a bad branch.
 
