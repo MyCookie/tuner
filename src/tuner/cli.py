@@ -47,7 +47,17 @@ class _LazyGroup(click.Group):
     def get_command(self, ctx: click.Context, name: str) -> click.Command | None:
         if name in _LAZY_COMMANDS:
             module_name, attr_name = _LAZY_COMMANDS[name].split(":")
-            module = importlib.import_module(module_name)
+            try:
+                module = importlib.import_module(module_name)
+            except ModuleNotFoundError as exc:
+                # A raw ModuleNotFoundError here names some third-party package, not
+                # the actual fix -- point at the real one (05 §3's host-venv fallback,
+                # PR #11 review round 1 nit).
+                raise click.ClickException(
+                    f"'{name}' needs the `train` extra (torch/transformers/peft/"
+                    f"accelerate) -- run `uv sync --extra train` (05-infrastructure.md "
+                    f"§3). Underlying import error: {exc}"
+                ) from exc
             return getattr(module, attr_name)
         return super().get_command(ctx, name)
 

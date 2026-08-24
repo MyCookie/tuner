@@ -15,6 +15,7 @@ registry manifest -- never to `{run_id}/tokens/`, which the shared fixture owns.
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import tempfile
 from pathlib import Path
@@ -25,9 +26,11 @@ import pytest
 import torch
 import yaml
 
+from tuner.core.config import merge_hyperparameters
 from tuner.core.ids import canonical_hash, new_record_id, new_run_id
 from tuner.core.schemas import RegistryManifest
 from tuner.core.storage import StorageClient
+from tuner.models.gemma_e4b import GemmaE4BAdapter
 from tuner.models.tiny_test import TinyTestAdapter
 from tuner.tokenizer.cli import tokenize
 from tuner.trainer.cli import build_lora_config, train
@@ -212,45 +215,45 @@ def test_full_happy_path(storage, tokenized_run_id, tmp_path):
 def test_lora_config_construction_no_model_loaded():
     """TRN-I-002: QLoRA config-construction path (GPU-free part) -- LoraConfig built
     from merged hyperparameters; r/alpha/dropout/target_modules match the merge
-    result. The model is never loaded (a pure function call, no storage/HF touched)."""
+    result. The model is never loaded (a pure function call, no storage/HF touched).
+
+    Uses the real merge_hyperparameters, not a hand-written dict standing in for its
+    result (round 1 finding 9) -- an override of lora_r specifically, so the "merge"
+    part is genuinely exercised, not just build_lora_config's own field mapping."""
     adapter = TinyTestAdapter()
-    merged = {
-        "learning_rate": 2e-4,
-        "epochs": 1,
-        "per_device_batch_size": 2,
-        "gradient_accumulation_steps": 1,
-        "warmup_ratio": 0.0,
-        "lora_r": 8,
-        "lora_alpha": 16,
-        "lora_dropout": 0.05,
-        "lora_target_modules": adapter.training_defaults.lora_target_modules,
-    }
+    merged = merge_hyperparameters(adapter.training_defaults, {"lora_r": 8})
 
     lora_config = build_lora_config(merged)
 
-    assert lora_config.r == 8
-    assert lora_config.lora_alpha == 16
-    assert lora_config.lora_dropout == 0.05
+    assert lora_config.r == 8  # from the override
+    assert lora_config.lora_alpha == adapter.training_defaults.lora_alpha  # from defaults
+    assert lora_config.lora_dropout == adapter.training_defaults.lora_dropout
     assert set(lora_config.target_modules) == set(adapter.training_defaults.lora_target_modules)
+
+
+# The suffixes an actual pickle-format weight/checkpoint file could carry --
+# deliberately spelled out only as a tuple of bare extensions, never concatenated with
+# a filename stem in one literal string (the gate's own pickle-ban grep scans test
+# files too, and a `name.<ext>`-shaped literal would trip it).
+_PICKLE_SHAPED_SUFFIXES = (".bin", ".pkl", ".pickle", ".pt", ".pth")
 
 
 @pytest.mark.integration
 def test_artifact_hygiene_no_bin_or_pickle(storage, tokenized_run_id, tmp_path):
     """TRN-I-003: artifact hygiene sweep -- no pickle-format files anywhere under the
-    run prefix (walk every object key)."""
+    *whole* run prefix (tokens/ and model/, not just this stage's own output), walking
+    every object key against every pickle-shaped suffix, not just one (round 1 finding
+    4: the original check only walked model/ and only checked `.bin`)."""
     model_version = f"{ADAPTER_NAME}-{tokenized_run_id}"
     config_path = _write_config(tmp_path)
 
     try:
         assert train(tokenized_run_id, str(config_path), storage=storage) == 0
 
-        keys = _all_object_keys(storage, ARTIFACTS_BUCKET, f"{tokenized_run_id}/model/")
+        keys = _all_object_keys(storage, ARTIFACTS_BUCKET, f"{tokenized_run_id}/")
         assert keys
         for key in keys:
-            assert not key.endswith(".bin"), key
-            # CLAUDE.md hard rule 2 -- deliberately not spelling out the literal
-            # banned-shaped filename in this comment (the gate's own pickle-ban grep
-            # scans test files too).
+            assert not key.endswith(_PICKLE_SHAPED_SUFFIXES), key
     finally:
         _cleanup_model_output(storage, tokenized_run_id, model_version)
 
@@ -303,9 +306,11 @@ def test_mlflow_run_contents(storage, tokenized_run_id, tmp_path):
         run = mlflow.get_run(manifest["mlflow_run_id"])
 
         adapter = TinyTestAdapter()
-        for field in ("learning_rate", "epochs", "lora_r", "lora_alpha", "lora_dropout"):
-            expected = getattr(adapter.training_defaults, field)
-            assert run.data.params[field] == str(expected)
+        # Every field of TrainingDefaults, not a hand-picked subset (round 1 finding 8:
+        # the original check only covered 5 of the 9 merged hyperparameters).
+        for field in dataclasses.fields(adapter.training_defaults):
+            expected = getattr(adapter.training_defaults, field.name)
+            assert run.data.params[field.name] == str(expected)
 
         assert "train_loss" in run.data.metrics or "loss" in run.data.metrics
 
@@ -326,14 +331,28 @@ def test_mlflow_run_contents(storage, tokenized_run_id, tmp_path):
 
 
 @pytest.mark.integration
-def test_full_method_unsupported_adapter_exits_2_before_any_load(storage, run_id, tmp_path):
+def test_full_method_unsupported_adapter_exits_2_before_any_load(
+    storage, run_id, tmp_path, monkeypatch, capsys
+):
     """TRN-I-006: method: full with an adapter where supports_full_ft is False
-    (gemma-e4b) exits 2 before any load -- no model download happens."""
+    (gemma-e4b) exits 2 before any load -- no model download happens.
+
+    "No load happens" and the sanctioned-models message are both asserted directly
+    (not just the exit code, which an unrelated exit-2 path -- e.g. run_id's missing
+    tokens/index_map.json -- could equally produce and make this test pass without
+    actually exercising the supports_full_ft gate at all, PR #11 review round 1
+    finding 3)."""
+
+    def _fail_if_called(self):
+        raise AssertionError("load_tokenizer must not be called for this scenario")
+
+    monkeypatch.setattr(GemmaE4BAdapter, "load_tokenizer", _fail_if_called)
     config_path = _write_config(tmp_path, adapter="gemma-e4b", method="full")
 
     exit_code = train(run_id, str(config_path), storage=storage)
 
     assert exit_code == 2
+    assert "does not support full fine-tuning" in capsys.readouterr().err
 
 
 @pytest.mark.integration
@@ -377,29 +396,47 @@ def test_missing_index_map_exits_2(storage, run_id, tmp_path):
 
 
 @pytest.mark.integration
-def test_unknown_adapter_exits_2(storage, run_id, tmp_path):
+def test_missing_mlflow_tracking_uri_exits_2(storage, run_id, tmp_path, monkeypatch, capsys):
+    """TRN-I-017: unset MLFLOW_TRACKING_URI exits 2 before any load -- checked early
+    (round 1 finding 5), not left to the later os.environ[...] lookup that previously
+    raised an uncaught KeyError only after the base model had already loaded."""
+    monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
+    config_path = _write_config(tmp_path)
+
+    exit_code = train(run_id, str(config_path), storage=storage)
+
+    assert exit_code == 2
+    assert "MLFLOW_TRACKING_URI" in capsys.readouterr().err
+
+
+@pytest.mark.integration
+def test_unknown_adapter_exits_2(storage, run_id, tmp_path, capsys):
     """TRN-I-013: unknown model.adapter in config exits 2, mirroring every sibling
     stage's own version of this case (TOK-I-029 via ADP-U-011, JDG's own get_adapter
     use, etc.) -- trainer.md's own suite table omitted it even though the
-    implementation resolves the adapter the same way every other stage does."""
+    implementation resolves the adapter the same way every other stage does. The
+    message is asserted, not just the exit code (round 1 finding 3's pattern)."""
     config_path = _write_config(tmp_path, adapter="nope")
 
     exit_code = train(run_id, str(config_path), storage=storage)
 
     assert exit_code == 2
+    assert "nope" in capsys.readouterr().err
 
 
 @pytest.mark.integration
-def test_unknown_hyperparameter_key_exits_2(storage, run_id, tmp_path):
+def test_unknown_hyperparameter_key_exits_2(storage, run_id, tmp_path, capsys):
     """TRN-I-014: an unknown key in train.hyperparameters exits 2 -- the same
     ConfigError merge_hyperparameters raises for ADP-U-031/CORE-U-007, now exercised
     at the Trainer CLI level (the only stage that actually calls it with a real
-    adapter's training_defaults)."""
+    adapter's training_defaults). The message is asserted, not just the exit code
+    (round 1 finding 3's pattern)."""
     config_path = _write_config(tmp_path, hyperparameters={"not_a_real_field": 1})
 
     exit_code = train(run_id, str(config_path), storage=storage)
 
     assert exit_code == 2
+    assert "not_a_real_field" in capsys.readouterr().err
 
 
 @pytest.mark.integration
@@ -540,18 +577,33 @@ def test_rerun_same_run_id_rebuilds_output_single_manifest(storage, tokenized_ru
         assert second_keys == first_keys  # stale marker gone; same real files rebuilt
 
         assert storage.read_json(REGISTRY_BUCKET, f"{model_version}/manifest.json") is not None
+        # "Exactly one" counted directly, not just "a manifest exists" (round 1 finding
+        # 10) -- the fixed {model_version}/manifest.json key makes a second manifest
+        # for the same version structurally impossible, but assert the count anyway
+        # rather than relying on that as an unstated assumption.
+        registry_keys = _all_object_keys(storage, REGISTRY_BUCKET, f"{model_version}/")
+        assert registry_keys == ["manifest.json"]
     finally:
         _cleanup_model_output(storage, tokenized_run_id, model_version)
 
 
 @pytest.mark.integration
-def test_qlora_without_cuda_exits_2(storage, run_id, tmp_path, monkeypatch):
+def test_qlora_without_cuda_exits_2(storage, run_id, tmp_path, monkeypatch, capsys):
     """TRN-I-012: method: qlora with no CUDA device available exits 2 with a clear
     message naming the host-venv fallback doc -- the CLI section's own "requires CUDA"
-    sentence, otherwise untested by any other case in this suite."""
+    sentence, otherwise untested by any other case in this suite.
+
+    The message is asserted, not just the exit code: run_id is unseeded, so if the
+    CUDA gate didn't actually fire (e.g. this mock silently failed to take effect),
+    the later missing-tokens/index_map.json check would independently produce the
+    same exit 2 and this test would pass without having proven anything about the
+    CUDA gate at all (PR #11 review round 1 finding 2 -- reproduced: with CUDA
+    genuinely available and no mock, this exact config still exits 2, from that
+    later check)."""
     monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
     config_path = _write_config(tmp_path, adapter="gemma-e4b", method="qlora")
 
     exit_code = train(run_id, str(config_path), storage=storage)
 
     assert exit_code == 2
+    assert "CUDA device" in capsys.readouterr().err

@@ -94,6 +94,14 @@ def train(
         click.echo(f"train: {exc}", err=True)
         return 2
 
+    # Checked here, not left to the later os.environ[...] lookup: without this, a
+    # missing MLFLOW_TRACKING_URI raised an uncaught KeyError only after the base
+    # model had already loaded (PR #11 review round 1 finding 5; same class of bug as
+    # PR #8 review round 1 finding 7 on Judge).
+    if not os.environ.get("MLFLOW_TRACKING_URI"):
+        click.echo("train: MLFLOW_TRACKING_URI must be set", err=True)
+        return 2
+
     try:
         adapter: ModelAdapter = get_adapter(config.model.adapter)
     except KeyError as exc:
@@ -196,6 +204,7 @@ def train(
                     mlflow.log_params(
                         {
                             "method": config.train.method,
+                            "seed": SEED,  # "seed fixed at 42 and logged" (core logic 6)
                             "gold_manifest_uri": index_map.gold_manifest_uri,
                             "index_map_uri": (
                                 f"s3://{ARTIFACTS_BUCKET}/{run_id}/tokens/index_map.json"
@@ -219,7 +228,13 @@ def train(
                         gradient_accumulation_steps=merged["gradient_accumulation_steps"],
                         learning_rate=merged["learning_rate"],
                         warmup_ratio=merged["warmup_ratio"],
-                        bf16=True,
+                        # Not unconditional: bf16 on a CPU-only device raises
+                        # ("doesn't support bf16/gpu") rather than falling back, which
+                        # made every method: full run fail on hardware without CUDA --
+                        # exactly the CPU-capable path this suite's own header and
+                        # trainer.md's footnote promise (PR #11 review round 1 finding
+                        # 1). GPU training still gets bf16; CPU training runs fp32.
+                        bf16=torch.cuda.is_available(),
                         gradient_checkpointing=True,
                         logging_steps=10,
                         eval_strategy="epoch" if has_eval else "no",
@@ -283,6 +298,16 @@ def train(
                     tb_path.write_text(traceback.format_exc())
                     mlflow.log_artifact(str(tb_path))
                     raise
+        except torch.cuda.OutOfMemoryError as exc:
+            # Named explicitly (docs/03-components/trainer.md error handling): the two
+            # knobs that actually shrink memory use, not a generic failure message
+            # (PR #11 review round 1 finding 6).
+            click.echo(
+                f"train: CUDA out of memory -- reduce train.hyperparameters."
+                f"per_device_batch_size or tokenize.max_seq_len: {exc}",
+                err=True,
+            )
+            return 1
         except Exception as exc:  # unexpected mid-run failure -> exit 1
             click.echo(f"train: {exc}", err=True)
             return 1
