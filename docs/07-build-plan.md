@@ -90,7 +90,7 @@ A spec ambiguity found along the way is resolved **in the docs**, not in a code 
 
 ### T11 — Trainer
 **Files:** `docker/trainer.Dockerfile`, `src/tuner/trainer/cli.py`, `tests/integration/test_trainer.py` (tiny-test adapter, 1 epoch, CPU-capable).
-**Suite:** `TRN-I-001..011` ([08 trainer.md](08-test-specs/trainer.md)); `TRN-G-020` is GPU-only and lands in T15.
+**Suite:** `TRN-I-001..017` ([08 trainer.md](08-test-specs/trainer.md)); `TRN-G-020` is GPU-only and lands in T15.
 **Spec:** [trainer.md](03-components/trainer.md); MLflow logging per [01 §7](01-architecture.md).
 **Verify:** integration run leaves adapter dir + registry manifest; MLflow run has params/loss/tags; `method: full` with `gemma-e4b` exits 2.
 

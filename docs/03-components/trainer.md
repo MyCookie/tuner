@@ -8,7 +8,9 @@
 tuner train --run-id <RUN_ID> [--config configs/pipeline.yaml]
 ```
 
-Env: `TUNER_S3_*`, `HF_TOKEN`, `MLFLOW_TRACKING_URI`. Requires CUDA; absence ⇒ exit 2 with a clear message (see host-venv fallback in [05-infrastructure.md §3](../05-infrastructure.md)).
+Env: `TUNER_S3_*`, `HF_TOKEN`, `MLFLOW_TRACKING_URI`. Requires CUDA; absence ⇒ exit 2 with a clear message (see host-venv fallback in [05-infrastructure.md §3](../05-infrastructure.md)).¹
+
+¹ **Scope clarification (T11):** the CUDA requirement is `bitsandbytes`' own — 4-bit quantization fundamentally cannot run without a CUDA device — so it gates `method: qlora` specifically, checked right alongside the `supports_full_ft` gate, before any storage or model access. It does not gate `method: full`: full-parameter fine-tuning runs on whatever device torch/accelerate find (GPU if present, CPU otherwise), which is exactly why [08 trainer.md](../08-test-specs/trainer.md)'s own suite runs its CPU-capable happy path with `method: full` and never needs to fake a CUDA device for it. A blanket "CUDA or exit 2" regardless of method would have made that suite design impossible.
 
 ## Input / Output
 
