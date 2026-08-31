@@ -7,6 +7,7 @@ is static (no services) and lives here since it's part of the same suite doc.
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -148,6 +149,26 @@ def test_upload_download_dir_byte_identical(storage, run_id, tmp_path):
         assert downloaded == expected
         for rel in expected:
             assert (dest / rel).read_bytes() == (src / rel).read_bytes()
+    finally:
+        storage.delete_prefix(BUCKET, f"{run_id}/")
+
+
+@pytest.mark.integration
+def test_download_dir_empty_prefix_downloads_whole_bucket(storage, run_id, tmp_path):
+    """CORE-I-048: download_dir with an empty prefix downloads every object in the
+    bucket -- not zero. Forcing a trailing slash onto `prefix` unconditionally used
+    to turn `""` into `"/"`, an S3 prefix that matches no real key, since object keys
+    never start with a literal slash (T13: tuner registry list has no shared parent
+    prefix to enumerate `{model_version}/manifest.json` under)."""
+    storage.write_json(BUCKET, f"{run_id}/manifest.json", {"run_id": run_id})
+
+    try:
+        dest = tmp_path / "dest"
+        storage.download_dir(BUCKET, "", dest)
+
+        downloaded = {str(p.relative_to(dest)) for p in dest.rglob("*") if p.is_file()}
+        assert f"{run_id}/manifest.json" in downloaded
+        assert json.loads((dest / run_id / "manifest.json").read_text()) == {"run_id": run_id}
     finally:
         storage.delete_prefix(BUCKET, f"{run_id}/")
 

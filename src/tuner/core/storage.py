@@ -126,9 +126,13 @@ class StorageClient:
             self._client.upload_file(str(path), bucket, f"{base}/{rel}")
 
     def download_dir(self, bucket: str, prefix: str, local_dir: str | Path) -> None:
-        """Download every object under `prefix` into `local_dir`, mirroring its key layout."""
+        """Download every object under `prefix` into `local_dir`, mirroring its key
+        layout. An empty (or "/") `prefix` downloads the whole bucket -- forcing a
+        trailing slash unconditionally used to turn `""` into `"/"`, an S3 prefix
+        that matches no real key (T13, tuner registry list's need to enumerate
+        every `{model_version}/manifest.json` with no shared parent prefix)."""
         local_dir = Path(local_dir)
-        base = prefix if prefix.endswith("/") else f"{prefix}/"
+        base = "" if prefix in ("", "/") else (prefix if prefix.endswith("/") else f"{prefix}/")
         for key in self._list_keys(bucket, base):
             dest = local_dir / key[len(base) :]
             dest.parent.mkdir(parents=True, exist_ok=True)

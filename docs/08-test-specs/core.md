@@ -66,5 +66,8 @@ Doc-02 examples are stored under `tests/fixtures_schemas/` verbatim; drift betwe
 | CORE-I-045 | Client honors `TUNER_S3_ENDPOINT`/creds from env only | Constructing with env unset raises config error; no boto3 default-chain fallback |
 | CORE-U-046 | Static: `grep -r "import boto3" src/tuner --include="*.py"` matches only `core/storage.py` | Rule [CLAUDE.md hard rule 1] holds (implemented as a real test) |
 | CORE-I-047 | `write_bytes` / `read_bytes` round-trip, including a non-UTF-8 payload | Identical bytes; absent key returns `None` |
+| CORE-I-048 | `download_dir` with an empty `prefix` | Downloads every object in the bucket, keys unchanged as relative paths — not zero objects |
 
 CORE-I-047 was added at T10: SafeTensors shards are raw binary, and `StorageClient` had no raw-bytes path — only jsonl and JSON. Added the same paired `write_x`/`read_x` shape the class already uses for `json`/`jsonl`, rather than a write-only method.
+
+CORE-I-048 was added at T13: `download_dir` unconditionally forced a trailing slash onto `prefix`, turning `""` into `"/"` — an S3 prefix that matches no real key, since object keys never start with a literal slash. `tuner registry list` (T13) needs exactly this: enumerate every `{model_version}/manifest.json` in `tuner-registry`, which has no shared parent prefix to filter on. Fixed to treat `""`/`"/"` as "no prefix filter" (matching S3's own `list_objects_v2` semantics), reusing `download_dir` rather than adding a new listing method.
