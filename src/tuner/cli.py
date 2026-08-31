@@ -120,9 +120,15 @@ def _invoke_stage(stage: str, run_id: str, config_path: str) -> int:
     """Runs one stage as a subprocess (01-architecture.md §2) -- the same
     process-isolation boundary these stages get as separate KFP components in Phase 3
     (05 §4). stdout/stderr are inherited, not captured, so a human watching `tuner
-    run` sees each stage's own output as it happens."""
+    run` sees each stage's own output as it happens.
+
+    `sys.executable -m tuner`, not a bare `tuner` argv0 -- doesn't depend on the
+    console script being resolvable on `PATH` (review round 1 nit); `python -m
+    tuner` is the same interpreter and environment this process is already running
+    under (`src/tuner/__main__.py`)."""
     result = subprocess.run(
-        ["tuner", stage, "--run-id", run_id, "--config", config_path], check=False
+        [sys.executable, "-m", "tuner", stage, "--run-id", run_id, "--config", config_path],
+        check=False,
     )
     return result.returncode
 
@@ -146,43 +152,63 @@ def run_pipeline(
     run_id = new_run_id()
     click.echo(f"run: starting pipeline run {run_id}")
 
-    for stage in STAGE_ORDER:
-        exit_code = invoke_stage(stage, run_id, config_path)
-        if exit_code == 0:
-            continue
-        if exit_code == 3:
-            # Named distinctly from a generic failure (CLI-I-012): zero records is
-            # an empty-pipeline condition, not a bug in the stage that hit it.
-            click.echo(f"run: pipeline empty at {stage}", err=True)
-            return 3
-        click.echo(f"run: stage {stage!r} failed (exit {exit_code})", err=True)
-        return exit_code
+    # Wraps the stage loop and the completion summary both -- an unexpected failure
+    # reading the registry manifest, reaching MLflow, or even inside invoke_stage
+    # itself used to escape as a raw traceback instead of the "run: ..." message
+    # every other failure mode gets, unlike judge/train/smoke's own equivalent outer
+    # try (PR #13 review round 1 finding 3).
+    try:
+        for stage in STAGE_ORDER:
+            exit_code = invoke_stage(stage, run_id, config_path)
+            if exit_code == 0:
+                continue
+            if exit_code == 3:
+                # Named distinctly from a generic failure (CLI-I-012): zero records
+                # is an empty-pipeline condition, not a bug in the stage that hit it.
+                click.echo(f"run: pipeline empty at {stage}", err=True)
+                return 3
+            if exit_code not in (1, 2):
+                # A signal-killed subprocess (negative returncode) or anything else
+                # outside the pipeline's own {0,1,2,3} exit-code contract (01 §4.4)
+                # -- normalized to 1 rather than propagated raw (review round 1
+                # finding 6: a killed stage would otherwise make `tuner run` itself
+                # exit with e.g. 247, outside that contract).
+                click.echo(
+                    f"run: stage {stage!r} failed (exit {exit_code}, treated as 1)",
+                    err=True,
+                )
+                return 1
+            click.echo(f"run: stage {stage!r} failed (exit {exit_code})", err=True)
+            return exit_code
 
-    storage = storage or StorageClient()
-    model_version = f"{config.model.adapter}-{run_id}"
-    manifest = storage.read_json(REGISTRY_BUCKET, f"{model_version}/manifest.json")
-    if manifest is None:
-        click.echo(f"run: run_id: {run_id}")
-        click.echo(
-            f"run: pipeline completed but no registry manifest found for "
-            f"{model_version} -- this indicates a bug, not a pipeline failure",
-            err=True,
+        storage = storage or StorageClient()
+        model_version = f"{config.model.adapter}-{run_id}"
+        manifest = storage.read_json(REGISTRY_BUCKET, f"{model_version}/manifest.json")
+        if manifest is None:
+            click.echo(f"run: run_id: {run_id}")
+            click.echo(
+                f"run: pipeline completed but no registry manifest found for "
+                f"{model_version} -- this indicates a bug, not a pipeline failure",
+                err=True,
+            )
+            return 1
+
+        transcript_uri = f"s3://{ARTIFACTS_BUCKET}/{run_id}/smoke/transcript.json"
+        tracking_uri = os.environ["MLFLOW_TRACKING_URI"]
+        mlflow.set_tracking_uri(tracking_uri)
+        mlflow_run = mlflow.get_run(manifest["mlflow_run_id"])
+        run_url = (
+            f"{tracking_uri.rstrip('/')}/#/experiments/"
+            f"{mlflow_run.info.experiment_id}/runs/{mlflow_run.info.run_id}"
         )
+
+        click.echo(f"run: run_id: {run_id}")
+        click.echo(f"run: model/adapter: {manifest['weights_uri']}")
+        click.echo(f"run: transcript: {transcript_uri}")
+        click.echo(f"run: mlflow run: {run_url}")
+    except Exception as exc:  # unexpected mid-run failure -> exit 1
+        click.echo(f"run: {exc}", err=True)
         return 1
-
-    transcript_uri = f"s3://{ARTIFACTS_BUCKET}/{run_id}/smoke/transcript.json"
-    tracking_uri = os.environ["MLFLOW_TRACKING_URI"]
-    mlflow.set_tracking_uri(tracking_uri)
-    mlflow_run = mlflow.get_run(manifest["mlflow_run_id"])
-    run_url = (
-        f"{tracking_uri.rstrip('/')}/#/experiments/"
-        f"{mlflow_run.info.experiment_id}/runs/{mlflow_run.info.run_id}"
-    )
-
-    click.echo(f"run: run_id: {run_id}")
-    click.echo(f"run: model/adapter: {manifest['weights_uri']}")
-    click.echo(f"run: transcript: {transcript_uri}")
-    click.echo(f"run: mlflow run: {run_url}")
 
     return 0
 

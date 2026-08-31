@@ -194,6 +194,67 @@ def test_completion_output_prints_all_four_locations(storage, tmp_path, capsys):
         storage.delete_prefix(REGISTRY_BUCKET, f"tiny-test-{holder['run_id']}/")
 
 
+@pytest.mark.integration
+def test_unexpected_mid_run_failure_exits_1(storage, tmp_path, capsys):
+    """CLI-I-015: unexpected mid-run failure (a bogus mlflow_run_id makes
+    mlflow.get_run raise, after a successful stage loop) -- exit 1 with a
+    "run: ..." message, not a raw traceback (PR #13 review round 1 finding 3)."""
+    holder: dict[str, str] = {}
+
+    def fake_invoke(stage: str, run_id: str, config_path: str) -> int:
+        holder["run_id"] = run_id
+        if stage == "train":
+            model_version = f"tiny-test-{run_id}"
+            storage.write_json(
+                REGISTRY_BUCKET,
+                f"{model_version}/manifest.json",
+                {
+                    "model_version": model_version,
+                    "run_id": run_id,
+                    "adapter_name": "tiny-test",
+                    "base_model": "HuggingFaceTB/SmolLM2-135M-Instruct",
+                    "method": "full",
+                    "created_at": "2026-07-20T16:05:00Z",
+                    "gold_manifest_uri": f"s3://{GOLD_BUCKET}/{run_id}/manifest.json",
+                    "index_map_uri": f"s3://{ARTIFACTS_BUCKET}/{run_id}/tokens/index_map.json",
+                    "weights_uri": f"s3://{ARTIFACTS_BUCKET}/{run_id}/model/",
+                    # Well-formed but nonexistent -- mlflow.get_run() must raise.
+                    "mlflow_run_id": "0" * 32,
+                    "hyperparameters": {},
+                    "eval": {"final_train_loss": 1.0, "final_eval_loss": 1.0},
+                    "status": "candidate",
+                },
+            )
+        return 0
+
+    config_path = _write_config(tmp_path)
+    try:
+        exit_code = run_pipeline(str(config_path), storage=storage, invoke_stage=fake_invoke)
+        assert exit_code == 1
+        assert "run: " in capsys.readouterr().err
+    finally:
+        storage.delete_prefix(REGISTRY_BUCKET, f"tiny-test-{holder['run_id']}/")
+
+
+@pytest.mark.integration
+def test_non_canonical_stage_exit_code_normalized_to_1(capsys, tmp_path):
+    """CLI-I-016: a stage returns a non-canonical exit code (e.g. -9, signal-killed)
+    -- normalized to exit 1 (never propagated raw), message names the actual code
+    (PR #13 review round 1 finding 6: 01 §4.4's {0,1,2,3} contract is supposed to
+    hold for `tuner run` itself, not just the stages it calls)."""
+
+    def fake_invoke(stage: str, run_id: str, config_path: str) -> int:
+        return -9 if stage == "judge" else 0
+
+    config_path = _write_config(tmp_path)
+    exit_code = run_pipeline(str(config_path), invoke_stage=fake_invoke)
+
+    assert exit_code == 1
+    stderr = capsys.readouterr().err
+    assert "judge" in stderr
+    assert "-9" in stderr
+
+
 @pytest.fixture
 def mock_judge_server():
     """A real, bound HTTP server for the mock judge -- CLI-I-014's judge subprocess is

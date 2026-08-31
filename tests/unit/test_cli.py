@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
+
 from click.testing import CliRunner
 
+import tuner.cli as cli_module
 from tuner.cli import cli
 
 
@@ -56,3 +60,49 @@ def test_default_config_resolves_to_pipeline_yaml():
 
     assert result.exit_code == 0
     assert "configs/pipeline.yaml" in result.output
+
+
+def test_invoke_stage_builds_correct_subprocess_argv(monkeypatch):
+    """CLI-U-005: _invoke_stage (the real subprocess wrapper) with subprocess.run
+    monkeypatched -- builds [sys.executable, "-m", "tuner", stage, "--run-id", ...,
+    "--config", ...]; returns the subprocess's exact returncode. CLI-I-014 proves the
+    real subprocess path end to end but isn't coverage-measurable for it (docs/08
+    README's own "never subprocess, keeps coverage measurable" convention) -- this is
+    that convention's in-process equivalent for this one boundary."""
+    captured = {}
+
+    def fake_run(argv, check):
+        captured["argv"] = argv
+        captured["check"] = check
+        return subprocess.CompletedProcess(argv, 7)
+
+    monkeypatch.setattr(cli_module.subprocess, "run", fake_run)
+
+    exit_code = cli_module._invoke_stage("judge", "run-20260101-000000-abcdef", "/tmp/p.yaml")
+
+    assert exit_code == 7
+    assert captured["check"] is False
+    assert captured["argv"] == [
+        sys.executable,
+        "-m",
+        "tuner",
+        "judge",
+        "--run-id",
+        "run-20260101-000000-abcdef",
+        "--config",
+        "/tmp/p.yaml",
+    ]
+
+
+def test_run_command_exits_with_run_pipelines_code(monkeypatch, tmp_path):
+    """CLI-U-006: tuner run (the click command) with run_pipeline monkeypatched --
+    exits with exactly run_pipeline's return value. Same coverage-gap reasoning as
+    CLI-U-005: CLI-I-010..013 call run_pipeline() directly, never through the `run`
+    command wrapper itself."""
+    monkeypatch.setattr(cli_module, "run_pipeline", lambda config_path, **kwargs: 3)
+    config_path = tmp_path / "pipeline.yaml"
+    config_path.write_text("model:\n  adapter: tiny-test\ningest:\n  sources: []\n")
+
+    result = CliRunner().invoke(cli, ["run", "--config", str(config_path)])
+
+    assert result.exit_code == 3

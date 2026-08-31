@@ -111,8 +111,8 @@ def test_schema_invalid_manifest_listed_as_invalid(storage, capsys):
 
 @pytest.mark.integration
 def test_registry_list_reachable_via_cli():
-    """Confirms `tuner registry list` is wired up as a real subcommand end to end
-    (not just the underlying registry_list() function) -- CLI-U-001's own coverage of
-    `registry` being listed doesn't prove `list` itself resolves and runs."""
+    """CLI-I-023: `tuner registry list` invoked through the real CLI group (not
+    registry_list() directly) -- exit 0. CLI-U-001's own coverage of `registry` being
+    listed doesn't prove `list` itself resolves and runs."""
     result = CliRunner().invoke(cli, ["registry", "list"])
     assert result.exit_code == 0

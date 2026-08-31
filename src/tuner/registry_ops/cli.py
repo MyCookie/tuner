@@ -35,7 +35,11 @@ def _load_manifests(storage: StorageClient) -> tuple[list[RegistryManifest], lis
             try:
                 raw = json.loads(path.read_text())
                 valid.append(RegistryManifest.model_validate(raw))
-            except (json.JSONDecodeError, ValidationError):
+            except (json.JSONDecodeError, ValidationError, UnicodeDecodeError):
+                # UnicodeDecodeError: a non-UTF-8 manifest.json (corrupt object, or
+                # something else entirely written to that key) -- also "fails schema
+                # validation" from the operator's point of view (PR #13 review round
+                # 1 finding 5), not a reason for the whole command to die.
                 invalid.append(key)
     return valid, invalid
 
