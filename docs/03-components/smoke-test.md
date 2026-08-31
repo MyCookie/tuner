@@ -8,12 +8,16 @@
 tuner smoke --run-id <RUN_ID> [--config configs/pipeline.yaml]
 ```
 
-Env: `TUNER_S3_*`, `HF_TOKEN`, `MLFLOW_TRACKING_URI`. Requires CUDA (same fallback note as the Trainer).
+Env: `TUNER_S3_*`, `HF_TOKEN`, `MLFLOW_TRACKING_URI`. Requires CUDA for `method: qlora`² (same fallback note as the Trainer).
 
 ## Input / Output
 
-- **Input:** `tuner-artifacts/{run_id}/adapter/` and `{run_id}/tokens/index_map.json`; `tuner-gold/{run_id}/` (to fetch prompt text for eval-split record IDs).
-- **Output:** `tuner-artifacts/{run_id}/smoke/transcript.json`; the same file attached as an artifact to the Trainer's MLflow run — located by filtering on **both** tags `tuner.run_id == {run_id}` and `tuner.stage == "trainer"` ([01 §7](../01-architecture.md)); exactly one run must match, else exit 2.
+- **Input:** `tuner-artifacts/{run_id}/adapter/`¹ and `{run_id}/tokens/index_map.json`; `tuner-gold/{run_id}/` (to fetch prompt text for eval-split record IDs).
+- **Output:** `tuner-artifacts/{run_id}/smoke/transcript.json` ([02 §5.3](../02-data-contracts.md)); the same file attached as an artifact to the Trainer's MLflow run — located by filtering on **both** tags `tuner.run_id == {run_id}` and `tuner.stage == "trainer"` ([01 §7](../01-architecture.md)); exactly one run must match, else exit 2.
+
+¹ **`train.method: full` clarification (T12):** this resolves to `{run_id}/model/` instead, mirroring the Trainer's own output split ([02 §5.1](../02-data-contracts.md)) — core logic 3–4 below already say what changes for that case. The `08-test-specs/smoke.md` suite's own `SMK-I-005` row already names both directory names for this reason.
+
+² **CUDA scope (T12), mirrors the Trainer's own [03/trainer.md](trainer.md) footnote 1 exactly:** `bitsandbytes` 4-bit quantization is what actually needs CUDA, so this gates `method: qlora` specifically; `method: full` runs on whatever device torch/accelerate find, same as the Trainer.
 
 ## Config (`smoke.*`)
 
@@ -22,9 +26,9 @@ Env: `TUNER_S3_*`, `HF_TOKEN`, `MLFLOW_TRACKING_URI`. Requires CUDA (same fallba
 ## Core logic
 
 1. Resolve adapter from config; read `index_map.json`; take the first `num_prompts` eval-split record IDs (eval split = data the model never trained on).
-2. Fetch those Gold records; for each, the **prompt** is the conversation minus its final assistant turn; the final assistant turn is kept as `reference`.
-3. Load the quantized base model once. Generate per prompt (greedy, `temperature 0`, `max_new_tokens`) → `base_output`.
-4. Attach the PEFT adapter, generate again → `tuned_output`.
+2. Fetch those Gold records; for each, the **prompt** is `to_chat_messages(conversation)` minus its final message; that final message's `content` is kept as `reference` (02 §5.3 — not `to_chat_messages` applied to the truncated conversation, which could reshape differently for some adapter).
+3. Load the base model once — quantized only for `method: qlora`² (04-model-adapters.md §1), plain otherwise. Generate per prompt (greedy, `temperature 0`, `max_new_tokens`) → `base_output`.
+4. For `method: qlora`, attach the PEFT adapter and generate again → `tuned_output`. For `method: full`¹, there is no PEFT adapter to attach — the fine-tuned weights loaded directly, in place of the base model, are the tuned model.
 5. Write `transcript.json`:
 
 ```json
