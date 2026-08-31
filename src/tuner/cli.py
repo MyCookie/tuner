@@ -1,10 +1,10 @@
 """`tuner` entrypoint — subcommand skeleton (01-architecture.md §4.4).
 
-`ingest` (T06), `clean` (T07), `judge` (T08), `tokenize` (T10), and `train` (T11) are
-real; `smoke` and `run` are still T01 stubs that exit 1 until their build task
-implements them.
+`ingest` (T06), `clean` (T07), `judge` (T08), `tokenize` (T10), `train` (T11), and
+`smoke` (T12) are real; `run` is still a T01 stub that exits 1 until its build task
+implements it.
 
-`train` (and `smoke`, once implemented) are lazily imported -- their modules pull in
+`train` and `smoke` are lazily imported -- their modules pull in
 torch/transformers/peft/accelerate, the `train` extra (05-infrastructure.md §3), which
 CPU-only stages and their `dev`-extra-only environments never install. Importing them
 eagerly here would make every `tuner` invocation -- including `tuner ingest` or even
@@ -25,8 +25,6 @@ from tuner.ingestor.cli import ingest_command
 from tuner.judge.cli import judge_command
 from tuner.tokenizer.cli import tokenize_command
 
-STAGES = ("smoke",)
-
 # name -> "module.path:attribute", imported only when that subcommand is actually
 # invoked (click's own documented "Lazily Loading Subcommands" recipe). Paired with a
 # static short-help string (_LAZY_HELP) so the group's own `--help` listing never
@@ -34,9 +32,11 @@ STAGES = ("smoke",)
 # _LazyGroup.format_commands.
 _LAZY_COMMANDS = {
     "train": "tuner.trainer.cli:train_command",
+    "smoke": "tuner.smoke.cli:smoke_command",
 }
 _LAZY_HELP = {
     "train": "Fine-tune the selected adapter's base model on tokenized Gold data.",
+    "smoke": "Generate before/after transcripts proving the trained model changed behavior.",
 }
 
 
@@ -89,28 +89,10 @@ def cli() -> None:
     """Tuner — Enterprise Fine-Tuning Pipeline."""
 
 
-def _make_stage_stub(stage: str) -> click.Command:
-    @click.command(name=stage)
-    @click.option("--run-id", required=True, help="Run ID shared across the pipeline.")
-    @click.option(
-        "--config",
-        default=str(DEFAULT_CONFIG_PATH),
-        show_default=True,
-        help="Pipeline config path.",
-    )
-    def _stub(run_id: str, config: str) -> None:
-        click.echo(f"{stage}: not implemented", err=True)
-        sys.exit(1)
-
-    return _stub
-
-
 cli.add_command(ingest_command)
 cli.add_command(clean_command)
 cli.add_command(judge_command)
 cli.add_command(tokenize_command)
-for _stage in STAGES:
-    cli.add_command(_make_stage_stub(_stage))
 
 
 @cli.command()

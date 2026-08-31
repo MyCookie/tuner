@@ -229,3 +229,29 @@ class RegistryManifest(_Strict):
     hyperparameters: dict[str, Any]
     eval: RegistryEval
     status: Literal["candidate", "promoted", "retired"]
+
+
+# --- 5.3 Smoke transcript ------------------------------------------------------
+
+
+class SmokeGeneration(_Strict):
+    max_new_tokens: int = Field(gt=0)
+    strategy: Literal["greedy"]
+
+
+class SmokeSample(_Strict):
+    record_id: RecordId
+    # `to_chat_messages`'s own output (04-model-adapters.md §1), not a re-derivation
+    # from the raw conversation -- this is the exact shape the model was prompted
+    # with (02 §5.3).
+    prompt_messages: list[dict[str, str]] = Field(min_length=1)
+    reference: str
+    base_output: str
+    tuned_output: str
+
+
+class SmokeTranscript(_Strict):
+    run_id: str
+    model_version: str
+    generation: SmokeGeneration
+    samples: list[SmokeSample]

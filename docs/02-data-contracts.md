@@ -204,6 +204,31 @@ One object per trained model version: `{model_version}/manifest.json`, written b
 
 `status` lifecycle: `candidate` → `promoted` → `retired` (promote/rollback operations: [03-components/registry.md](03-components/registry.md); MVP only ever writes `candidate`). The Inference Engine ([03-components/inference.md](03-components/inference.md)) serves only `promoted` versions.
 
+### 5.3 Smoke transcript (bucket `tuner-artifacts`)
+
+One object per run: `{run_id}/smoke/transcript.json`, written by the Smoke-test on success ([03-components/smoke-test.md](03-components/smoke-test.md) core logic 5) and attached as an MLflow artifact to the Trainer's run ([01-architecture.md §7](01-architecture.md)).
+
+```json
+{
+  "run_id": "run-20260720-142201-a3f9c2",
+  "model_version": "gemma-e4b-run-20260720-142201-a3f9c2",
+  "generation": {"max_new_tokens": 256, "strategy": "greedy"},
+  "samples": [
+    {
+      "record_id": "9f1c2b3a-...",
+      "prompt_messages": [{"role": "user", "content": "..."}],
+      "reference": "...",
+      "base_output": "...",
+      "tuned_output": "..."
+    }
+  ]
+}
+```
+
+`prompt_messages` is `to_chat_messages`'s own output ([04-model-adapters.md §1](04-model-adapters.md)) for the record's conversation minus its final (assistant) turn — the same shape the model is actually prompted with, not a re-derivation from the raw conversation. `reference` is that same call's final message's `content`.
+
+**`train.method: full` clarification (T12, mirrors §5.1's "`adapter/` is replaced by `model/`" note):** the Smoke-test resolves its input weights directory the same way the Trainer decided where to write them — `{run_id}/adapter/` for `method: qlora`, `{run_id}/model/` for `method: full` — since [03-components/smoke-test.md](03-components/smoke-test.md)'s own Input section predates that distinction being spelled out in prose (the `08-test-specs/smoke.md` suite table's `SMK-I-005` row already says "adapter/model dir"). For `method: full` there is no PEFT adapter to attach: the "tuned" model for step 4 is the full fine-tuned weights loaded directly, in place of attaching a PEFT adapter to the base model.
+
 ---
 
 ## 6. Bucket & prefix summary

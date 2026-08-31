@@ -12,8 +12,10 @@ Env: `TUNER_S3_*`, `HF_TOKEN`, `MLFLOW_TRACKING_URI`. Requires CUDA (same fallba
 
 ## Input / Output
 
-- **Input:** `tuner-artifacts/{run_id}/adapter/` and `{run_id}/tokens/index_map.json`; `tuner-gold/{run_id}/` (to fetch prompt text for eval-split record IDs).
-- **Output:** `tuner-artifacts/{run_id}/smoke/transcript.json`; the same file attached as an artifact to the Trainer's MLflow run — located by filtering on **both** tags `tuner.run_id == {run_id}` and `tuner.stage == "trainer"` ([01 §7](../01-architecture.md)); exactly one run must match, else exit 2.
+- **Input:** `tuner-artifacts/{run_id}/adapter/`¹ and `{run_id}/tokens/index_map.json`; `tuner-gold/{run_id}/` (to fetch prompt text for eval-split record IDs).
+- **Output:** `tuner-artifacts/{run_id}/smoke/transcript.json` ([02 §5.3](../02-data-contracts.md)); the same file attached as an artifact to the Trainer's MLflow run — located by filtering on **both** tags `tuner.run_id == {run_id}` and `tuner.stage == "trainer"` ([01 §7](../01-architecture.md)); exactly one run must match, else exit 2.
+
+¹ **`train.method: full` clarification (T12):** this resolves to `{run_id}/model/` instead, mirroring the Trainer's own output split ([02 §5.1](../02-data-contracts.md)); see [02 §5.3](../02-data-contracts.md) for exactly what changes in core logic 3–4 for that case. The `08-test-specs/smoke.md` suite's own `SMK-I-005` row already names both directory names for this reason.
 
 ## Config (`smoke.*`)
 
