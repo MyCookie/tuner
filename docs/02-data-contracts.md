@@ -225,7 +225,7 @@ One object per run: `{run_id}/smoke/transcript.json`, written by the Smoke-test 
 }
 ```
 
-`prompt_messages` is `to_chat_messages`'s own output ([04-model-adapters.md §1](04-model-adapters.md)) for the record's conversation minus its final (assistant) turn — the same shape the model is actually prompted with, not a re-derivation from the raw conversation. `reference` is that same call's final message's `content`.
+`prompt_messages` is `to_chat_messages(conversation)`'s own output ([04-model-adapters.md §1](04-model-adapters.md)) **minus its final message** — not `to_chat_messages` applied to the conversation already truncated, which need not produce the same result for every adapter. `reference` is that same call's final message's `content`. Both come from one `to_chat_messages` call, so `prompt_messages` is exactly a prefix of what the model is actually prompted with, not a re-derivation from the raw conversation.
 
 **`train.method: full` clarification (T12, mirrors §5.1's "`adapter/` is replaced by `model/`" note):** the Smoke-test resolves its input weights directory the same way the Trainer decided where to write them — `{run_id}/adapter/` for `method: qlora`, `{run_id}/model/` for `method: full` — since [03-components/smoke-test.md](03-components/smoke-test.md)'s own Input section predates that distinction being spelled out in prose (the `08-test-specs/smoke.md` suite table's `SMK-I-005` row already says "adapter/model dir"). For `method: full` there is no PEFT adapter to attach: the "tuned" model for step 4 is the full fine-tuned weights loaded directly, in place of attaching a PEFT adapter to the base model.
 

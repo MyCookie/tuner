@@ -25,6 +25,7 @@ from typing import Any
 
 import mlflow
 import pytest
+import torch
 import yaml
 from mlflow.tracking import MlflowClient
 
@@ -267,7 +268,16 @@ def test_mlflow_attachment(storage, smoke_run_id, tmp_path):
     with the judge decoy run for the same run ID present, proving the pair-filter
     discriminates), not a new run."""
     config_path = _write_config(tmp_path, num_prompts=4)
+
+    # Total run count store-wide, not just runs tagged with this run_id -- a smoke()
+    # bug that created a new run without any tuner.* tags at all would be invisible
+    # to a tag-filtered count but not to this one (PR #12 review round 1 finding 7).
+    runs_before = mlflow.search_runs(search_all_experiments=True, output_format="list")
+
     assert smoke(smoke_run_id, str(config_path), storage=storage) == 0
+
+    runs_after = mlflow.search_runs(search_all_experiments=True, output_format="list")
+    assert len(runs_after) == len(runs_before)
 
     runs = mlflow.search_runs(
         search_all_experiments=True,
@@ -385,9 +395,72 @@ def test_rerun_same_run_id_rebuilds_single_transcript(storage, smoke_run_id, tmp
     config_path = _write_config(tmp_path, num_prompts=4)
 
     assert smoke(smoke_run_id, str(config_path), storage=storage) == 0
+
+    # Plant a stale object under smoke/ that only a real delete_prefix removes --
+    # without this, "single transcript" would hold trivially (the stage only ever
+    # writes one object), proving nothing about the prefix actually being rebuilt
+    # (PR #12 review round 1 finding 1: not a banned-extension-shaped filename,
+    # matching TRN-I-011's own precedent for this exact check).
+    storage.write_bytes(ARTIFACTS_BUCKET, f"{smoke_run_id}/smoke/stale-marker", b"stale")
+
     assert smoke(smoke_run_id, str(config_path), storage=storage) == 0
 
     with tempfile.TemporaryDirectory() as tmp:
         storage.download_dir(ARTIFACTS_BUCKET, f"{smoke_run_id}/smoke/", tmp)
         files = [p.name for p in Path(tmp).rglob("*") if p.is_file()]
-        assert files == ["transcript.json"]
+        assert files == ["transcript.json"]  # stale marker gone, real file rebuilt
+
+
+@pytest.mark.integration
+def test_qlora_without_cuda_exits_2(storage, run_id, tmp_path, monkeypatch, capsys):
+    """SMK-I-009: method: qlora with no CUDA device available exits 2 with a clear
+    message naming the host-venv fallback doc, mirroring TRN-I-012 -- added in review
+    round 1 alongside the fix it regression-tests (PR #12 review round 1 finding 4:
+    smoke had no equivalent to the Trainer's own CUDA gate at all)."""
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+
+    def _fail_if_called(*args: Any, **kwargs: Any) -> None:
+        raise AssertionError("load_tokenizer must not be called for this scenario")
+
+    monkeypatch.setattr(TinyTestAdapter, "load_tokenizer", _fail_if_called)
+
+    path = tmp_path / "pipeline.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "model": {"adapter": ADAPTER_NAME},
+                "ingest": {"sources": []},
+                "train": {"method": "qlora"},
+            }
+        )
+    )
+    exit_code = smoke(run_id, str(path), storage=storage)
+    assert exit_code == 2
+    assert "requires a CUDA device" in capsys.readouterr().err
+
+
+@pytest.mark.integration
+def test_mid_run_failure_exits_1(storage, run_id, tmp_path, monkeypatch, capsys):
+    """SMK-I-010: an unexpected mid-run failure (here, a broken MLflow attachment)
+    surfaces as a "smoke: ..." message and exit 1, not a raw traceback -- mirrors
+    TRN-I-009's own generic-exit-1 path (PR #12 review round 1 finding 4)."""
+    records = [
+        _gold_record(run_id, f"Q{i}", f"A{i}", record_id=rid)
+        for i, rid in enumerate([*_FEW_EVAL_TRAIN_IDS, *_FEW_EVAL_EVAL_IDS])
+    ]
+    _seed_gold(storage, run_id, records)
+    with tempfile.TemporaryDirectory() as tmp:
+        model_version = _tokenize_and_train(storage, run_id, Path(tmp))
+
+    def _raise(*args: Any, **kwargs: Any) -> None:
+        raise RuntimeError("induced mlflow failure")
+
+    monkeypatch.setattr(MlflowClient, "log_artifact", _raise)
+
+    config_path = _write_config(tmp_path)
+    try:
+        exit_code = smoke(run_id, str(config_path), storage=storage)
+        assert exit_code == 1
+        assert "induced mlflow failure" in capsys.readouterr().err
+    finally:
+        _cleanup(storage, run_id, model_version)
