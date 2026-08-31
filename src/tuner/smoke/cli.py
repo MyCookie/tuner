@@ -18,6 +18,7 @@ from pydantic import ValidationError
 from transformers import AutoModelForCausalLM
 
 from tuner.core.config import DEFAULT_CONFIG_PATH, ConfigError, load_config
+from tuner.core.ids import validate_run_id_option
 from tuner.core.schemas import (
     IndexMap,
     SmokeGeneration,
@@ -244,7 +245,12 @@ def smoke(
 
 
 @click.command(name="smoke")
-@click.option("--run-id", required=True, help="Run ID shared across the pipeline.")
+@click.option(
+    "--run-id",
+    required=True,
+    callback=validate_run_id_option,
+    help="Run ID shared across the pipeline.",
+)
 @click.option(
     "--config",
     "config_path",

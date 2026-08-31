@@ -22,6 +22,7 @@ from pydantic import ValidationError
 
 from tuner import __version__ as STAGE_VERSION
 from tuner.core.config import DEFAULT_CONFIG_PATH, ConfigError, load_config
+from tuner.core.ids import validate_run_id_option
 from tuner.core.manifest import UpstreamIncomplete, read_tier, records_hash
 from tuner.core.schemas import (
     ManifestCounts,
@@ -268,7 +269,12 @@ def _log_to_mlflow(
 
 
 @click.command(name="judge")
-@click.option("--run-id", required=True, help="Run ID shared across the pipeline.")
+@click.option(
+    "--run-id",
+    required=True,
+    callback=validate_run_id_option,
+    help="Run ID shared across the pipeline.",
+)
 @click.option(
     "--config",
     "config_path",

@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from tuner import __version__ as STAGE_VERSION
 from tuner.core.config import DEFAULT_CONFIG_PATH, ConfigError, IngestSourceConfig, load_config
-from tuner.core.ids import canonical_hash, new_record_id
+from tuner.core.ids import canonical_hash, new_record_id, validate_run_id_option
 from tuner.core.manifest import records_hash
 from tuner.core.schemas import BronzeRecord, ManifestCounts, ManifestProducer, TierManifest
 from tuner.core.storage import StorageClient
@@ -133,7 +133,12 @@ def ingest(
 
 
 @click.command(name="ingest")
-@click.option("--run-id", required=True, help="Run ID shared across the pipeline.")
+@click.option(
+    "--run-id",
+    required=True,
+    callback=validate_run_id_option,
+    help="Run ID shared across the pipeline.",
+)
 @click.option(
     "--config",
     "config_path",

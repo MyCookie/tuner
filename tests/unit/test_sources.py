@@ -14,6 +14,7 @@ from click.testing import CliRunner
 
 from tuner.cli import cli
 from tuner.core.config import IngestSourceConfig, IngestSourceMapping
+from tuner.core.ids import new_run_id
 from tuner.ingestor.sources import CsvSource, JsonlSource, MalformedLine, SourceConfigError
 
 REPO_ROOT = Path(__file__).parents[2]
@@ -75,7 +76,7 @@ def test_csv_mapping_column_absent_from_header_exits_2(tmp_path):
         },
     )
     runner = CliRunner()
-    result = runner.invoke(cli, ["ingest", "--run-id", "run-test", "--config", str(config_path)])
+    result = runner.invoke(cli, ["ingest", "--run-id", new_run_id(), "--config", str(config_path)])
 
     assert result.exit_code == 2
     assert "not_a_column" in result.output
@@ -110,7 +111,7 @@ def test_unknown_source_type_exits_2_naming_known_types(tmp_path):
     config_path = _write_minimal_config(tmp_path, {"type": "parquet", "uri": "whatever.parquet"})
     runner = CliRunner()
 
-    result = runner.invoke(cli, ["ingest", "--run-id", "run-test", "--config", str(config_path)])
+    result = runner.invoke(cli, ["ingest", "--run-id", new_run_id(), "--config", str(config_path)])
 
     assert result.exit_code == 2
     assert "parquet" in result.output
