@@ -3780,6 +3780,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "uvicorn" },
 ]
 train = [
     { name = "accelerate" },
@@ -3810,6 +3811,7 @@ requires-dist = [
     { name = "safetensors", specifier = ">=0.4" },
     { name = "torch", marker = "extra == 'train'", specifier = ">=2.3" },
     { name = "transformers", specifier = ">=4.41" },
+    { name = "uvicorn", marker = "extra == 'dev'", specifier = ">=0.30" },
 ]
 provides-extras = ["train", "dev"]
 
