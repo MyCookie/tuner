@@ -96,7 +96,7 @@ A spec ambiguity found along the way is resolved **in the docs**, not in a code 
 
 ### T12 — Smoke-test
 **Files:** `src/tuner/smoke/cli.py`, `tests/integration/test_smoke.py`.
-**Suite:** `SMK-I-001..008` ([08 smoke.md](08-test-specs/smoke.md)).
+**Suite:** `SMK-I-001..010` ([08 smoke.md](08-test-specs/smoke.md)).
 **Spec:** [smoke-test.md](03-components/smoke-test.md).
 **Verify:** transcript at `tuner-artifacts/{run_id}/smoke/transcript.json` and attached to the trainer's MLflow run.
 

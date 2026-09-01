@@ -134,7 +134,7 @@ Secrets and endpoints only — everything else lives in the config file (§6).
 
 ### 4.4 CLI
 
-One console script, `tuner`, with subcommands: `ingest`, `clean`, `judge`, `tokenize`, `train`, `smoke`, `run`. Common options on every subcommand: `--run-id` (required except `run`, which generates it), `--config` (default `configs/pipeline.yaml`).
+One console script, `tuner`, with subcommands: `ingest`, `clean`, `judge`, `tokenize`, `train`, `smoke`, `run`, `registry` (T13; [registry.md](03-components/registry.md) MVP scope: `list` only). Common options on every pipeline-stage subcommand (`ingest`…`smoke`, `run`): `--run-id` (required except `run`, which generates it), `--config` (default `configs/pipeline.yaml`). `registry`'s own subcommands (`list`) take neither — they operate on the whole `tuner-registry` bucket across every run, not one run's config-scoped output.
 
 **Exit codes (all stages):** `0` success · `1` unexpected error · `2` config or input-schema validation failure · `3` zero records survived the stage (pipeline should abort).
 

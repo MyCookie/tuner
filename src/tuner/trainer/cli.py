@@ -22,6 +22,7 @@ from safetensors.torch import load_file as st_load_file
 from transformers import Trainer, TrainerCallback, TrainingArguments, default_data_collator
 
 from tuner.core.config import DEFAULT_CONFIG_PATH, ConfigError, load_config, merge_hyperparameters
+from tuner.core.ids import validate_run_id_option
 from tuner.core.schemas import IndexMap, RegistryEval, RegistryManifest
 from tuner.core.storage import StorageClient
 from tuner.models.base import HFAuthError, ModelAdapter
@@ -334,7 +335,12 @@ def train(
 
 
 @click.command(name="train")
-@click.option("--run-id", required=True, help="Run ID shared across the pipeline.")
+@click.option(
+    "--run-id",
+    required=True,
+    callback=validate_run_id_option,
+    help="Run ID shared across the pipeline.",
+)
 @click.option(
     "--config",
     "config_path",
