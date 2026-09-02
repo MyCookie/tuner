@@ -20,26 +20,35 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
 
-# The doc's own wildcards/dir globs, expanded to concrete files. "judge
-# reply-parsing" isn't a literal path in the doc -- it names the score/reasoning
-# parsing logic in judge/client.py, so that whole file is the concrete target here.
-_REQUIRED_100_PERCENT = (
-    "src/tuner/core/config.py",
-    "src/tuner/core/ids.py",
-    "src/tuner/core/manifest.py",
-    "src/tuner/core/schemas.py",
-    "src/tuner/core/storage.py",
+# The doc's own dir globs (tuner/core/*, tuner/models/*) are expanded for real via
+# Path.glob below, not hardcoded -- a hardcoded list would let a future file added to
+# either directory silently escape the 100% gate (PR #14 round 1 review finding 6).
+# The individual-file entries genuinely are single files named in the doc, so they
+# stay literal. "judge reply-parsing" isn't a literal path in the doc -- it names the
+# score/reasoning parsing logic in judge/client.py, so that whole file is the
+# concrete target here.
+_REQUIRED_100_PERCENT_GLOBS = (
+    "src/tuner/core/*.py",
+    "src/tuner/models/*.py",
+)
+_REQUIRED_100_PERCENT_FILES = (
     "src/tuner/cleaner/rules.py",
     "src/tuner/cleaner/patterns.py",
     "src/tuner/judge/client.py",
     "src/tuner/judge/prompts.py",
-    "src/tuner/models/base.py",
-    "src/tuner/models/registry.py",
-    "src/tuner/models/gemma_e4b.py",
-    "src/tuner/models/tiny_test.py",
     "src/tuner/tokenizer/split.py",
     "src/tuner/tokenizer/masking.py",
 )
+
+
+def _required_100_percent() -> tuple[str, ...]:
+    globbed = sorted(
+        p.relative_to(REPO_ROOT).as_posix()
+        for pattern in _REQUIRED_100_PERCENT_GLOBS
+        for p in REPO_ROOT.glob(pattern)
+        if p.name != "__init__.py"  # empty, always 100%, adds nothing to the gate
+    )
+    return tuple(globbed) + _REQUIRED_100_PERCENT_FILES
 
 
 def main() -> int:
@@ -63,9 +72,10 @@ def main() -> int:
         return 1
 
     files = json.loads(result.stdout)["files"]
+    required = _required_100_percent()
 
     failures = []
-    for rel_path in _REQUIRED_100_PERCENT:
+    for rel_path in required:
         file_report = files.get(rel_path)
         if file_report is None:
             failures.append(f"{rel_path}: not present in the coverage report (never imported?)")
@@ -84,7 +94,7 @@ def main() -> int:
             print(f"  - {failure}", file=sys.stderr)
         return 1
 
-    print(f"check_coverage: all {len(_REQUIRED_100_PERCENT)} required modules at 100%.")
+    print(f"check_coverage: all {len(required)} required modules at 100%.")
     return 0
 
 

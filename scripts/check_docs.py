@@ -18,9 +18,11 @@ REPO_ROOT = Path(__file__).parent.parent
 DOCS_DIR = REPO_ROOT / "docs"
 
 # [text](target) -- every link in this repo's docs is a plain relative path to
-# another doc; there are no external http(s) URLs and no #fragment anchors anywhere
-# in docs/ (confirmed by grep at implementation time). A target with a URI scheme
-# (http:, mailto:, ...) is skipped, not resolved -- not ours to check.
+# another doc, optionally with a #fragment (a same-doc section link, or a section
+# within the target doc). A target with a URI scheme (http:, mailto:, ...) is
+# skipped, not resolved -- not ours to check. The fragment itself is never verified
+# (that would mean parsing every heading in every doc for one marginal case) -- only
+# that the file part resolves.
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 _SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 
@@ -33,7 +35,10 @@ def _check_links() -> list[str]:
                 target = match.group(1)
                 if _SCHEME_RE.match(target):
                     continue
-                target_path = (path.parent / target).resolve()
+                file_part = target.split("#", 1)[0]
+                if not file_part:
+                    continue  # a pure "#section-in-this-file" link -- nothing to resolve
+                target_path = (path.parent / file_part).resolve()
                 # .exists(), not .is_file(): a directory link (e.g. "03-components/")
                 # is valid too.
                 if not target_path.exists():
