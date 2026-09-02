@@ -1,8 +1,8 @@
 name: pr
 
 # Every PR (06-testing.md §6, point 2): integration tests with MinIO/MLflow/mock-judge
-# as service containers, HF access in offline mode against a pre-seeded tiny-model
-# cache (INF-I-012), the per-module coverage gate. GH Actions' native `services:` key
+# as service containers, INF-I-012 proving offline HF mode against its own pre-seeded
+# tiny-model cache, the per-module coverage gate. GH Actions' native `services:` key
 # needs a pre-built registry image, which this repo doesn't publish -- `docker
 # compose up` as a regular step instead, the same command a human runs locally
 # (docs/09-git-workflow.md §4/10-code-review.md §3-4's "one script, can't drift").
@@ -12,6 +12,7 @@ on:
 jobs:
   integration:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -40,12 +41,17 @@ jobs:
             [ "$status" = "healthy" ] || { echo "::error::$svc never became healthy"; docker compose logs "$svc"; exit 1; }
           done
 
-      - name: Seed the tiny-test HF cache (network on, before offline mode)
+      - name: Seed the tiny-test HF cache
         run: uv run python scripts/seed_hf_cache.py
 
-      - name: Unit + integration tests (offline HF mode, coverage)
-        env:
-          HF_HUB_OFFLINE: "1"
+      - name: Unit + integration tests (coverage)
+        # No blanket HF_HUB_OFFLINE=1 here: huggingface_hub resolves it at
+        # process start (docs/03-components' HF_HOME gotcha applies equally to
+        # this var), so a step-level env would also gate INF-I-012's own
+        # seed() call, which needs real network to build its isolated cold
+        # cache before it proves offline mode -- via a *subprocess* env
+        # override -- against that cache. INF-I-012 already scopes
+        # HF_HUB_OFFLINE=1 correctly; nothing else in this step needs it.
         run: |
           set -a; . ./.env; set +a
           uv run pytest -m 'not e2e and not gpu and not slow' \
