@@ -23,45 +23,8 @@ jobs:
       - name: Install toolchain
         run: uv sync --extra dev --extra train
 
-      # Throwaway, ephemeral, single-CI-run-only credentials for this job's own
-      # disposable MinIO instance -- not real secrets (CLAUDE.md hard rule 3 is about
-      # never committing *production* credentials; nothing here outlives this job).
       - name: Write .env
-        run: |
-          cat > .env <<'EOF'
-          MINIO_ROOT_USER=ci-minio-root
-          MINIO_ROOT_PASSWORD=ci-minio-root-password
-          INGESTOR_S3_ACCESS_KEY=ci-minio-root
-          INGESTOR_S3_SECRET_KEY=ci-minio-root-password
-          CLEANER_S3_ACCESS_KEY=ci-minio-root
-          CLEANER_S3_SECRET_KEY=ci-minio-root-password
-          JUDGE_S3_ACCESS_KEY=ci-minio-root
-          JUDGE_S3_SECRET_KEY=ci-minio-root-password
-          TOKENIZER_S3_ACCESS_KEY=ci-minio-root
-          TOKENIZER_S3_SECRET_KEY=ci-minio-root-password
-          TRAINER_S3_ACCESS_KEY=ci-minio-root
-          TRAINER_S3_SECRET_KEY=ci-minio-root-password
-          SMOKE_S3_ACCESS_KEY=ci-minio-root
-          SMOKE_S3_SECRET_KEY=ci-minio-root-password
-          REGISTRY_OPS_S3_ACCESS_KEY=ci-minio-root
-          REGISTRY_OPS_S3_SECRET_KEY=ci-minio-root-password
-          MLFLOW_S3_ACCESS_KEY=ci-minio-root
-          MLFLOW_S3_SECRET_KEY=ci-minio-root-password
-          TUNER_S3_ENDPOINT=http://localhost:9000
-          TUNER_S3_ACCESS_KEY=ci-minio-root
-          TUNER_S3_SECRET_KEY=ci-minio-root-password
-          TUNER_S3_REGION=us-east-1
-          MLFLOW_TRACKING_URI=http://localhost:5000
-          TUNER_JUDGE_BASE_URL=http://localhost:8088
-          TUNER_JUDGE_API_KEY=ci-unused-mock-key
-          HF_TOKEN=ci-unused-tiny-test-is-ungated
-          EOF
-          # Every per-stage credential pair is the same MinIO root user here (unlike
-          # real deployments' distinct per-stage principals, 05-infrastructure.md §5)
-          # -- simplest correct thing for a single disposable CI instance; the real
-          # IAM matrix itself is proven by INF-I-003 in this same job, run against
-          # bootstrap_minio.py's own distinct per-stage users regardless of what this
-          # .env's *unused-by-that-test* per-stage vars say.
+        run: ./scripts/write_ci_env.sh
 
       - name: Start compose services
         run: docker compose --profile e2e up -d minio minio-init mlflow mock-judge
