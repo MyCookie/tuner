@@ -283,7 +283,20 @@ def test_offline_hf_mode_with_preseeded_cache(storage, run_id, tmp_path):
     )
     config_path = tmp_path / "pipeline.yaml"
     config_path.write_text(
-        yaml.safe_dump({"model": {"adapter": "tiny-test"}, "ingest": {"sources": []}})
+        yaml.safe_dump(
+            {
+                "model": {"adapter": "tiny-test"},
+                "ingest": {"sources": []},
+                # eval_fraction: 0.0, not the 0.1 default -- assign_split hashes the
+                # single record's own random new_record_id(), so at the default ~1
+                # run in 10 would place it in eval, leaving train empty and this test
+                # spuriously exiting 3 (`tokenize: train split is empty`). Reproduced
+                # in a 100k-sample simulation (~10.0%) and once for real on CI (PR
+                # #14 round 1 review). Forcing every record to train is orthogonal to
+                # what this case specs -- offline mode against a pre-seeded cache.
+                "tokenize": {"eval_fraction": 0.0},
+            }
+        )
     )
 
     env = {**os.environ, "HF_HOME": str(hf_home), "HF_HUB_OFFLINE": "1"}
