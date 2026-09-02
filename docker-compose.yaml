@@ -81,6 +81,24 @@ services:
       timeout: 5s
       retries: 10
 
+  mock-judge:
+    # Test infrastructure only (06-testing.md §4) -- own profile, not "pipeline":
+    # a real deployment points TUNER_JUDGE_BASE_URL at an actual LLM endpoint, never
+    # this. Used by the E2E steel thread (T14) and CI; reachable at
+    # http://localhost:8088 from the host (E2E's own `tuner run` subprocess) and
+    # http://mock-judge:8088 from other compose services on the same network.
+    profiles: ["e2e"]
+    build:
+      context: .
+      dockerfile: docker/mock-judge.Dockerfile
+    ports:
+      - "8088:8088"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8088/docs')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   ingestor:
     profiles: ["pipeline"]
     build:

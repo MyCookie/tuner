@@ -1,0 +1,42 @@
+# The E2E steel-thread config (docs/06-testing.md §5, docs/08-test-specs/e2e.md).
+# tiny-test + method: full so this runs on CPU or GPU without QLoRA/bitsandbytes --
+# test infrastructure, not a product config (04-model-adapters.md, tiny_test.py).
+# Same two-source ingest set ING-I-013/CLN-I-030 already use, so fixtures/
+# expected_counts.json's "combined" entries are this run's own expectations too.
+model:
+  adapter: tiny-test
+
+ingest:
+  sources:
+    - type: csv
+      uri: fixtures/support_dialogs.csv
+      mapping:
+        prompt_column: question
+        response_column: answer
+    - type: jsonl
+      uri: fixtures/extra_dialogs.jsonl
+
+clean:
+  min_chars: 20
+  max_chars: 32000
+  pii: [email, phone]
+
+judge:
+  model: mock-judge
+  threshold: 0.7
+  max_concurrency: 4
+  max_retries: 3
+
+tokenize:
+  max_seq_len: null
+  eval_fraction: 0.1
+
+train:
+  method: full
+  hyperparameters:
+    epochs: 1
+  mlflow_experiment: tuner-e2e
+
+smoke:
+  num_prompts: 8
+  max_new_tokens: 64
