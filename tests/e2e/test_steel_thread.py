@@ -133,7 +133,12 @@ def e2e_run(storage):
     assert RUN_ID_RE.match(run_id)
     model_version = f"{ADAPTER_NAME}-{run_id}"
 
-    yield {"run_id": run_id, "model_version": model_version, "stdout": result.stdout}
+    yield {
+        "run_id": run_id,
+        "model_version": model_version,
+        "stdout": result.stdout,
+        "returncode": result.returncode,
+    }
 
     _cleanup(storage, run_id, model_version)
 
@@ -142,7 +147,7 @@ def e2e_run(storage):
 def test_e2e_e_001_exit_status(e2e_run):
     """E2E-E-001: tuner run returned 0 -- proven by the fixture's own assert, which
     would have failed the whole module already; this restates it as its own case."""
-    assert e2e_run["run_id"]
+    assert e2e_run["returncode"] == 0
 
 
 @pytest.mark.e2e
@@ -238,7 +243,7 @@ def test_e2e_e_005_artifacts(storage, e2e_run):
 
 
 @pytest.mark.e2e
-def test_e2e_e_006_registry(storage, e2e_run):
+def test_e2e_e_006_registry(storage, e2e_run, capsys):
     """E2E-E-006: exactly one manifest, status candidate, all URIs resolve, visible in
     `tuner registry list`."""
     run_id, model_version = e2e_run["run_id"], e2e_run["model_version"]
@@ -259,8 +264,13 @@ def test_e2e_e_006_registry(storage, e2e_run):
     weights_bucket, weights_prefix = _parse_s3_uri(manifest.weights_uri)
     assert _all_object_keys(storage, weights_bucket, weights_prefix)
 
+    # registry_list's own exit code is always 0 by design (registry.md "must not die
+    # on one bad object") -- it proves nothing here. The actual "visible in `tuner
+    # registry list`" claim is the model_version appearing in its printed output
+    # (PR #14 round 1 review finding 3).
     exit_code = registry_list(storage=storage)
     assert exit_code == 0
+    assert model_version in capsys.readouterr().out
 
 
 @pytest.mark.e2e
@@ -323,9 +333,30 @@ def test_e2e_e_009_idempotent_stage_rerun(storage, e2e_run):
     """E2E-E-009: re-running tuner tokenize + tuner train for the same run ID leaves
     one coherent set of artifacts and an unchanged-or-replaced single registry
     manifest. Runs the stages in-process (not a subprocess) for speed, matching every
-    other suite's own idempotency checks (TRN-I-011/SMK-I-008)."""
+    other suite's own idempotency checks (TRN-I-011/SMK-I-008).
+
+    TRN-I-011's own idempotency contract is scoped to the model/adapter storage
+    prefix and the registry manifest, not MLflow run count -- re-running train()
+    always opens a fresh MLflow run (docs/08-test-specs/trainer.md), so this second
+    call leaves a second `tuner.stage: trainer` run for this run_id behind. Left
+    alone, that's cross-test pollution: E2E-E-007's own "exactly one trainer run"
+    assertion would only still hold by accident of this file's function-definition
+    order. Clean it up here instead of relying on that order."""
     run_id, model_version = e2e_run["run_id"], e2e_run["model_version"]
 
+    from mlflow.tracking import MlflowClient
+
+    mlflow.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"])
+
+    def _trainer_run_ids() -> set[str]:
+        runs = mlflow.search_runs(
+            search_all_experiments=True,
+            filter_string=f"tags.`tuner.run_id` = '{run_id}' and tags.`tuner.stage` = 'trainer'",
+            output_format="list",
+        )
+        return {r.info.run_id for r in runs}
+
+    trainer_runs_before = _trainer_run_ids()
     tokens_before = set(_all_object_keys(storage, ARTIFACTS_BUCKET, f"{run_id}/tokens/"))
     model_before = set(_all_object_keys(storage, ARTIFACTS_BUCKET, f"{run_id}/model/"))
 
@@ -341,6 +372,15 @@ def test_e2e_e_009_idempotent_stage_rerun(storage, e2e_run):
     assert registry_keys == ["manifest.json"]
     manifest = storage.read_json(REGISTRY_BUCKET, f"{model_version}/manifest.json")
     assert manifest["status"] == "candidate"
+
+    # Delete exactly the run(s) this re-run just created -- not "keep newest" or
+    # "keep oldest": the *original* trainer run (from the module's one real `tuner
+    # run` pipeline execution) has E2E-E-007's own smoke-transcript artifact attached
+    # (smoke() logs it there), which this in-process re-run never produces, so it
+    # must survive regardless of which of E2E-E-007/E2E-E-009 runs first.
+    client = MlflowClient()
+    for stale_run_id in _trainer_run_ids() - trainer_runs_before:
+        client.delete_run(stale_run_id)
 
 
 @pytest.mark.e2e
