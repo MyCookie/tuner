@@ -54,8 +54,11 @@ jobs:
         # HF_HUB_OFFLINE=1 correctly; nothing else in this step needs it.
         run: |
           set -a; . ./.env; set +a
+          # No --cov-report=json here: check_coverage.py generates its own from the
+          # .coverage data file this step writes (`coverage json -o -`), so a
+          # separate JSON report on disk would just be an unused artifact.
           uv run pytest -m 'not e2e and not gpu and not slow' \
-            --cov=src/tuner --cov-report=term-missing --cov-report=json
+            --cov=src/tuner --cov-report=term-missing
 
       - name: Per-module coverage gate
         run: uv run python scripts/check_coverage.py
