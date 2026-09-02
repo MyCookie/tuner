@@ -21,12 +21,14 @@ Executable-precision test specs for the MVP slice. [06-testing.md](../06-testing
 ## Conventions
 
 - **Case IDs:** `<PREFIX>-<U|I|E|G|S>-<NNN>` — `U` unit (no services), `I` integration (compose MinIO ± mock judge ± MLflow), `E` end-to-end, `G` GPU-only (manual, T15), `S` slow (nightly lane: container structure, scale). IDs are stable; never renumber, append instead.
-- **Traceability:** the first line of every test function's docstring is its case ID (`"""CLN-U-004: phone regex ignores version strings."""`). `scripts/check_test_ids.py` (built in T14) greps specs vs. code both ways and fails CI on: a spec case with no test, a test with no spec case, or a duplicated ID.
+- **Traceability:** the first line of every test function's docstring is its case ID (`"""CLN-U-004: phone regex ignores version strings."""`). `scripts/check_test_ids.py` (built in T14) greps specs vs. code both ways and fails CI on: a spec case with no test, a test with no spec case, or a duplicated *spec-table row*¹.
 - **Markers:** unit tests unmarked; `@pytest.mark.integration`, `@pytest.mark.e2e`, `@pytest.mark.gpu` (real-GPU-only paths; skipped in CI, run in T15), `@pytest.mark.slow` (nightly lane).
 - **Table-driven by default:** cases within one ID that differ only by data use `pytest.mark.parametrize`; the ID covers the whole table.
 - **Determinism:** no network except the in-process mock judge; no wall-clock assertions (inject/freeze time where a timestamp is asserted); integration tests create their own run IDs and clean their prefixes; tests never share state.
 - **Shared fixtures** (`tests/conftest.py`): `storage` (StorageClient against compose MinIO), `run_id` (fresh per test), `seed_tier(tier, records)` (writes records + valid manifest directly, for testing a stage in isolation), `mock_judge` (ASGI app + env pointing at it), `fixture_counts` (parsed `expected_counts.json`), `tiny_adapter` (the `tiny-test` adapter).
 - **Exit-code assertions** invoke stage CLIs in-process via `click.testing.CliRunner` and assert `result.exit_code` — never subprocess (keeps coverage measurable).
+
+¹ **Scope decision (T14, round 1 review on PR #14):** "duplicated ID" means two *spec-table rows* claiming the same ID — a real spec error the checker still fails on. It does **not** mean two test *functions* sharing one ID: "table-driven by default" (above) already sanctions splitting one case across several named functions rather than one `pytest.mark.parametrize`, and 8 such cases (`CORE-I-042/044/047`, `CORE-U-023/024/025`, `CLN-U-007`, `INF-U-007`) already existed, reviewed and merged, before this checker was built. A stricter first version flagging test-side duplicates as errors would have meant renumbering all 8 to satisfy a brand-new tool. The trade-off: a genuinely mis-copied duplicate ID on the test side (one that should have been incremented) is only caught if it also happens to duplicate a spec-table row — the spec-side check still fires there.
 
 ## Coverage policy
 
