@@ -1,0 +1,49 @@
+name: push
+
+# Every push (06-testing.md §6, point 1): lint, unit tests, the pickle ban, a secret
+# scan, and the docs check. No services needed -- integration/coverage lives in the
+# separate PR lane (pr.yml), which needs MinIO/MLflow/mock-judge up.
+on:
+  push:
+    branches: ["**"]
+
+jobs:
+  push-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          python-version: "3.11"
+
+      - name: Install toolchain
+        run: uv sync --extra dev
+
+      - name: ruff check
+        run: uv run ruff check .
+
+      - name: ruff format --check
+        run: uv run ruff format --check .
+
+      - name: pickle ban (CLAUDE.md hard rule 2)
+        run: ./scripts/check_pickle_ban.sh
+
+      - name: shell scripts parse
+        run: |
+          for f in scripts/*; do
+            [ -f "$f" ] || continue
+            case "$(head -1 "$f")" in
+              '#!'*sh*) bash -n "$f" ;;
+            esac
+          done
+
+      - name: secret scan (docs/08-test-specs/README.md "Secret scanning")
+        run: uv run python scripts/check_secrets.py
+
+      - name: unit tests
+        run: uv run pytest
+
+      - name: docs links & spec<->test traceability
+        run: uv run python scripts/check_docs.py
