@@ -13,18 +13,20 @@ Environment story from local dev (MVP) to cloud production (Phase 3). The invari
 | `minio` | `minio/minio` | 9000 (S3), 9001 (console) | volume-backed; root creds only in `.env` |
 | `minio-init` | tuner base image | — | runs `scripts/bootstrap_minio.py` once: creates the six buckets and per-stage credentials (§5), then exits |
 | `mlflow` | `ghcr.io/mlflow/mlflow` | 5000 | backend store: sqlite on a volume; artifact store: `s3://tuner-mlflow` on MinIO, **proxied** (`--serve-artifacts`) so stage clients need no artifact-bucket credentials |
+| `mock-judge` | own image (`docker/mock-judge.Dockerfile`) | 8088 | `profiles: [e2e]` (T14) — test infrastructure only ([06-testing.md §4](06-testing.md)), never a real deployment's judge endpoint; used by the E2E steel thread and CI |
 | `ingestor`, `cleaner`, `judge`, `tokenizer` | per-stage images (§2) | — | `profiles: [pipeline]` — run on demand via `tuner run` or `docker compose run`, not resident |
 | `trainer`, `smoke` | trainer image | — | `deploy.resources.reservations.devices` for GPU (nvidia runtime) |
 
 `.env` (git-ignored; `.env.example` committed) holds: MinIO root creds, per-stage keypairs, `TUNER_JUDGE_BASE_URL`, `TUNER_JUDGE_API_KEY`, `HF_TOKEN`. **No credential ever appears in compose files, configs, or code** (SAS §4.2).
 
-The judge's LLM endpoint is not part of the compose topology: point `TUNER_JUDGE_BASE_URL` at whatever OpenAI-compatible server the team has (host-side Ollama at `http://host.docker.internal:11434/v1`, a lab vLLM box, or a cloud compat endpoint).
+A real judge's LLM endpoint is not part of the compose topology: point `TUNER_JUDGE_BASE_URL` at whatever OpenAI-compatible server the team has (host-side Ollama at `http://host.docker.internal:11434/v1`, a lab vLLM box, or a cloud compat endpoint). The `mock-judge` service (above) is the one exception, and only for tests/E2E/CI — never a real environment.
 
 ## 2. Container images
 
 - `docker/base.Dockerfile`: `python:3.11-slim`, non-root user `tuner` (uid 1000), uv-installed dependencies, `src/tuner` installed. All stage images derive from it (SAS §4.2 hardening).
 - CPU stages (`ingestor`, `cleaner`, `judge`, `tokenizer`) share one image, entrypoint `tuner`.
 - `docker/trainer.Dockerfile`: CUDA runtime base (`nvidia/cuda:*-runtime`), same non-root pattern, adds torch/transformers/peft/bitsandbytes. Used by `trainer` and `smoke`.
+- `docker/mock-judge.Dockerfile` (T14): same non-root pattern, `dev` extra (fastapi/uvicorn) instead of `train`, copies `tests/mock_judge/` instead of `src/tuner` alone. Test infrastructure only — no product code.
 - Images never bake data or credentials; everything arrives via env + object store.
 
 ## 3. GPU access & host-venv fallback

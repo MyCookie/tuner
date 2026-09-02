@@ -1,0 +1,67 @@
+name: nightly
+
+# Nightly lane (06-testing.md §6, point 4): pytest -m slow (INF-S cases -- container
+# structure, scale smoke) + the CPU E2E steel thread. GPU E2E is never run in CI --
+# it's the manual release gate (06 §6 point 5; 09-git-workflow.md §5).
+on:
+  schedule:
+    - cron: "0 7 * * *" # 07:00 UTC daily
+  workflow_dispatch: {}
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          python-version: "3.11"
+
+      - name: Install toolchain
+        run: uv sync --extra dev --extra train
+
+      - name: Write .env
+        run: ./scripts/write_ci_env.sh
+
+      - name: Start compose services
+        run: docker compose --profile e2e up -d minio minio-init mlflow mock-judge
+
+      - name: Wait for services to be healthy
+        run: |
+          for svc in minio mlflow mock-judge; do
+            for _ in $(seq 1 30); do
+              status=$(docker inspect --format='{{.State.Health.Status}}' "tuner-${svc}-1" 2>/dev/null || echo "starting")
+              [ "$status" = "healthy" ] && break
+              sleep 2
+            done
+            [ "$status" = "healthy" ] || { echo "::error::$svc never became healthy"; docker compose logs "$svc"; exit 1; }
+          done
+
+      - name: Slow lane (INF-S cases)
+        # INF-S-020/021 (docs/07-build-plan.md T15 Suite line) don't exist yet, so
+        # `-m slow` currently selects zero tests -- pytest's own "no tests collected"
+        # exit code (5), tolerated here until T15 lands them. Any other nonzero exit
+        # (a real failure, once slow tests exist) still fails the job.
+        run: |
+          set -a; . ./.env; set +a
+          # `cmd; ec=$?` would abort right here under this shell's default `set -e`
+          # before `ec` is ever assigned -- `|| ec=$?` absorbs the failure instead.
+          uv run pytest -m slow || ec=$?
+          ec=${ec:-0}
+          [ "$ec" -eq 0 ] || [ "$ec" -eq 5 ] || exit "$ec"
+
+      - name: CPU E2E steel thread
+        run: |
+          set -a; . ./.env; set +a
+          uv run pytest -m e2e tests/e2e/test_steel_thread.py -v
+
+      - name: Compose logs (on failure)
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down compose services
+        if: always()
+        run: docker compose --profile e2e down -v

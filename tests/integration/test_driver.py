@@ -308,7 +308,10 @@ def test_real_mini_run_through_actual_driver(storage, tmp_path, monkeypatch, moc
         ["tuner", "run", "--config", str(config_path)],
         capture_output=True,
         text=True,
-        timeout=600,
+        # 1200s, not 600s: a shared/free-tier GH Actions runner ran the full
+        # ingest->clean->judge->tokenize->train->smoke pipeline meaningfully
+        # slower than a local dev box (confirmed by a real CI timeout at 600s).
+        timeout=1200,
     )
     assert result.returncode == 0, result.stdout + result.stderr
 

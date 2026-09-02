@@ -1,0 +1,64 @@
+name: push
+
+# Every push (06-testing.md §6, point 1): lint, unit tests, the pickle ban, a secret
+# scan, and the docs check. No services needed -- integration/coverage lives in the
+# separate PR lane (pr.yml), which needs MinIO/MLflow/mock-judge up.
+on:
+  push:
+    branches: ["**"]
+
+jobs:
+  push-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history: check_secrets.py's branch-history scan needs it
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          python-version: "3.11"
+
+      - name: Install toolchain
+        run: uv sync --extra dev
+
+      - name: ruff check
+        run: uv run ruff check .
+
+      - name: ruff format --check
+        run: uv run ruff format --check .
+
+      - name: pickle ban (CLAUDE.md hard rule 2)
+        run: ./scripts/check_pickle_ban.sh
+
+      - name: shell scripts parse
+        run: |
+          for f in scripts/*; do
+            [ -f "$f" ] || continue
+            case "$(head -1 "$f")" in
+              '#!'*sh*) bash -n "$f" ;;
+            esac
+          done
+
+      - name: secret scan, working tree (docs/08-test-specs/README.md "Secret scanning")
+        run: uv run python scripts/check_secrets.py
+
+      - name: secret scan, branch history
+        # "over the full history of the branch being merged" (08 README). On a push
+        # to main itself, origin/main after this checkout already IS this same
+        # commit, so the merge-base equals HEAD and there's nothing new to scan --
+        # correct, since every commit was already scanned on the feature branch that
+        # got merged. `git fetch` (not just fetch-depth: 0) guarantees origin/main
+        # exists even if the checkout action's own ref expansion didn't pull it.
+        run: |
+          git fetch origin main --quiet
+          base=$(git merge-base origin/main HEAD)
+          uv run python scripts/check_secrets.py --since-merge-base "$base"
+
+      - name: unit tests
+        run: uv run pytest
+
+      - name: docs links & spec<->test traceability
+        run: uv run python scripts/check_docs.py

@@ -1,0 +1,31 @@
+name: weekly
+
+# Dependency audit (06-testing.md §6, point 3): on every lockfile change, and weekly
+# on schedule regardless -- a dependency can turn out vulnerable long after the PR
+# that pinned it merged.
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "uv.lock"
+  schedule:
+    - cron: "0 6 * * 1" # 06:00 UTC every Monday
+  workflow_dispatch: {}
+
+jobs:
+  pip-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          python-version: "3.11"
+
+      - name: uv export (full dependency set, including extras)
+        run: uv export --extra dev --extra train --no-hashes -o requirements-audit.txt
+
+      - name: pip-audit
+        run: uvx pip-audit -r requirements-audit.txt

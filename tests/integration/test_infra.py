@@ -11,17 +11,21 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
 import time
 from pathlib import Path
 
 import boto3
 import mlflow
 import pytest
+import yaml
 from botocore.client import Config as BotoConfig
 from botocore.exceptions import ClientError
 from scripts.bootstrap_minio import BUCKETS, IAM_MATRIX, _admin_client, _env_prefix
 from scripts.bootstrap_minio import main as bootstrap_main
 
+from tuner.core.ids import canonical_hash, new_record_id
 from tuner.core.storage import StorageClient
 
 REPO_ROOT = Path(__file__).parents[2]
@@ -219,3 +223,102 @@ def test_ingest_cli_against_unreachable_store_fails_fast(monkeypatch, run_id, tm
     assert exit_code == 1
     assert elapsed < 30, f"took {elapsed:.1f}s — retries/timeout not bounded"
     assert "connect" in capsys.readouterr().err.lower()
+
+
+@pytest.mark.integration
+def test_offline_hf_mode_with_preseeded_cache(storage, run_id, tmp_path):
+    """INF-I-012: with HF_HUB_OFFLINE=1 and the pre-seeded tiny-test cache, a real
+    tokenize() run (representative of the TOK integration suite -- the property this
+    case specs is CI's own cache-seed step + offline env, not one specific stage)
+    passes with zero network calls.
+
+    Runs `tuner tokenize` as a subprocess with the env set from process start, not
+    `monkeypatch.setenv` mid-test: huggingface_hub/transformers resolve their cache
+    location from `HF_HOME` when the module is first imported, so changing the env
+    var after either is already imported in this pytest process has no effect --
+    confirmed empirically (an in-process negative control loaded from an "empty"
+    cache anyway; the same negative control run as a subprocess correctly raised
+    `OSError` naming the offline mode)."""
+    from scripts.seed_hf_cache import seed
+
+    hf_home = tmp_path / "hf-home"
+    # Same seeding logic CI's own cache-seed step uses (scripts/seed_hf_cache.py) --
+    # an isolated cache_dir here, so this proves "pre-seed then run offline" from a
+    # genuine cold start rather than relying on the runner's ambient cache.
+    seed(str(hf_home))
+
+    record = {
+        "id": new_record_id(),
+        "run_id": run_id,
+        "lineage": {"bronze_content_hash": f"sha256:{'0' * 64}", "cleaner_version": "0.1.0"},
+        "conversation": [
+            {"role": "user", "content": [{"type": "text", "value": "Q"}]},
+            {"role": "assistant", "content": [{"type": "text", "value": "A"}]},
+        ],
+        "evaluation": {
+            "score": 0.9,
+            "judge_model": "mock-judge",
+            "reasoning": "fine",
+            "evaluated_at": "2026-07-20T14:31:10Z",
+        },
+    }
+    storage.write_jsonl("tuner-gold", f"{run_id}/records-00000.jsonl", [record])
+    storage.write_json(
+        "tuner-gold",
+        f"{run_id}/manifest.json",
+        {
+            "tier": "gold",
+            "run_id": run_id,
+            "created_at": "2026-07-20T14:31:10Z",
+            "producer": {"stage": "judge", "version": "0.1.0"},
+            "input": {
+                "tier": "silver",
+                "manifest_uri": f"s3://tuner-silver/{run_id}/manifest.json",
+            },
+            "files": ["records-00000.jsonl"],
+            "records_hash": canonical_hash([record]),
+            "counts": {"read": 1, "written": 1, "dropped": 0},
+            "drops": [],
+        },
+    )
+    config_path = tmp_path / "pipeline.yaml"
+    config_path.write_text(
+        yaml.safe_dump(
+            {
+                "model": {"adapter": "tiny-test"},
+                "ingest": {"sources": []},
+                # eval_fraction: 0.0, not the 0.1 default -- assign_split hashes the
+                # single record's own random new_record_id(), so at the default ~1
+                # run in 10 would place it in eval, leaving train empty and this test
+                # spuriously exiting 3 (`tokenize: train split is empty`). Reproduced
+                # in a 100k-sample simulation (~10.0%) and once for real on CI (PR
+                # #14 round 1 review). Forcing every record to train is orthogonal to
+                # what this case specs -- offline mode against a pre-seeded cache.
+                "tokenize": {"eval_fraction": 0.0},
+            }
+        )
+    )
+
+    env = {**os.environ, "HF_HOME": str(hf_home), "HF_HUB_OFFLINE": "1"}
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "tuner",
+                "tokenize",
+                "--run-id",
+                run_id,
+                "--config",
+                str(config_path),
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=120,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert storage.read_json("tuner-artifacts", f"{run_id}/tokens/index_map.json") is not None
+    finally:
+        storage.delete_prefix("tuner-gold", f"{run_id}/")
+        storage.delete_prefix("tuner-artifacts", f"{run_id}/")
