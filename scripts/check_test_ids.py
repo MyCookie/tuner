@@ -8,7 +8,7 @@
 - an ID defined twice within the spec tables themselves (a doc authoring mistake,
   e.g. a copy-pasted row whose number wasn't bumped).
 
-A case ID matches `<PREFIX>-<U|I|E|G|S>-<NNN>` (spec/08 README "Conventions"). One ID
+A case ID matches `<PREFIX>-<U|I|E|G|S>-<NNN>` (08 README "Conventions"). One ID
 legitimately tagging *several* test functions is not flagged: "table-driven by
 default" (08 README) covers grouping several data-driven facets of one case under
 several named functions, not just literal `pytest.mark.parametrize` -- e.g.

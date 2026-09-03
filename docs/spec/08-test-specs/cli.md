@@ -39,7 +39,7 @@ Specs under test: [01-architecture.md §2, §4.4](../01-architecture.md), [regis
 - `CLI-U-005`/`006` close a coverage gap `CLI-I-014`'s own real-subprocess design
   leaves (the driver's `_invoke_stage`/`run` are only exercised through an actual OS
   subprocess there, which coverage tooling can't observe, per
-  `docs/08-test-specs/README.md`'s own "never subprocess, keeps coverage measurable"
+  `docs/spec/08-test-specs/README.md`'s own "never subprocess, keeps coverage measurable"
   convention) -- both are the in-process, monkeypatched-boundary equivalent.
 - `CLI-I-015`/`016` regression-test round 1's two driver findings: `run_pipeline` had
   no top-level exception guard (an unreachable MLflow server or a missing registry
