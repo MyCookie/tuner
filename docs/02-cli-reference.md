@@ -23,12 +23,17 @@ Commands:
   clean     Convert Bronze envelopes into scrubbed, filtered,...
   ingest    Convert configured sources into Bronze envelopes.
   judge     Score Silver records with an LLM and promote passing ones to...
-  registry  Model registry operations.
+  registry  Model registry operations (docs/spec/03-components/registry.md).
   run       Run the full pipeline: ingest -> clean -> judge -> tokenize...
-  smoke     Generate before/after transcripts proving the trained model...
+  smoke     Generate before/after transcripts proving the trained model
+            changed behavior.
   tokenize  Map Gold records to the target model's vocabulary; write...
-  train     Fine-tune the selected adapter's base model on tokenized Gold...
+  train     Fine-tune the selected adapter's base model on tokenized Gold
+            data.
 ```
+
+(`registry`, `smoke`, and `train`'s one-liners are longer than click's summary
+truncation handles, so they show in full or wrap instead of ending in `...`.)
 
 Every per-stage subcommand (`ingest`, `clean`, `judge`, `tokenize`, `train`,
 `smoke`) takes exactly two options:
@@ -54,10 +59,10 @@ repository's own `.venv` before the extra was installed:
 
 ```
 $ uv run tuner train --help
-Error: 'train' needs the `train` extra (torch/transformers/peft/accelerate) --
-run `uv sync --extra train` (05-infrastructure.md §3). Underlying import
-error: No module named 'accelerate'
+Error: 'train' needs the `train` extra (torch/transformers/peft/accelerate) -- run `uv sync --extra train` (05-infrastructure.md §3). Underlying import error: No module named 'accelerate'
 ```
+
+(click prints this as one line — wrapped above only for this page's width.)
 
 ## Exit codes
 
@@ -71,11 +76,13 @@ The same four codes apply to every subcommand, including `run`
 | `2` | config or input-schema validation failure | missing config file (`run: config file not found: configs/does-not-exist.yaml`); missing env vars (`ingest: missing required env var(s): TUNER_S3_ACCESS_KEY, TUNER_S3_SECRET_KEY`); a malformed `--run-id`; an unknown config key or invalid config value; an upstream tier's manifest missing or invalid |
 | `3` | zero records survived the stage | e.g. `ingest: zero records ingested across all sources`, `clean: zero records survived cleaning`, `judge: zero records promoted to Gold` — the pipeline should abort, not continue on an empty tier |
 
-`tuner run` propagates the first non-zero exit code its stages produce
-verbatim for `2` and `3` (`run: stage 'clean' failed (exit 3)` ⇒ `tuner run`
-itself exits `3`, printed as `run: pipeline empty at clean`); anything
-outside `{0, 1, 2, 3}` (e.g. a signal-killed subprocess) is normalized to `1`
-rather than propagated raw, so `tuner run`'s own exit code is always in that
+`tuner run` propagates the first non-zero exit code its stages produce.
+Exit `2` is reported as `run: stage 'clean' failed (exit 2)` and propagated
+verbatim. Exit `3` is called out distinctly rather than as a generic stage
+failure — printed as `run: pipeline empty at clean`, never the `stage '...'
+failed` form — and `tuner run` itself also exits `3`. Anything outside
+`{0, 1, 2, 3}` (e.g. a signal-killed subprocess) is normalized to `1` rather
+than propagated raw, so `tuner run`'s own exit code is always in that
 four-value contract regardless of what a stage subprocess actually returned.
 
 ## `tuner run`

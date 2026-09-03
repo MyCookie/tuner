@@ -118,11 +118,18 @@ flowchart TB
 ```
 
 The rule enforced everywhere — in code, and mechanically at the storage
-layer — is that a stage gets **read** access to its one input bucket and
-**write** access to its one output bucket, nothing else. Concretely: the
-Ingestor cannot write to Gold, and the Trainer cannot read Bronze, because
-neither principal holds *any* grant on that bucket at all (the full IAM
-matrix is in [docs/spec/05-infrastructure.md §5](spec/05-infrastructure.md)).
+layer — is that a stage is granted **read** access only to the tier(s) it
+consumes and **write** access only to the tier(s) it produces, never blanket
+access. Most stages are exactly "one in, one out": the Cleaner reads Bronze
+and writes Silver; the Judge reads Silver and writes Gold; the Tokenizer
+reads Gold and writes Artifacts. A few have a wider footprint by design — the
+Trainer both reads and writes the Artifact store and also writes the
+Registry, and most stages additionally get a read grant on a reserved
+`assets` bucket held for a future multimodal phase and unused today.
+Concretely: the Ingestor cannot write to Gold, and the Trainer cannot read
+Bronze, because neither principal holds *any* grant on that bucket at all
+(the full IAM matrix is in
+[docs/spec/05-infrastructure.md §5](spec/05-infrastructure.md)).
 
 This isn't just tidiness. It's what makes the audit trail actually mean
 something: since a stage's only way to influence what comes next is the tier
@@ -130,11 +137,11 @@ it's allowed to write, a bad actor or a bug in the Cleaner can corrupt
 Silver, but it categorically cannot forge a Judge score or reach back and
 rewrite Bronze — there's no credential that would let it. The blast radius
 of any one stage is fixed by the bucket ACLs, not by code discipline. The
-data itself carries the same guarantee in miniature: every tier manifest
-records `input.manifest_uri`, the exact upstream manifest it was built from,
-so from a Gold record you can walk `Gold → Silver → Bronze` and land on the
-literal source row it came from — full lineage, not just "trust the
-pipeline."
+data itself carries the same guarantee in miniature: every tier manifest past
+Bronze (which has no upstream tier — `input` is null there) records
+`input.manifest_uri`, the exact upstream manifest it was built from, so from
+a Gold record you can walk `Gold → Silver → Bronze` and land on the literal
+source row it came from — full lineage, not just "trust the pipeline."
 
 ## Run IDs: the only thing that ties a pipeline execution together
 

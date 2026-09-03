@@ -72,13 +72,15 @@ ingest:
       mapping:
         prompt_column: question
         response_column: answer
-        system_column: null
     - type: jsonl
       uri: fixtures/extra_dialogs.jsonl
 ```
 
 (That two-source shape is taken directly from `configs/pipeline.e2e.yaml` —
-multiple sources of different types combine into one Bronze output.)
+multiple sources of different types combine into one Bronze output. The
+single-source `configs/pipeline.yaml` shows the optional `system_column`
+field instead: `mapping: {prompt_column: question, response_column: answer,
+system_column: null}`.)
 
 ## `clean`
 

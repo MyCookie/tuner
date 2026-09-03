@@ -15,7 +15,7 @@ this page (see "What we verified," at the end, for exactly how far that goes)
 | :--- | :--- | :--- |
 | Python 3.11+ | Tuner's runtime | — |
 | [`uv`](https://docs.astral.sh/uv/) | dependency/environment management — the only supported way to install and run Tuner | `uv 0.12.9` |
-| Docker + Docker Compose v2 | local MinIO (object storage) + MLflow | `Docker 29.2.1` / `Compose v5.0.2` |
+| Docker + the `docker compose` CLI plugin (not the legacy standalone `docker-compose`) | local MinIO (object storage) + MLflow | `Docker 29.2.1` / Compose plugin `v5.0.2` |
 | An NVIDIA GPU + drivers (optional) | only needed for `train`/`smoke` against the real default model, `gemma-e4b`; the fixture-scale path below runs entirely on CPU | — |
 
 You do **not** need a GPU to complete this page. You need one only if you go
@@ -50,12 +50,18 @@ Commands:
   clean     Convert Bronze envelopes into scrubbed, filtered,...
   ingest    Convert configured sources into Bronze envelopes.
   judge     Score Silver records with an LLM and promote passing ones to...
-  registry  Model registry operations.
+  registry  Model registry operations (docs/spec/03-components/registry.md).
   run       Run the full pipeline: ingest -> clean -> judge -> tokenize...
-  smoke     Generate before/after transcripts proving the trained model...
+  smoke     Generate before/after transcripts proving the trained model
+            changed behavior.
   tokenize  Map Gold records to the target model's vocabulary; write...
-  train     Fine-tune the selected adapter's base model on tokenized Gold...
+  train     Fine-tune the selected adapter's base model on tokenized Gold
+            data.
 ```
+
+(`registry`, `smoke`, and `train`'s one-liners are longer than click's summary
+truncation handles, so they run past the column and wrap or show in full —
+harmless, just not as tidy as the others.)
 
 You'll see a one-line warning above that (`[transformers] PyTorch was not
 found...`) — harmless at this point. `train` and `smoke` need real
@@ -67,10 +73,10 @@ clear message naming the fix, rather than a raw `ModuleNotFoundError`:
 
 ```
 $ uv run tuner train --help
-Error: 'train' needs the `train` extra (torch/transformers/peft/accelerate) --
-run `uv sync --extra train` (05-infrastructure.md §3). Underlying import
-error: No module named 'accelerate'
+Error: 'train' needs the `train` extra (torch/transformers/peft/accelerate) -- run `uv sync --extra train` (05-infrastructure.md §3). Underlying import error: No module named 'accelerate'
 ```
+
+(click prints this as one line — wrapped above only for this page's width.)
 
 ## 2. Configure environment
 
@@ -103,23 +109,26 @@ docker compose up -d minio minio-init mlflow
 ```
 
 This starts MinIO (S3-compatible object storage), runs `minio-init` once to
-create the six buckets and per-stage users from your `.env`, then starts
-MLflow. Confirmed behavior, run twice in a row on the same machine while
-writing this page:
+create the seven canonical buckets and per-stage users from your `.env`, then
+starts MLflow. Confirmed behavior, run twice in a row on the same machine
+while writing this page:
 
 - `minio` and `mlflow` come up and pass their healthchecks.
 - `minio-init` runs to completion and **exits** (`Container tuner-minio-init-1
   Exited`) — that's success, not a crash; it's a one-shot bootstrap job, not a
-  resident service. Re-running the same command is safe: `minio-init` is
-  idempotent, so a second `docker compose up -d` just reports everything
-  already running/exited-0 and changes nothing.
+  resident service. Its bucket/user creation is idempotent (re-running it is
+  safe), but a second `docker compose up -d` still visibly re-creates and
+  re-runs the `minio-init` container (`Starting` / `Started` / `Exited`) each
+  time rather than skipping it silently — it just changes nothing at the end.
 
 Once it settles, two UIs are reachable on `localhost`:
 
 - **MinIO console:** <http://localhost:9001> — log in with `MINIO_ROOT_USER`
   / `MINIO_ROOT_PASSWORD` from your `.env`. This is where you can browse the
   `tuner-bronze` / `tuner-silver` / `tuner-gold` / `tuner-artifacts` /
-  `tuner-registry` buckets object-by-object after a run.
+  `tuner-registry` buckets object-by-object after a run (plus `tuner-mlflow`,
+  MLflow's own backing store, and `tuner-assets`, reserved for a future
+  multimodal phase and unused today).
 - **MLflow UI:** <http://localhost:5000> — every Judge and Trainer run gets
   logged here (params, metrics, the loss curve, and — attached to the
   Trainer's run — the smoke-test transcript).
@@ -222,9 +231,13 @@ coexist rather than collide.
 ## 5. Running the real pipeline (`gemma-e4b`, GPU)
 
 `uv run tuner run --config configs/pipeline.yaml` is the actual product path:
-default adapter `gemma-e4b`, QLoRA training, a real judge endpoint. It needs:
+default adapter `gemma-e4b`, QLoRA training, a real judge endpoint. As shipped,
+`configs/pipeline.yaml` has `judge.model: ""` — the Judge stage exits `2`
+immediately on an empty model name (`src/tuner/judge/cli.py`), before any
+GPU work, so the file isn't runnable until you set a real one. It needs:
 
-- `TUNER_JUDGE_BASE_URL` pointed at a real OpenAI-compatible endpoint (not
+- `judge.model` in the config set to a real model name, plus
+  `TUNER_JUDGE_BASE_URL` pointed at a real OpenAI-compatible endpoint (not
   `mock-judge`), with a working `TUNER_JUDGE_API_KEY`.
 - A CUDA-capable GPU for `train`/`smoke` (QLoRA's 4-bit quantization,
   `bitsandbytes`, requires one) — either via `docker compose`'s
