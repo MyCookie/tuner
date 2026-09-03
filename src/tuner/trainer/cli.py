@@ -1,4 +1,4 @@
-"""`tuner train` (docs/03-components/trainer.md)."""
+"""`tuner train` (docs/spec/03-components/trainer.md)."""
 
 from __future__ import annotations
 
@@ -318,7 +318,7 @@ def train(
                     mlflow.log_artifact(str(tb_path))
                     raise
         except torch.cuda.OutOfMemoryError as exc:
-            # Named explicitly (docs/03-components/trainer.md error handling): the two
+            # Named explicitly (docs/spec/03-components/trainer.md error handling): the two
             # knobs that actually shrink memory use, not a generic failure message
             # (PR #11 review round 1 finding 6).
             click.echo(

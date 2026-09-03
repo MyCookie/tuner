@@ -1,4 +1,4 @@
-"""Shared fixtures (docs/08-test-specs/README.md). More land with their owning tasks."""
+"""Shared fixtures (docs/spec/08-test-specs/README.md). More land with their owning tasks."""
 
 from __future__ import annotations
 

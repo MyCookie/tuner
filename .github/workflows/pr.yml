@@ -5,7 +5,7 @@ name: pr
 # tiny-model cache, the per-module coverage gate. GH Actions' native `services:` key
 # needs a pre-built registry image, which this repo doesn't publish -- `docker
 # compose up` as a regular step instead, the same command a human runs locally
-# (docs/09-git-workflow.md §4/10-code-review.md §3-4's "one script, can't drift").
+# (docs/spec/09-git-workflow.md §4/10-code-review.md §3-4's "one script, can't drift").
 on:
   pull_request:
 
@@ -46,7 +46,7 @@ jobs:
 
       - name: Unit + integration tests (coverage)
         # No blanket HF_HUB_OFFLINE=1 here: huggingface_hub resolves it at
-        # process start (docs/03-components' HF_HOME gotcha applies equally to
+        # process start (docs/spec/03-components' HF_HOME gotcha applies equally to
         # this var), so a step-level env would also gate INF-I-012's own
         # seed() call, which needs real network to build its isolated cold
         # cache before it proves offline mode -- via a *subprocess* env

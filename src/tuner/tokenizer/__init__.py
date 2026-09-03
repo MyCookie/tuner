@@ -1,1 +1,1 @@
-"""The Tokenizer (docs/03-components/tokenizer.md) — Gold records to SafeTensors."""
+"""The Tokenizer (docs/spec/03-components/tokenizer.md) — Gold records to SafeTensors."""

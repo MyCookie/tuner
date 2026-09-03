@@ -1,4 +1,4 @@
-"""`tuner ingest` (docs/03-components/ingestor.md)."""
+"""`tuner ingest` (docs/spec/03-components/ingestor.md)."""
 
 from __future__ import annotations
 

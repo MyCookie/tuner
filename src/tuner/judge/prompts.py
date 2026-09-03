@@ -1,9 +1,9 @@
-"""Judge rubric prompt (docs/03-components/judge.md scoring protocol).
+"""Judge rubric prompt (docs/spec/03-components/judge.md scoring protocol).
 
 RUBRIC_V1 is the versioned rubric identifier logged to MLflow (JDG-I-026) and embedded
 here as a module constant (JDG-U-017) — bump it (RUBRIC_V2, ...) if the instructions or
 dimensions below ever change, so Gold tiers scored under different rubrics stay
-distinguishable (determinism caveat, docs/03-components/judge.md error handling).
+distinguishable (determinism caveat, docs/spec/03-components/judge.md error handling).
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ Respond with ONLY a JSON object of this exact shape, and nothing else:
 
 def render_rubric_prompt(conversation: list[dict[str, Any]]) -> str:
     """Render one Silver `conversation` into the full rubric prompt text
-    (docs/03-components/judge.md scoring protocol). Every turn's text is included,
+    (docs/spec/03-components/judge.md scoring protocol). Every turn's text is included,
     verbatim and role-labeled, in order (JDG-U-017)."""
     lines = [_INSTRUCTIONS, "", "Conversation:"]
     for turn in conversation:

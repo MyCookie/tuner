@@ -59,7 +59,7 @@ cp .github/pull_request_template.md /tmp/pr-body.md   # gh will not apply it non
 
 `open-pr.sh` refuses on a dirty tree, on `main`, on a detached HEAD, on a missing body file, and on a body that is still the unmodified template. It exists because the transcribed version of this sequence was broken in both documents that carried it.
 
-The PR body follows [.github/pull_request_template.md](../.github/pull_request_template.md): which task, which suite cases, the gate transcript, any spec decision made along the way, and the areas the implementer most wants scrutinised. Claims in the PR body are *hints* for the reviewer, never evidence — the reviewer re-derives everything.
+The PR body follows [.github/pull_request_template.md](../../.github/pull_request_template.md): which task, which suite cases, the gate transcript, any spec decision made along the way, and the areas the implementer most wants scrutinised. Claims in the PR body are *hints* for the reviewer, never evidence — the reviewer re-derives everything.
 
 Then spawn the reviewer:
 
@@ -99,9 +99,9 @@ The compose stack is a **single shared instance** on fixed ports (`9000`/`9001`/
 
 The gate proves the tests pass. The review exists for what a green gate cannot show. Work through all seven:
 
-The lettering below is normative; [.claude/agents/code-reviewer.md](../.claude/agents/code-reviewer.md) restates it and must not diverge.
+The lettering below is normative; [.claude/agents/code-reviewer.md](../../.claude/agents/code-reviewer.md) restates it and must not diverge.
 
-**a. Hard rules ([CLAUDE.md](../CLAUDE.md)).** `import boto3` only inside `src/tuner/core/storage.py` (`CORE-U-046`); no `pickle`, no `torch.save`/`torch.load`, no `.bin` weights; secrets only via the `TUNER_*`/`MLFLOW_*`/`HF_TOKEN` env vars — never in configs, code, logs, or compose; stages stateless and idempotent (delete own output prefix → rewrite → manifest written **last**); exit codes 0 ok / 1 error / 2 config-or-validation / 3 zero-records; no stage branching on a model adapter's name.
+**a. Hard rules ([CLAUDE.md](../../CLAUDE.md)).** `import boto3` only inside `src/tuner/core/storage.py` (`CORE-U-046`); no `pickle`, no `torch.save`/`torch.load`, no `.bin` weights; secrets only via the `TUNER_*`/`MLFLOW_*`/`HF_TOKEN` env vars — never in configs, code, logs, or compose; stages stateless and idempotent (delete own output prefix → rewrite → manifest written **last**); exit codes 0 ok / 1 error / 2 config-or-validation / 3 zero-records; no stage branching on a model adapter's name.
 
 **b. Spec conformance.** Read the task's **Spec** sections yourself. Every claim on its **Accept** line must trace to a real assertion, not a plausible-looking one. Canonical names — buckets, env vars, config keys, run-ID format ([01 §4](01-architecture.md)) — must be used verbatim, with no invented variants.
 
@@ -158,7 +158,7 @@ Then the gate transcript as a table (check · result), then the findings, each:
 
 **Findings against documentation use the same ladder**, because the docs here are normative and the next agent executes from them. A doc that states a verifiable falsehood, or prescribes a command that does not work, is a `major`: it will mislead someone who cannot check it. A doc that is merely unclear, incomplete or stale is a `minor`. A documentation `major` blocks the merge; that is intended.
 
-`**Where:**` takes a section reference when the finding is not about a line of code — `docs/10-code-review.md §9` is a perfectly good anchor. Links in a review body or PR body are rendered by GitHub, not by a file tree: use a repo-root path or plain inline code, never `../`.
+`**Where:**` takes a section reference when the finding is not about a line of code — `docs/spec/10-code-review.md §9` is a perfectly good anchor. Links in a review body or PR body are rendered by GitHub, not by a file tree: use a repo-root path or plain inline code, never `../`.
 
 **APPROVE requires zero `blocker` and zero `major`.** `minor`/`nit` findings are posted and left to the implementer's judgement — they never hold up a merge on their own.
 

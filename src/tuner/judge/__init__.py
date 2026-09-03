@@ -1,1 +1,1 @@
-"""The Judge (docs/03-components/judge.md) — LLM scoring and Gold promotion."""
+"""The Judge (docs/spec/03-components/judge.md) — LLM scoring and Gold promotion."""

@@ -1,4 +1,4 @@
-"""Default adapter: Google Gemma E4B (docs/04-model-adapters.md §3).
+"""Default adapter: Google Gemma E4B (docs/spec/04-model-adapters.md §3).
 
 `hf_model_id`/`hf_revision` verified against the real, public Hugging Face repo at
 implementation time (2026-08-23): `google/gemma-4-E4B-it` -- the current "Gemma 4"
@@ -9,11 +9,11 @@ pinned to that repo's commit SHA as of the same date, fetched via the HF API rat
 than the `main` ref itself (`INF-U-011`).
 
 **Correction, round 1 review:** this file originally pointed at `google/gemma-3n-E4B-it`
-with a footnote claiming `docs/04 §3`'s literal placeholder, `google/gemma-4-e4b-it`,
+with a footnote claiming `docs/spec/04 §3`'s literal placeholder, `google/gemma-4-e4b-it`,
 "doesn't exist." That was wrong on both counts: the placeholder string itself resolves
 (case-insensitively, via a redirect) to a real, current, **ungated** repo -- the review
 caught this by checking the placeholder directly rather than assuming a newer Gemma
-generation couldn't exist yet. `docs/02-data-contracts.md`'s examples are corrected to
+generation couldn't exist yet. `docs/spec/02-data-contracts.md`'s examples are corrected to
 match this repo's real casing.
 
 This repo is `Gemma4ForConditionalGeneration` -- architecturally multimodal (text/vision/

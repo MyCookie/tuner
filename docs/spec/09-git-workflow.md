@@ -28,7 +28,7 @@ Rules for all work in this repo, human or agent. The core invariant: **`main` is
 Body: what and why, not how. Reference the build task and any
 spec sections that constrain the change.
 
-Refs: T07, docs/03-components/cleaner.md
+Refs: T07, docs/spec/03-components/cleaner.md
 ```
 
 - `type` ∈ `feat`, `fix`, `test`, `docs`, `refactor`, `chore`, `ci`. `scope` = stage/module (`ingestor`, `core`, `judge`, …).

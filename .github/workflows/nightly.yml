@@ -41,7 +41,7 @@ jobs:
           done
 
       - name: Slow lane (INF-S cases)
-        # INF-S-020/021 (docs/07-build-plan.md T15 Suite line) don't exist yet, so
+        # INF-S-020/021 (docs/spec/07-build-plan.md T15 Suite line) don't exist yet, so
         # `-m slow` currently selects zero tests -- pytest's own "no tests collected"
         # exit code (5), tolerated here until T15 lands them. Any other nonzero exit
         # (a real failure, once slow tests exist) still fails the job.

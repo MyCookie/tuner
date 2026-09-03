@@ -1,15 +1,15 @@
-<!-- docs/10-code-review.md §3. Everything here is a hint for the reviewer,
+<!-- docs/spec/10-code-review.md §3. Everything here is a hint for the reviewer,
      never evidence — the reviewer re-derives all of it independently. -->
 
 ## Task
 
-**TNN — <task title>** · `docs/07-build-plan.md`
+**TNN — <task title>** · `docs/spec/07-build-plan.md`
 
 <one paragraph: what this branch makes true that was not true before>
 
 ## Suite
 
-Cases implemented, per the task's **Suite** line in `docs/08-test-specs/`:
+Cases implemented, per the task's **Suite** line in `docs/spec/08-test-specs/`:
 
 - `XXX-U-001..00N` — <what they cover>
 - `XXX-I-010..01N` — <what they cover>
@@ -28,8 +28,8 @@ Output of `./scripts/gate.sh`:
 
 <Any ambiguity found in the specs and how it was resolved, with the doc change
 that records it. "None" if none — but a task that hit no ambiguity at all is
-worth a second look. See the INF-I-005 footnote in 08-test-specs/infra.md for
-the precedent.>
+worth a second look. See the INF-I-005 footnote in docs/spec/08-test-specs/infra.md
+for the precedent.>
 
 ## Pre-existing tests touched
 

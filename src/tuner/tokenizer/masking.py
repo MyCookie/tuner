@@ -1,4 +1,4 @@
-"""Label masking via incremental-prefix tokenization (docs/03-components/tokenizer.md
+"""Label masking via incremental-prefix tokenization (docs/spec/03-components/tokenizer.md
 core logic 6).
 
 Generic over any tokenizer exposing `apply_chat_template(messages, tokenize=True,
@@ -23,7 +23,7 @@ class MaskingMismatch(Exception):
     with nothing before it at all -- some templates refuse `add_generation_prompt` on
     an empty message list outright, PR #10 review round 1 finding 1). Either way this
     is a data problem only in the sense that a record's shape or text can trigger it,
-    not something a stage bug caused (docs/03-components/tokenizer.md core logic 6).
+    not something a stage bug caused (docs/spec/03-components/tokenizer.md core logic 6).
     The caller drops the record with reason `masking_mismatch`."""
 
     def __init__(self, turn_index: int) -> None:
@@ -102,7 +102,7 @@ def pad_and_stack(
 ) -> dict[str, np.ndarray]:
     """Pad every `(input_ids, labels)` pair to the longest `input_ids` in `sequences`
     with `pad_token_id` (`attention_mask` 0, `labels` `-100` for the padded tail);
-    stack to int64 arrays (docs/03-components/tokenizer.md step 8, TOK-U-012). An empty
+    stack to int64 arrays (docs/spec/03-components/tokenizer.md step 8, TOK-U-012). An empty
     `sequences` still returns well-shaped `(0, 0)` arrays -- a split having zero rows
     is a valid, tested outcome (TOK-I-027), not an error."""
     if not sequences:

@@ -1,4 +1,4 @@
-# Mock-judge sidecar (docs/06-testing.md §4) -- test infrastructure only, never
+# Mock-judge sidecar (docs/spec/06-testing.md §4) -- test infrastructure only, never
 # deployed to a real environment. Same non-root pattern as base.Dockerfile, but
 # installs the `dev` extra (fastapi/uvicorn) instead of `train`/nothing, and copies
 # tests/mock_judge/ instead of just src/tuner -- this image has no product code in it.

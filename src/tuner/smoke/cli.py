@@ -1,4 +1,4 @@
-"""`tuner smoke` (docs/03-components/smoke-test.md)."""
+"""`tuner smoke` (docs/spec/03-components/smoke-test.md)."""
 
 from __future__ import annotations
 

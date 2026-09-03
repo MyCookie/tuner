@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Spec <-> test traceability (docs/08-test-specs/README.md "Conventions" /
+"""Spec <-> test traceability (docs/spec/08-test-specs/README.md "Conventions" /
 "Traceability"). Fails on:
 
-- a spec case (a table row's own ID column, in `docs/08-test-specs/*.md`) with no
+- a spec case (a table row's own ID column, in `docs/spec/08-test-specs/*.md`) with no
   test function tagging it,
 - a test function's docstring tagging an ID with no matching spec case,
 - an ID defined twice within the spec tables themselves (a doc authoring mistake,
@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
-SPEC_DIR = REPO_ROOT / "docs" / "08-test-specs"
+SPEC_DIR = REPO_ROOT / "docs" / "spec" / "08-test-specs"
 TEST_DIRS = (
     REPO_ROOT / "tests" / "unit",
     REPO_ROOT / "tests" / "integration",
@@ -40,16 +40,16 @@ ID_RE = re.compile(r"[A-Z]+-[UIEGS]-\d{3}")
 SPEC_ROW_RE = re.compile(r"^\|\s*(" + ID_RE.pattern + r")\b")
 DOCSTRING_ID_RE = re.compile(r"^(" + ID_RE.pattern + r"):")
 
-# Cases whose own spec row says they land in a later task (docs/07-build-plan.md's
+# Cases whose own spec row says they land in a later task (docs/spec/07-build-plan.md's
 # T15 Suite line: "TRN-G-020 ...; INF-S-020..021") -- G/S-marked, GPU-only or
 # nightly-slow-lane, not yet built at T14. Explicit and individually justified
 # (mirrors the coverage policy's own "# pragma: no cover ... names the T15 manual
 # check" discipline) rather than a blanket "skip every G/S case" rule, so a *future*
 # G/S case introduced within an already-built task still has to have a real test.
 _DEFERRED = {
-    "TRN-G-020": 'docs/08-test-specs/trainer.md -- "executed in T15"',
-    "INF-S-020": "docs/07-build-plan.md T15 Suite line",
-    "INF-S-021": "docs/07-build-plan.md T15 Suite line",
+    "TRN-G-020": 'docs/spec/08-test-specs/trainer.md -- "executed in T15"',
+    "INF-S-020": "docs/spec/07-build-plan.md T15 Suite line",
+    "INF-S-021": "docs/spec/07-build-plan.md T15 Suite line",
 }
 
 

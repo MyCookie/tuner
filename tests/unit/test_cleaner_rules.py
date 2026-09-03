@@ -1,4 +1,4 @@
-"""Unit tests for tuner.cleaner.rules/patterns (CLN suite, docs/08-test-specs/cleaner.md)."""
+"""Unit tests for tuner.cleaner.rules/patterns (CLN suite, docs/spec/08-test-specs/cleaner.md)."""
 
 from __future__ import annotations
 
@@ -391,7 +391,7 @@ def test_scrub_property_idempotent_no_pii_bounded_length(text):
     join two non-matching fragments into a new match that only exists post-strip. The
     bound here only needs to catch a scrub() that blows up catastrophically (e.g.
     quadratic growth, a runaway loop) -- "some slack for placeholder growth" is not a
-    precise contract, per docs/08-test-specs/cleaner.md.
+    precise contract, per docs/spec/08-test-specs/cleaner.md.
     """
     once = scrub(text)
     twice = scrub(once)
@@ -404,7 +404,7 @@ def test_scrub_property_idempotent_no_pii_bounded_length(text):
 
 def test_clean_command_missing_run_id_is_a_usage_error():
     """CLN-U-011: `clean_command` is exercised at least once via CliRunner, matching the
-    exit-code-assertion convention (docs/08-test-specs/README.md) -- every other case in
+    exit-code-assertion convention (docs/spec/08-test-specs/README.md) -- every other case in
     this file calls `clean_record`/`scrub` directly, which never touches the click wiring
     (the `--run-id`/`--config` options, `sys.exit`) at all."""
     result = CliRunner().invoke(clean_command, [])

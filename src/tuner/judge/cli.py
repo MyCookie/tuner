@@ -1,4 +1,4 @@
-"""`tuner judge` (docs/03-components/judge.md)."""
+"""`tuner judge` (docs/spec/03-components/judge.md)."""
 
 from __future__ import annotations
 

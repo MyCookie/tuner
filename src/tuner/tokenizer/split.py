@@ -1,4 +1,4 @@
-"""Deterministic train/eval split assignment (docs/03-components/tokenizer.md core
+"""Deterministic train/eval split assignment (docs/spec/03-components/tokenizer.md core
 logic 4)."""
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ _MAX_8_HEX_DIGITS = 0xFFFFFFFF
 
 def assign_split(record_id: str, eval_fraction: float) -> Literal["train", "eval"]:
     """A record goes to eval iff `int(sha256(record_id)[:8], 16) / 0xFFFFFFFF <
-    eval_fraction`, else train (docs/03-components/tokenizer.md core logic 4).
+    eval_fraction`, else train (docs/spec/03-components/tokenizer.md core logic 4).
 
     Depends only on `record_id` and `eval_fraction` -- no shuffling, no run-specific
     state -- so it is stable across re-runs, across machines, and independent of the

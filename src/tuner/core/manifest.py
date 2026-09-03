@@ -1,4 +1,4 @@
-"""Tier-manifest read/write helpers (docs/02-data-contracts.md §3).
+"""Tier-manifest read/write helpers (docs/spec/02-data-contracts.md §3).
 
 `read_tier`/`write_tier` are written against a minimal, duck-typed storage
 interface (`StorageLike`) rather than importing `tuner.core.storage`, which

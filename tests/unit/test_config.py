@@ -1,4 +1,4 @@
-"""Unit tests for tuner.core.config (CORE suite, docs/08-test-specs/core.md)."""
+"""Unit tests for tuner.core.config (CORE suite, docs/spec/08-test-specs/core.md)."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Unit tests for tuner.ingestor.sources (ING suite, docs/08-test-specs/ingestor.md).
+"""Unit tests for tuner.ingestor.sources (ING suite, docs/spec/08-test-specs/ingestor.md).
 
 No services needed — ING-U-002/005 invoke the CLI via CliRunner, but a bad
 source config short-circuits before StorageClient is ever constructed.

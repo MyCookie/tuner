@@ -1,5 +1,5 @@
 """Integration tests for scripts/bootstrap_minio.py, compose MinIO/MLflow, and
-StorageClient failure behavior (INF suite, docs/08-test-specs/infra.md).
+StorageClient failure behavior (INF suite, docs/spec/08-test-specs/infra.md).
 Static checks (INF-U-006/007) live in tests/unit/test_infra_static.py instead.
 Needs compose `minio`, `minio-init`, `mlflow` up; env vars for MinIO root
 admin creds and every per-stage keypair (see .env.example), exported into the

@@ -1,4 +1,4 @@
-"""Integration tests for tuner.judge (JDG suite, docs/08-test-specs/judge.md).
+"""Integration tests for tuner.judge (JDG suite, docs/spec/08-test-specs/judge.md).
 
 Needs compose MinIO up: `docker compose up -d minio minio-init` then
 `uv run pytest -m integration tests/integration/test_judge.py`. The judge endpoint
@@ -52,7 +52,7 @@ def _judge_env(tmp_path, monkeypatch):
     injected `http_client` fixture never actually dials out to it. MLFLOW_TRACKING_URI is
     needed by every case that reaches a successful promotion (_log_to_mlflow runs
     unconditionally on that path) -- file-backed per-test, matching
-    docs/08-test-specs/judge.md's Setup note ("no server needed"), not the ambient
+    docs/spec/08-test-specs/judge.md's Setup note ("no server needed"), not the ambient
     environment's real compose server, which would make every case here depend on
     docker being up regardless of what it's actually testing."""
     monkeypatch.setenv("TUNER_JUDGE_BASE_URL", "http://mock-judge")
@@ -288,7 +288,7 @@ def test_mlflow_run_logged(storage, run_id, tmp_path, mock_http_client):
     """JDG-I-026: MLflow run exists tagged tuner.run_id and tuner.stage: judge; params
     judge model/threshold/rubric version; metrics mean/median/promotion_rate/
     judge_error_rate; a score histogram artifact is present. MLFLOW_TRACKING_URI (a
-    file-backed temp dir, per docs/08-test-specs/judge.md's Setup note) is already set
+    file-backed temp dir, per docs/spec/08-test-specs/judge.md's Setup note) is already set
     by the autouse _judge_env fixture, same as every other case in this file."""
     mlflow_dir = tmp_path / "mlruns"
     records = [

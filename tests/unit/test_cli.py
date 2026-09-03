@@ -1,4 +1,4 @@
-"""Unit tests for the `tuner` CLI shell (CLI suite, docs/08-test-specs/cli.md)."""
+"""Unit tests for the `tuner` CLI shell (CLI suite, docs/spec/08-test-specs/cli.md)."""
 
 from __future__ import annotations
 
@@ -66,7 +66,7 @@ def test_invoke_stage_builds_correct_subprocess_argv(monkeypatch):
     """CLI-U-005: _invoke_stage (the real subprocess wrapper) with subprocess.run
     monkeypatched -- builds [sys.executable, "-m", "tuner", stage, "--run-id", ...,
     "--config", ...]; returns the subprocess's exact returncode. CLI-I-014 proves the
-    real subprocess path end to end but isn't coverage-measurable for it (docs/08
+    real subprocess path end to end but isn't coverage-measurable for it (docs/spec/08
     README's own "never subprocess, keeps coverage measurable" convention) -- this is
     that convention's in-process equivalent for this one boundary."""
     captured = {}

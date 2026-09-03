@@ -1,4 +1,4 @@
-"""Unit tests for tuner.core.manifest (CORE suite, docs/08-test-specs/core.md).
+"""Unit tests for tuner.core.manifest (CORE suite, docs/spec/08-test-specs/core.md).
 
 read_tier/write_tier are tested here against an in-memory fake satisfying
 manifest.StorageLike, per core.md's "spy client" wording for CORE-I-031/032 —

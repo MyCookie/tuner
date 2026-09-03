@@ -1,4 +1,4 @@
-"""`tuner tokenize` (docs/03-components/tokenizer.md)."""
+"""`tuner tokenize` (docs/spec/03-components/tokenizer.md)."""
 
 from __future__ import annotations
 
@@ -93,7 +93,7 @@ def _process_records(
             # before spending the extra incremental-prefix encode calls build_labels
             # needs. This ordering is a documented deviation from tokenizer.md's own
             # step numbering (which lists over_max_len after masking) -- see the
-            # round-1-review note in docs/08-test-specs/tokenizer.md for what actually
+            # round-1-review note in docs/spec/08-test-specs/tokenizer.md for what actually
             # changes for a record that would fail both checks.
             dropped.append(IndexMapDrop(record_id=record_id, reason="over_max_len"))
             over_max_len_count += 1

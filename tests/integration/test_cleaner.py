@@ -1,4 +1,4 @@
-"""Integration tests for tuner.cleaner (CLN suite, docs/08-test-specs/cleaner.md).
+"""Integration tests for tuner.cleaner (CLN suite, docs/spec/08-test-specs/cleaner.md).
 
 Needs compose MinIO up: `docker compose up -d minio minio-init` then
 `uv run pytest -m integration tests/integration/test_cleaner.py`.

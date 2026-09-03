@@ -1,5 +1,5 @@
 """Cleaner scrubbing, structure-mapping, filtering, and dedup rules
-(docs/03-components/cleaner.md core logic 3-6).
+(docs/spec/03-components/cleaner.md core logic 3-6).
 
 Pure logic only — no storage, no CLI. `tuner.cleaner.cli` orchestrates I/O and calls
 into this module per record.

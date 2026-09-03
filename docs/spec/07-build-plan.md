@@ -1,6 +1,6 @@
 # Tuner MVP Build Plan
 
-Ordered task breakdown for the MVP slice, sized for one-task-per-session execution by Sonnet-class implementers. Each task is independently completable and verifiable; no task depends on a later one. Read [CLAUDE.md](../CLAUDE.md) before any task; the referenced spec sections are normative.
+Ordered task breakdown for the MVP slice, sized for one-task-per-session execution by Sonnet-class implementers. Each task is independently completable and verifiable; no task depends on a later one. Read [CLAUDE.md](../../CLAUDE.md) before any task; the referenced spec sections are normative.
 
 ## Definition of done
 
@@ -11,7 +11,7 @@ Every task from **T05** on is done when all ten hold. Steps 6–10 are the revie
 3. The task's **Accept** criteria hold and its **Verify** command runs as stated.
 4. `./scripts/gate.sh` is green: ruff check + format, the pickle ban, unit and integration tests, and the ≥ 90 % global branch-coverage gate. It reports the per-module 100 % gate as `skipped` until `scripts/check_coverage.py` exists at T14 — until then, verify the listed modules in the coverage table yourself.
 5. Commits are atomic and Conventional ([09 §2–§3](09-git-workflow.md)); code and its tests land in the same commit.
-6. The branch is pushed to `origin` and a PR is open against `main` on the [repo template](../.github/pull_request_template.md).
+6. The branch is pushed to `origin` and a PR is open against `main` on the [repo template](../../.github/pull_request_template.md).
 7. A **fresh Opus 5 reviewer agent** has independently re-run the gate on the pushed branch in its own worktree — not trusting the implementer's output.
 8. That reviewer has posted a review on the PR: verdict, gate transcript, and every finding with a severity and the spec citation explaining why it is required.
 9. The verdict is `APPROVE` — no `blocker` or `major` findings outstanding.

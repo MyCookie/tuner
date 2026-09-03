@@ -1,4 +1,4 @@
-"""E2E steel-thread test (E2E suite, docs/08-test-specs/e2e.md).
+"""E2E steel-thread test (E2E suite, docs/spec/08-test-specs/e2e.md).
 
 Needs compose `minio`, `minio-init`, `mlflow`, and `mock-judge` up
 (`docker compose --profile e2e up -d minio minio-init mlflow mock-judge`), plus every
@@ -337,7 +337,7 @@ def test_e2e_e_009_idempotent_stage_rerun(storage, e2e_run):
 
     TRN-I-011's own idempotency contract is scoped to the model/adapter storage
     prefix and the registry manifest, not MLflow run count -- re-running train()
-    always opens a fresh MLflow run (docs/08-test-specs/trainer.md), so this second
+    always opens a fresh MLflow run (docs/spec/08-test-specs/trainer.md), so this second
     call leaves a second `tuner.stage: trainer` run for this run_id behind. Left
     alone, that's cross-test pollution: E2E-E-007's own "exactly one trainer run"
     assertion would only still hold by accident of this file's function-definition

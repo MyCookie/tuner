@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Docs verification (docs/08-test-specs/README.md "Beyond the suites" -- "Docs
-verification"): relative-link resolution across `docs/`, plus the spec<->test
+"""Docs verification (docs/spec/08-test-specs/README.md "Beyond the suites" -- "Docs
+verification"): relative-link resolution across `docs/` (both the user guide and
+`docs/spec/`), plus the spec<->test
 traceability checks of `check_test_ids.py` (imported and re-run directly here, not
 reimplemented, so the two can never drift apart).
 """

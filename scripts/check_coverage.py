@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Per-module 100% coverage gate (docs/08-test-specs/README.md "Coverage policy":
+"""Per-module 100% coverage gate (docs/spec/08-test-specs/README.md "Coverage policy":
 "100% required (per-module fail_under...): tuner/core/*, tuner/cleaner/rules.py,
 tuner/cleaner/patterns.py, tuner/judge/prompts.py, judge reply-parsing,
 tuner/models/*, tuner/tokenizer/split.py, tuner/tokenizer/masking.py -- pure logic

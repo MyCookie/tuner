@@ -1,4 +1,4 @@
-"""Static config checks (INF suite, docs/08-test-specs/infra.md) — no services needed."""
+"""Static config checks (INF suite, docs/spec/08-test-specs/infra.md) — no services needed."""
 
 from __future__ import annotations
 
