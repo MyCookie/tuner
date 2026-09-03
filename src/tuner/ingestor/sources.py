@@ -1,4 +1,4 @@
-"""Source implementations for the Ingestor (docs/03-components/ingestor.md `Source` interface).
+"""Source implementations for the Ingestor (docs/spec/03-components/ingestor.md `Source` interface).
 
 Registered by `type` string: `csv` -> CsvSource, `jsonl` -> JsonlSource (MVP);
 `sql`/`pdf`/`api` are reserved for later phases and currently just produce a
@@ -6,7 +6,7 @@ clear "unknown type" error, per the component spec's own framing. Local file
 paths only for now — `s3://` source URIs are spec'd (03-components/ingestor.md
 Input) but no case in this task's suite exercises them, and reading an
 arbitrary object by key has no `StorageClient` primitive yet; see the
-footnote on this scope in docs/08-test-specs/ingestor.md.
+footnote on this scope in docs/spec/08-test-specs/ingestor.md.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ class MalformedLine(Exception):
 
 
 class Source(ABC):
-    """docs/03-components/ingestor.md `Source` interface."""
+    """docs/spec/03-components/ingestor.md `Source` interface."""
 
     def __init__(self, cfg: IngestSourceConfig) -> None:
         self.cfg = cfg

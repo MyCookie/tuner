@@ -1,4 +1,4 @@
-"""Generate the committed fixture dataset (docs/06-testing.md §2).
+"""Generate the committed fixture dataset (docs/spec/06-testing.md §2).
 
 Test tooling, not a pipeline stage: writes deterministic, synthetic support-
 desk chatter used by Ingestor/Cleaner unit+integration tests from T06 on.
@@ -34,7 +34,7 @@ SYSTEM_PROMPT = "You are a helpful support agent."
 
 
 def _mark(text: str, score: int) -> str:
-    """Embed a mock-judge `[[score=N]]` marker (docs/06-testing.md §4) in fixture text."""
+    """Embed a mock-judge `[[score=N]]` marker (docs/spec/06-testing.md §4) in fixture text."""
     return f"{text} [[score={score}]]"
 
 

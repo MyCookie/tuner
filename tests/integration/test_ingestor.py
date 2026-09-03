@@ -1,4 +1,4 @@
-"""Integration tests for tuner.ingestor (ING suite, docs/08-test-specs/ingestor.md).
+"""Integration tests for tuner.ingestor (ING suite, docs/spec/08-test-specs/ingestor.md).
 
 Needs compose MinIO up: `docker compose up -d minio minio-init` then
 `uv run pytest -m integration tests/integration/test_ingestor.py`.

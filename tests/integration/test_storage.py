@@ -1,4 +1,4 @@
-"""Tests for tuner.core.storage (CORE suite, docs/08-test-specs/core.md).
+"""Tests for tuner.core.storage (CORE suite, docs/spec/08-test-specs/core.md).
 
 CORE-I-* need compose MinIO: `docker compose up -d minio minio-init` then
 `uv run pytest -m integration tests/integration/test_storage.py`. CORE-U-046

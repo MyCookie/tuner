@@ -1,7 +1,7 @@
-"""Unit tests for tuner.models.* (ADP suite, docs/08-test-specs/adapters.md). HF
+"""Unit tests for tuner.models.* (ADP suite, docs/spec/08-test-specs/adapters.md). HF
 download calls are stubbed throughout -- nothing here touches the network. The
 Hugging Face interaction cases assigned to this task (INF-U-010..011) live in
-tests/unit/test_infra_static.py instead, per docs/08-test-specs/infra.md's own file
+tests/unit/test_infra_static.py instead, per docs/spec/08-test-specs/infra.md's own file
 ownership for the INF suite.
 """
 

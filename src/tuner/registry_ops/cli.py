@@ -1,4 +1,4 @@
-"""`tuner registry list` (docs/03-components/registry.md) -- the MVP-scope-only slice
+"""`tuner registry list` (docs/spec/03-components/registry.md) -- the MVP-scope-only slice
 of the Registry ops CLI (`show`/`promote`/`rollback` are Phase 2)."""
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ def registry_list(storage: StorageClient | None = None) -> int:
 
 @click.group(name="registry")
 def registry_group() -> None:
-    """Model registry operations (docs/03-components/registry.md). MVP scope: `list`
+    """Model registry operations (docs/spec/03-components/registry.md). MVP scope: `list`
     only -- `show`/`promote`/`rollback` are Phase 2."""
 
 

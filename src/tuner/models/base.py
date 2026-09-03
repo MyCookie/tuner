@@ -1,4 +1,4 @@
-"""The `ModelAdapter` interface (docs/04-model-adapters.md §1).
+"""The `ModelAdapter` interface (docs/spec/04-model-adapters.md §1).
 
 Everything model-specific lives behind this interface: the Tokenizer, Trainer, and
 Smoke-test are model-agnostic and obtain all model knowledge through the adapter
@@ -40,7 +40,7 @@ class TrainingDefaults:
 
 class UnsupportedModalityError(Exception):
     """A conversation turn has a non-text content part this adapter can't handle yet
-    (Phase 4, docs/04-model-adapters.md §5). The Tokenizer reports this as drop reason
+    (Phase 4, docs/spec/04-model-adapters.md §5). The Tokenizer reports this as drop reason
     `unsupported_modality`."""
 
 

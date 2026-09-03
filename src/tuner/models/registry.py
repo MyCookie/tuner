@@ -1,4 +1,4 @@
-"""Adapter registry and selection (docs/04-model-adapters.md §2)."""
+"""Adapter registry and selection (docs/spec/04-model-adapters.md §2)."""
 
 from __future__ import annotations
 

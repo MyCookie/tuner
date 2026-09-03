@@ -1,4 +1,4 @@
-"""Unit tests for tuner.judge.client/prompts (JDG suite, docs/08-test-specs/judge.md)."""
+"""Unit tests for tuner.judge.client/prompts (JDG suite, docs/spec/08-test-specs/judge.md)."""
 
 from __future__ import annotations
 
@@ -210,7 +210,7 @@ def test_valid_object_after_long_preamble_still_parses():
 def test_rubric_instructions_never_contain_mock_judge_marker_syntax():
     """JDG-U-028: RUBRIC_V1's instructional text must never contain anything shaped like
     a mock-judge marker (`[[...]]`) -- every call would otherwise match it as an
-    unintended marker regardless of the record's own content (docs/06-testing.md §4;
+    unintended marker regardless of the record's own content (docs/spec/06-testing.md §4;
     PR #8 review round 4 minor finding 2 -- this was asserted only in prose, untested)."""
     assert "[[" not in _INSTRUCTIONS
 
@@ -223,7 +223,7 @@ def test_rubric_instructions_never_contain_mock_judge_marker_syntax():
 def test_non_string_reasoning_rejected(reasoning):
     """JDG-U-029: `reasoning` gets the same strictness as `score` -- a non-string value
     (dict, list, number, null, bool) is a parse failure, not passed through. `evaluation
-    .reasoning` is a required `str` field (docs/02-data-contracts.md §2); an untrusted
+    .reasoning` is a required `str` field (docs/spec/02-data-contracts.md §2); an untrusted
     external LLM value landing there unchecked would only fail downstream, after
     judge() had already exited 0 on a Gold record that can't validate (PR #8 review
     round 5 finding 1: an earlier version returned whatever `reasoning` held, untyped)."""

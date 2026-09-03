@@ -1,4 +1,4 @@
-"""Integration tests for tuner.trainer (TRN suite, docs/08-test-specs/trainer.md).
+"""Integration tests for tuner.trainer (TRN suite, docs/spec/08-test-specs/trainer.md).
 
 Needs compose MinIO up. Runs with the tiny-test adapter, `method: full`, 1 epoch --
 CPU-capable per the suite's own file header (device selection is left to
@@ -45,7 +45,7 @@ ADAPTER_NAME = "tiny-test"
 @pytest.fixture(scope="session", autouse=True)
 def _mlflow_env(tmp_path_factory):
     """A single file-backed MLflow store for the whole session -- every test's train()
-    call logs into it, queryable independently per test via tags (docs/08 Setup note)."""
+    call logs into it, queryable independently per test via tags (docs/spec/08 Setup note)."""
     mlruns_dir = tmp_path_factory.mktemp("mlruns")
     os.environ["MLFLOW_TRACKING_URI"] = mlruns_dir.as_uri()
     os.environ["MLFLOW_ALLOW_FILE_STORE"] = "true"

@@ -1,1 +1,1 @@
-"""Model adapters — pluggable fine-tune targets (docs/04-model-adapters.md)."""
+"""Model adapters — pluggable fine-tune targets (docs/spec/04-model-adapters.md)."""

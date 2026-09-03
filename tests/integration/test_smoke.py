@@ -1,4 +1,4 @@
-"""Integration tests for tuner.smoke (SMK suite, docs/08-test-specs/smoke.md).
+"""Integration tests for tuner.smoke (SMK suite, docs/spec/08-test-specs/smoke.md).
 
 Needs compose MinIO up. Runs with the tiny-test adapter, `method: full`, CPU-capable
 per the suite's own file header (mirrors trainer.md's footnote for the same reason
@@ -94,7 +94,7 @@ _ZERO_EVAL_RECORD_IDS = [
 def _mlflow_env(tmp_path_factory):
     """A single file-backed MLflow store for the whole session, same pattern as
     test_trainer.py's own fixture of this name -- module-local, so it doesn't
-    conflict with that one (docs/08 Setup note)."""
+    conflict with that one (docs/spec/08 Setup note)."""
     mlruns_dir = tmp_path_factory.mktemp("mlruns")
     os.environ["MLFLOW_TRACKING_URI"] = mlruns_dir.as_uri()
     os.environ["MLFLOW_ALLOW_FILE_STORE"] = "true"

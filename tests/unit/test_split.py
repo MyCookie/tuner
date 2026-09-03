@@ -1,4 +1,4 @@
-"""Unit tests for tuner.tokenizer.split (TOK suite, docs/08-test-specs/tokenizer.md)."""
+"""Unit tests for tuner.tokenizer.split (TOK suite, docs/spec/08-test-specs/tokenizer.md)."""
 
 from __future__ import annotations
 

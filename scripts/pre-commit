@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Pre-commit gate (09-git-workflow.md §6): ruff, unit tests, and hard blocks on
 # .env, pickle/torch-save-load references, and secret-shaped values in staged
-# content (docs/08-test-specs/README.md "Secret scanning").
+# content (docs/spec/08-test-specs/README.md "Secret scanning").
 set -euo pipefail
 
 # No `cd` here (unlike gate.sh): git always invokes hooks with CWD already at the

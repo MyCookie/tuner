@@ -1,4 +1,4 @@
-"""`tuner clean` (docs/03-components/cleaner.md)."""
+"""`tuner clean` (docs/spec/03-components/cleaner.md)."""
 
 from __future__ import annotations
 

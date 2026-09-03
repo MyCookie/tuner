@@ -1,4 +1,4 @@
-"""PII regex patterns (docs/03-components/cleaner.md core logic 4), unit-tested in isolation.
+"""PII regex patterns (docs/spec/03-components/cleaner.md core logic 4), unit-tested in isolation.
 
 Each pattern is deliberately narrow rather than maximally permissive: a false negative
 (PII that slips through) is a privacy bug, but a false positive (a version string or a zip

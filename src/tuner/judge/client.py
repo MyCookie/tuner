@@ -1,5 +1,5 @@
 """Judge HTTP client: reply parsing, retry/backoff policy, and the scoring call itself
-(docs/03-components/judge.md scoring protocol + core logic 3).
+(docs/spec/03-components/judge.md scoring protocol + core logic 3).
 """
 
 from __future__ import annotations
@@ -120,7 +120,7 @@ def parse_reply(text: str) -> tuple[int, str]:
 
     Once a span qualifies as "the first JSON object" (valid JSON, has a `score` key),
     an invalid score there is a parse failure, full stop -- it does not fall through to
-    a later brace group. `docs/03-components/judge.md`'s parsing rule is "extract the
+    a later brace group. `docs/spec/03-components/judge.md`'s parsing rule is "extract the
     first JSON object; validate score"; scanning past a genuine-but-invalid object to
     find a second, better-looking one would silently launder a bad reply into a valid
     score (PR #8 review round 3 finding 1). Spans that fail `json.loads` outright are
@@ -131,7 +131,7 @@ def parse_reply(text: str) -> tuple[int, str]:
     (PR #8 review round 3 finding 2).
 
     Raises `ParseError` if no candidate in the reply qualifies (JDG-U-010..013); a parse
-    failure counts as a retryable attempt, not a fatal one (docs/03-components/judge.md
+    failure counts as a retryable attempt, not a fatal one (docs/spec/03-components/judge.md
     scoring protocol). The error message reports only the reply's length, not its full
     text -- an arbitrarily long judge reply has no place being echoed whole into a log
     line (PR #8 review round 4 finding 3)."""
@@ -161,7 +161,7 @@ def parse_reply(text: str) -> tuple[int, str]:
             )
 
         # `reasoning` gets the same strictness as `score`, not a free pass:
-        # `evaluation.reasoning` is a required `str` field (docs/02-data-contracts.md §2,
+        # `evaluation.reasoning` is a required `str` field (docs/spec/02-data-contracts.md §2,
         # tuner.core.schemas.Evaluation) and this is the one place an untrusted external
         # LLM value lands directly in a contract-typed field. A non-string reasoning
         # (missing entirely defaults to "", which is fine) would otherwise reach Gold
@@ -185,7 +185,7 @@ def normalize_score(score: int) -> float:
 
 def is_retryable(outcome: int | Literal["timeout"]) -> bool:
     """JDG-U-015: 429, any 5xx, and "timeout" are retryable; every other status
-    (400/401/404, ...) is fatal (docs/03-components/judge.md core logic 3)."""
+    (400/401/404, ...) is fatal (docs/spec/03-components/judge.md core logic 3)."""
     if outcome == "timeout":
         return True
     return outcome in _RETRYABLE_4XX or 500 <= outcome < 600
@@ -193,7 +193,7 @@ def is_retryable(outcome: int | Literal["timeout"]) -> bool:
 
 def backoff_delay(attempt: int, rng: random.Random) -> float:
     """Exponential backoff with full jitter: base 2s, doubling per attempt, capped at
-    60s (docs/03-components/judge.md core logic 3). `attempt` is 1 for the first retry,
+    60s (docs/spec/03-components/judge.md core logic 3). `attempt` is 1 for the first retry,
     2 for the second, and so on. Deterministic given a seeded `rng` (JDG-U-016)."""
     cap = min(MAX_DELAY_SECONDS, BASE_DELAY_SECONDS * (2 ** (attempt - 1)))
     return rng.uniform(0, cap)
@@ -214,7 +214,7 @@ def score_record(
     sleep: Callable[[float], None] = time.sleep,
 ) -> tuple[int, str] | None:
     """Score one record, retrying on retryable failures up to `max_retries` extra
-    attempts (docs/03-components/judge.md core logic 3). Returns `(score, reasoning)`
+    attempts (docs/spec/03-components/judge.md core logic 3). Returns `(score, reasoning)`
     on success, or `None` if every attempt failed or a fatal error was returned
     (the caller records this as a `judge_error` drop)."""
     rng = rng or random.Random()

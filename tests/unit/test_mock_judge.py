@@ -1,4 +1,5 @@
-"""Mock-judge self-tests (docs/08-test-specs/judge.md — built in T05, before the Judge exists)."""
+"""Mock-judge self-tests (docs/spec/08-test-specs/judge.md — built in T05, before
+the Judge exists)."""
 
 from __future__ import annotations
 

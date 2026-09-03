@@ -1,5 +1,5 @@
-"""Mock judge (docs/06-testing.md §4) — a deterministic OpenAI-compatible
-`/v1/chat/completions` test double for the Judge stage (docs/03-components/judge.md).
+"""Mock judge (docs/spec/06-testing.md §4) — a deterministic OpenAI-compatible
+`/v1/chat/completions` test double for the Judge stage (docs/spec/03-components/judge.md).
 
 Behavior is selected by a marker embedded anywhere in the request's message
 content, so fixture/seed records carry the marker and outcomes are
@@ -18,7 +18,7 @@ client for unit (JDG-U) and integration (JDG-I) cases, and as a compose sidecar 
 T14 E2E steel thread.
 
 State (JDG-I-022/024/025, added T08 — see the T05 footnote deferring these in
-docs/06-testing.md §4): `app.state.call_counts` counts calls per distinct request text,
+docs/spec/06-testing.md §4): `app.state.call_counts` counts calls per distinct request text,
 `app.state.fail_once_consumed` tracks which `[[fail_once=...]]` content has already used
 its one failure, and `app.state.peak_in_flight` records the highest number of
 concurrently in-flight requests seen. `reset_state()` clears all of it between tests —

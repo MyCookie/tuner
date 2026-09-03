@@ -1,6 +1,6 @@
-"""Executable data contracts (docs/02-data-contracts.md) — pydantic v2 models.
+"""Executable data contracts (docs/spec/02-data-contracts.md) — pydantic v2 models.
 
-This document is normative; if code and docs/02-data-contracts.md disagree,
+This document is normative; if code and docs/spec/02-data-contracts.md disagree,
 the doc wins and this module is a bug.
 """
 

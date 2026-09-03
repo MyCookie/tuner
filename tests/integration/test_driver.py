@@ -1,4 +1,4 @@
-"""Integration tests for `tuner run` (CLI suite, docs/08-test-specs/cli.md).
+"""Integration tests for `tuner run` (CLI suite, docs/spec/08-test-specs/cli.md).
 
 Needs compose MinIO up. CLI-I-010..013 monkeypatch stage invocation to fast
 recorders (the suite's own "stage entrypoints monkeypatched to recorders for speed"

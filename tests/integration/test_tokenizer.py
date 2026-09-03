@@ -1,10 +1,10 @@
-"""Integration tests for tuner.tokenizer (TOK suite, docs/08-test-specs/tokenizer.md).
+"""Integration tests for tuner.tokenizer (TOK suite, docs/spec/08-test-specs/tokenizer.md).
 
 Needs compose MinIO up: `docker compose up -d minio minio-init` then
 `uv run pytest -m integration tests/integration/test_tokenizer.py`. Uses the real
 `tiny-test` adapter (HuggingFaceTB/SmolLM2-135M-Instruct) -- these tests need real
 network access (or a warm local HF cache) the first time they run; no mocking, per
-docs/06-testing.md §5's point of that adapter existing at all.
+docs/spec/06-testing.md §5's point of that adapter existing at all.
 """
 
 from __future__ import annotations
@@ -435,7 +435,7 @@ def test_missing_gold_manifest_exits_2(storage, run_id, tmp_path):
     ING-I-015/CLN-I-035/JDG-I-030, the same "no manifest, no commit" check every
     stage's own suite already has, added here as the gap was noticed against the
     sibling stages rather than left as an untested code path with no case to justify
-    it (docs/08-test-specs/tokenizer.md didn't have this case; the others do)."""
+    it (docs/spec/08-test-specs/tokenizer.md didn't have this case; the others do)."""
     config_path = _write_config(tmp_path)
 
     assert tokenize(run_id, str(config_path), storage=storage) == 2

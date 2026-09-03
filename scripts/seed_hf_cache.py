@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Pre-seed the tiny-test model's HF cache (docs/06-testing.md §6's CI "cache-seed
-step"; docs/08-test-specs/infra.md INF-I-012). Needs real network access -- run this
+"""Pre-seed the tiny-test model's HF cache (docs/spec/06-testing.md §6's CI "cache-seed
+step"; docs/spec/08-test-specs/infra.md INF-I-012). Needs real network access -- run this
 *before* setting HF_HUB_OFFLINE=1 for the actual (offline) test/CI run.
 
 Usage: `seed_hf_cache.py [CACHE_DIR]`. With no argument, downloads into whatever

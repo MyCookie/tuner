@@ -40,7 +40,7 @@ ID_RE = re.compile(r"[A-Z]+-[UIEGS]-\d{3}")
 SPEC_ROW_RE = re.compile(r"^\|\s*(" + ID_RE.pattern + r")\b")
 DOCSTRING_ID_RE = re.compile(r"^(" + ID_RE.pattern + r"):")
 
-# Cases whose own spec row says they land in a later task (docs/07-build-plan.md's
+# Cases whose own spec row says they land in a later task (docs/spec/07-build-plan.md's
 # T15 Suite line: "TRN-G-020 ...; INF-S-020..021") -- G/S-marked, GPU-only or
 # nightly-slow-lane, not yet built at T14. Explicit and individually justified
 # (mirrors the coverage policy's own "# pragma: no cover ... names the T15 manual

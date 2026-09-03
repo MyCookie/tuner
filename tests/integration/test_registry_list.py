@@ -1,4 +1,4 @@
-"""Integration tests for `tuner registry list` (CLI suite, docs/08-test-specs/cli.md).
+"""Integration tests for `tuner registry list` (CLI suite, docs/spec/08-test-specs/cli.md).
 
 Needs compose MinIO up. `tuner-registry` is shared across the whole test session (no
 per-test run_id prefix scoping, since manifests key on model_version, not run_id) --

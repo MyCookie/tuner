@@ -17,7 +17,7 @@ The MVP slice is implemented and passing its own test suite end to end (T01–T1
 
 `docs/` holds two things side by side — see [docs/README.md](docs/README.md) for the full map:
 
-- **This directory (top-level `docs/*.md`)** — the user/operator guide: how to install, configure, run, and troubleshoot Tuner. Start there if you want to *use* the pipeline.
+- **Top-level `docs/*.md`** — the user/operator guide: how to install, configure, run, and troubleshoot Tuner. Use it if you want to *use* the pipeline. Not yet written beyond this map — see `docs/README.md`'s "forthcoming" list.
 - **[docs/spec/](docs/spec/00-product-scope.md)** — the normative engineering specification the implementation is built from: architecture, data contracts, per-component specs, the build plan, and the git/review workflow. Start there if you want to *extend* the pipeline.
 
 The original architecture spec this doc set derives from is [SAS.md](SAS.md).

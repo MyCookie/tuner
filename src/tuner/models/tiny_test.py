@@ -1,6 +1,6 @@
 """`tiny-test`: a permanently registered adapter over a small, ungated model, so
 CPU-runnable tests exercise real tokenizer/trainer code paths instead of mocking them
-away (docs/06-testing.md §5). Test infrastructure, not a product model -- never the
+away (docs/spec/06-testing.md §5). Test infrastructure, not a product model -- never the
 default, only selected explicitly via `model.adapter: tiny-test`.
 
 `HuggingFaceTB/SmolLM2-135M-Instruct` (135M params, chat-templated, ungated,

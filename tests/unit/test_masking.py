@@ -1,4 +1,4 @@
-"""Unit tests for tuner.tokenizer.masking (TOK suite, docs/08-test-specs/tokenizer.md).
+"""Unit tests for tuner.tokenizer.masking (TOK suite, docs/spec/08-test-specs/tokenizer.md).
 
 Uses a stub tokenizer with 1-token-per-word behavior, per the suite's own description --
 `apply_chat_template` renders each turn as `<START_role> word word ... <END>`, plus a

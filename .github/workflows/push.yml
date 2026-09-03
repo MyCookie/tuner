@@ -42,7 +42,7 @@ jobs:
             esac
           done
 
-      - name: secret scan, working tree (docs/08-test-specs/README.md "Secret scanning")
+      - name: secret scan, working tree (docs/spec/08-test-specs/README.md "Secret scanning")
         run: uv run python scripts/check_secrets.py
 
       - name: secret scan, branch history
