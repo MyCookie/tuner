@@ -1,6 +1,6 @@
 # Tuner Product Scope & Phased Delivery
 
-Entry point to the Tuner engineering document set. The product is defined by [SAS.md](../SAS.md); this doc set turns the SAS into buildable specifications and fixes the delivery phasing. Start here, then read in order: [01-architecture](01-architecture.md) → [02-data-contracts](02-data-contracts.md) → the [component specs](03-components/) → [04-model-adapters](04-model-adapters.md) → [05-infrastructure](05-infrastructure.md) → [06-testing](06-testing.md) → [07-build-plan](07-build-plan.md).
+Entry point to the Tuner engineering document set. The product is defined by [SAS.md](../../SAS.md); this doc set turns the SAS into buildable specifications and fixes the delivery phasing. Start here, then read in order: [01-architecture](01-architecture.md) → [02-data-contracts](02-data-contracts.md) → the [component specs](03-components/) → [04-model-adapters](04-model-adapters.md) → [05-infrastructure](05-infrastructure.md) → [06-testing](06-testing.md) → [07-build-plan](07-build-plan.md).
 
 ## 1. Product definition
 

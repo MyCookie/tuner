@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Secret scan (docs/08-test-specs/README.md "Secret scanning": "gitleaks (or
+"""Secret scan (docs/spec/08-test-specs/README.md "Secret scanning": "gitleaks (or
 equivalent grep script) in pre-commit and CI over the full history of the branch
 being merged"). This is the "equivalent grep script" -- no external gitleaks binary
 dependency, so it runs anywhere `uv run` does, at the cost of being pattern-based

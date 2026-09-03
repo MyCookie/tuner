@@ -7,34 +7,26 @@ Data Source ──> Ingestor ──> Cleaner ──> Judge ──> Tokenizer ─
                 (Bronze)     (Silver)    (Gold)    (Artifact)    (Artifact)  (Registry)   (serving)
 ```
 
-Each stage is a stateless CLI that reads from one object-storage tier (MinIO locally, S3-compatible in the cloud) and writes to the next, coordinated by run ID. See [docs/01-architecture.md](docs/01-architecture.md) for the full system design.
+Each stage is a stateless CLI that reads from one object-storage tier (MinIO locally, S3-compatible in the cloud) and writes to the next, coordinated by run ID. See [docs/spec/01-architecture.md](docs/spec/01-architecture.md) for the full system design.
 
 ## Status
 
-This repository currently contains the **engineering specification**, not yet the implementation. The doc set in `docs/` is normative and complete; code is built one task at a time from [docs/07-build-plan.md](docs/07-build-plan.md), each task gated by its test suite. Nothing in `src/` exists until a task adds it — until then this README describes the target shape, not the current tree.
+The MVP slice is implemented and passing its own test suite end to end (T01–T14 of the build plan); one hardening task remains (T15: a real-GPU training run plus the nightly slow lane) before the pipeline is considered fully verified. See [docs/spec/07-build-plan.md](docs/spec/07-build-plan.md) for exactly what that covers.
 
 ## Documentation
 
-Start at [docs/00-product-scope.md](docs/00-product-scope.md) and read in order:
+`docs/` holds two things side by side — see [docs/README.md](docs/README.md) for the full map:
 
-1. [00-product-scope.md](docs/00-product-scope.md) — product definition, delivery phases, SAS traceability
-2. [01-architecture.md](docs/01-architecture.md) — system design and the canonical glossary (buckets, env vars, config keys, run-ID format)
-3. [02-data-contracts.md](docs/02-data-contracts.md) — Bronze/Silver/Gold/Artifact schemas (normative — wins over code)
-4. [03-components/](docs/03-components/) — per-stage specs (ingestor, cleaner, judge, tokenizer, trainer, smoke-test, registry, inference)
-5. [04-model-adapters.md](docs/04-model-adapters.md) — pluggable fine-tune target model layer
-6. [05-infrastructure.md](docs/05-infrastructure.md) — Docker Compose, MinIO, IAM matrix, container hardening
-7. [06-testing.md](docs/06-testing.md) — test strategy, fixtures, CI lanes
-8. [07-build-plan.md](docs/07-build-plan.md) — ordered, one-task-per-session implementation plan
-9. [08-test-specs/](docs/08-test-specs/README.md) — normative test cases, tagged by ID and traced to build tasks
-10. [09-git-workflow.md](docs/09-git-workflow.md) — branching, commit, and merge-gate rules
+- **This directory (top-level `docs/*.md`)** — the user/operator guide: how to install, configure, run, and troubleshoot Tuner. Start there if you want to *use* the pipeline.
+- **[docs/spec/](docs/spec/00-product-scope.md)** — the normative engineering specification the implementation is built from: architecture, data contracts, per-component specs, the build plan, and the git/review workflow. Start there if you want to *extend* the pipeline.
 
 The original architecture spec this doc set derives from is [SAS.md](SAS.md).
 
 ## MVP scope
 
-One command, `tuner run`, will ingest fixture data and end with a trained QLoRA adapter plus a smoke-test transcript, with the run logged in MLflow — reproducibly, under the IAM matrix, with zero pickle artifacts. Out of MVP scope: model serving/canary, Kubernetes/Kubeflow, registry lifecycle beyond `candidate`, SQL/PDF/API ingestion, multimodal. See [docs/00-product-scope.md §3](docs/00-product-scope.md) for the full exclusion list.
+One command, `tuner run`, ingests fixture data and ends with a trained QLoRA adapter plus a smoke-test transcript, with the run logged in MLflow — reproducibly, under the IAM matrix, with zero pickle artifacts. Out of MVP scope: model serving/canary, Kubernetes/Kubeflow, registry lifecycle beyond `candidate`, SQL/PDF/API ingestion, multimodal. See [docs/spec/00-product-scope.md §3](docs/spec/00-product-scope.md) for the full exclusion list.
 
-## Quick start (once implemented)
+## Quick start
 
 ```bash
 cp .env.example .env                 # fill in HF_TOKEN, judge endpoint
@@ -43,7 +35,7 @@ uv run tuner run --config configs/pipeline.yaml     # full pipeline, prints run 
 # MinIO console: http://localhost:9001  ·  MLflow: http://localhost:5000
 ```
 
-GPU stages (`train`, `smoke`) may run from a host venv if Docker GPU passthrough isn't set up — same commands, same env vars ([docs/05-infrastructure.md §3](docs/05-infrastructure.md)).
+GPU stages (`train`, `smoke`) may run from a host venv if Docker GPU passthrough isn't set up — same commands, same env vars ([docs/spec/05-infrastructure.md §3](docs/spec/05-infrastructure.md)).
 
 ## Contributing
 

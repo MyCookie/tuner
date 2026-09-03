@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Spec <-> test traceability (docs/08-test-specs/README.md "Conventions" /
+"""Spec <-> test traceability (docs/spec/08-test-specs/README.md "Conventions" /
 "Traceability"). Fails on:
 
-- a spec case (a table row's own ID column, in `docs/08-test-specs/*.md`) with no
+- a spec case (a table row's own ID column, in `docs/spec/08-test-specs/*.md`) with no
   test function tagging it,
 - a test function's docstring tagging an ID with no matching spec case,
 - an ID defined twice within the spec tables themselves (a doc authoring mistake,
   e.g. a copy-pasted row whose number wasn't bumped).
 
-A case ID matches `<PREFIX>-<U|I|E|G|S>-<NNN>` (08 README "Conventions"). One ID
+A case ID matches `<PREFIX>-<U|I|E|G|S>-<NNN>` (spec/08 README "Conventions"). One ID
 legitimately tagging *several* test functions is not flagged: "table-driven by
 default" (08 README) covers grouping several data-driven facets of one case under
 several named functions, not just literal `pytest.mark.parametrize` -- e.g.
@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
-SPEC_DIR = REPO_ROOT / "docs" / "08-test-specs"
+SPEC_DIR = REPO_ROOT / "docs" / "spec" / "08-test-specs"
 TEST_DIRS = (
     REPO_ROOT / "tests" / "unit",
     REPO_ROOT / "tests" / "integration",
@@ -47,9 +47,9 @@ DOCSTRING_ID_RE = re.compile(r"^(" + ID_RE.pattern + r"):")
 # check" discipline) rather than a blanket "skip every G/S case" rule, so a *future*
 # G/S case introduced within an already-built task still has to have a real test.
 _DEFERRED = {
-    "TRN-G-020": 'docs/08-test-specs/trainer.md -- "executed in T15"',
-    "INF-S-020": "docs/07-build-plan.md T15 Suite line",
-    "INF-S-021": "docs/07-build-plan.md T15 Suite line",
+    "TRN-G-020": 'docs/spec/08-test-specs/trainer.md -- "executed in T15"',
+    "INF-S-020": "docs/spec/07-build-plan.md T15 Suite line",
+    "INF-S-021": "docs/spec/07-build-plan.md T15 Suite line",
 }
 
 
