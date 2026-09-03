@@ -32,8 +32,12 @@ Commands:
             data.
 ```
 
-(`registry`, `smoke`, and `train`'s one-liners are longer than click's summary
-truncation handles, so they show in full or wrap instead of ending in `...`.)
+(`smoke` and `train` are commands whose module isn't imported just to list
+them — see the next section — so their listing text comes from a static
+string that skips click's usual summary truncation entirely, wrapping to a
+second line instead of being cut off with `...`. `registry`'s one-liner
+happens to fit inside the truncation limit exactly, so truncation runs but
+changes nothing.)
 
 Every per-stage subcommand (`ingest`, `clean`, `judge`, `tokenize`, `train`,
 `smoke`) takes exactly two options:
@@ -102,7 +106,9 @@ Generates one run ID, then runs `ingest → clean → judge → tokenize → tra
 smoke` in that fixed order, each as a `python -m tuner <stage> --run-id
 <id> --config <path>` subprocess with stdout/stderr inherited straight
 through — so you see each stage's own output live. It aborts on the first
-non-zero exit and prints nothing further. On success it prints the run ID,
+non-zero exit, after printing one `run: ...` summary line naming the failed
+stage (see Exit codes below for the exact wording per case) — nothing past
+that. On success it prints the run ID,
 the trained model/adapter's storage URI, the smoke transcript's URI, and a
 direct MLflow run URL — verified output (run ID and URLs will differ per
 run):

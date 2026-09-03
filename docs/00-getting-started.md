@@ -6,8 +6,9 @@ It assumes you know roughly what a fine-tuning pipeline does, are comfortable
 with Docker and a CLI, but have never touched Tuner before.
 
 Every command below was actually run against this repository while writing
-this page (see "What we verified," at the end, for exactly how far that goes)
-— nothing here is inferred from the spec alone.
+this page (see "What we verified versus what we read" in §5 for the one
+part — the real-model, real-GPU path — that goes further than that) —
+nothing here is inferred from the spec alone.
 
 ## Prerequisites
 
@@ -59,9 +60,12 @@ Commands:
             data.
 ```
 
-(`registry`, `smoke`, and `train`'s one-liners are longer than click's summary
-truncation handles, so they run past the column and wrap or show in full —
-harmless, just not as tidy as the others.)
+(`smoke` and `train` skip click's usual summary truncation entirely — their
+listing text comes from a static string used precisely because their real
+modules aren't imported just to list them, explained just below — so it
+wraps to a second line instead of being cut off with `...`. `registry`'s
+one-liner happens to fit inside the truncation limit exactly, so truncation
+runs but changes nothing.)
 
 You'll see a one-line warning above that (`[transformers] PyTorch was not
 found...`) — harmless at this point. `train` and `smoke` need real
@@ -117,8 +121,8 @@ while writing this page:
 - `minio-init` runs to completion and **exits** (`Container tuner-minio-init-1
   Exited`) — that's success, not a crash; it's a one-shot bootstrap job, not a
   resident service. Its bucket/user creation is idempotent (re-running it is
-  safe), but a second `docker compose up -d` still visibly re-creates and
-  re-runs the `minio-init` container (`Starting` / `Started` / `Exited`) each
+  safe), but a second `docker compose up -d` still visibly restarts the
+  existing `minio-init` container (`Starting` / `Started` / `Exited`) each
   time rather than skipping it silently — it just changes nothing at the end.
 
 Once it settles, two UIs are reachable on `localhost`:
@@ -150,7 +154,10 @@ same config the project's own E2E test suite runs
 (`tests/e2e/test_steel_thread.py`): it selects the `tiny-test` model adapter
 (a 135M-parameter model, CPU-capable, no gating) and `train.method: full`
 (skips QLoRA/`bitsandbytes`, which need a CUDA device), so the whole pipeline
-completes in well under a minute on CPU. It's test infrastructure, not a
+runs on CPU alone — no GPU required. Measured end-to-end wall time with
+`CUDA_VISIBLE_DEVICES=` unset (no GPU visible): a little over two minutes on
+this page's test hardware; expect it to vary with your own CPU and whether
+the HF cache is already warm. It's test infrastructure, not a
 product config — a real run uses `configs/pipeline.yaml` (or your own copy of
 it) with a real judge endpoint and, ordinarily, the real default adapter.
 

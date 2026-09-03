@@ -124,8 +124,11 @@ access. Most stages are exactly "one in, one out": the Cleaner reads Bronze
 and writes Silver; the Judge reads Silver and writes Gold; the Tokenizer
 reads Gold and writes Artifacts. A few have a wider footprint by design — the
 Trainer both reads and writes the Artifact store and also writes the
-Registry, and most stages additionally get a read grant on a reserved
-`assets` bucket held for a future multimodal phase and unused today.
+Registry. The four medallion-tier stages (Ingestor, Cleaner, Judge,
+Tokenizer) also each hold a grant on a reserved `assets` bucket held for a
+future multimodal phase and unused today — a **write** grant for the
+Ingestor (which would populate it), a **read** grant for the other three;
+the Trainer and Smoke-test hold no grant on it at all.
 Concretely: the Ingestor cannot write to Gold, and the Trainer cannot read
 Bronze, because neither principal holds *any* grant on that bucket at all
 (the full IAM matrix is in
