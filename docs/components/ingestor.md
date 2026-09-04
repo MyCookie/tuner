@@ -97,12 +97,17 @@ partway through ingestion. Note this validates *that the column exists*, not
 that it maps sensibly; a column existing but always empty is a Cleaner-side
 `unmappable` drop, not an Ingestor-side failure.
 
-**Malformed input aborts the whole stage, never partially.** A CSV row with
-more fields than the header (an unescaped comma, typically) or a JSONL line
-that isn't valid JSON raises immediately and exits 2 — Bronze for this run ID
-ends up completely absent, not a truncated partial write, because the
-manifest (the commit marker) is only written after every record from every
-source has streamed through successfully.
+**Malformed input aborts the whole stage, never partially — at fixture
+scale.** A CSV row with more fields than the header (an unescaped comma,
+typically) or a JSONL line that isn't valid JSON raises immediately and exits
+2. The manifest (the commit marker) is only written after every record from
+every source has streamed through successfully, so it's always absent on
+this kind of abort — verified directly, this repository's fixtures all fit
+in a single shard. Whether an already-completed *earlier* shard (see
+"Sharding" below) would still land in storage on a failure partway through a
+much larger, multi-shard run isn't something fixture-scale data can exercise
+either way; treat that specific case as unverified rather than assuming it
+follows the same all-or-nothing pattern.
 
 **Zero records across every configured source is exit 3**, verified:
 

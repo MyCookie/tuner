@@ -33,7 +33,10 @@ Real output from a run against `tiny-test` (`configs/pipeline.e2e.yaml`, 94
 Gold records in):
 
 ```
-$ mc ls (or StorageClient.download_dir) tuner-artifacts/{run_id}/tokens/
+# via StorageClient.download_dir("tuner-artifacts", f"{run_id}/tokens/") -- this
+# repo has no `mc`/MinIO-client CLI of its own; the MinIO console (see
+# Getting started §3) is the point-and-click equivalent.
+tuner-artifacts/{run_id}/tokens/
 train.safetensors    153616 bytes
 eval.safetensors      19760 bytes
 index_map.json          6453 bytes
@@ -68,11 +71,12 @@ see below.)
 0xFFFFFFFF` and compares against `eval_fraction` — nothing else feeds in, no
 run-specific seed, no ordering dependency. That means the same record ID
 always lands in the same split regardless of which run produced it, which
-machine ran the Tokenizer, or what order Gold's file lists records in. It
-also means changing `eval_fraction` reshuffles which specific records fall on
-which side of the new boundary (records near the old cut point can flip),
-rather than just resizing the split while keeping every prior assignment
-intact.
+machine ran the Tokenizer, or what order Gold's file lists records in. It also means the splits are strictly nested, not reshuffled, as
+`eval_fraction` changes: since the rule is `frac(id) < eval_fraction`, raising
+the fraction can only move records from train into eval, never the reverse, and
+every record already assigned to eval at a smaller fraction stays in eval at a
+larger one. Lowering `eval_fraction` moves records the other way, train-ward, by
+the same logic -- but a record never crosses from one side to the other and back.
 
 **Label masking works by re-tokenizing incrementally, not by counting special
 tokens.** `build_labels` (`src/tuner/tokenizer/masking.py`) locates each
@@ -93,15 +97,17 @@ turn), which used to escape as an uncaught exception and abort the entire
 stage over one oddly-shaped record. Now it's caught and counted as
 `masking_mismatch`, same as a genuine prefix-property violation.
 
-**Two implementation-level abort thresholds exist, and they're not in the
-spec's own core-logic listing** — verified directly from
-`src/tuner/tokenizer/cli.py`: if more than 50% of records drop `over_max_len`,
-the stage exits 1 with a message suggesting you raise `tokenize.max_seq_len`
-(a config problem, not a data-quality one); if more than 1% drop
+**Two abort thresholds exist, both spec'd, in two different places.**
+Confirmed against `src/tuner/tokenizer/cli.py` and the spec: if more than
+50% of records drop `over_max_len`, the stage exits 1 with a message
+suggesting you raise `tokenize.max_seq_len` (a config problem, not a
+data-quality one) — spec'd under "Error handling"
+([tokenizer.md](../spec/03-components/tokenizer.md)). If more than 1% drop
 `masking_mismatch`, it exits 1 saying the adapter's template interaction is
-broken, not the data. Below those thresholds, affected records are simply
-dropped and accounted for in `index_map.dropped`, and the stage completes
-normally.
+broken, not the data — spec'd inline in core-logic step 6, easy to miss since
+it isn't broken out as its own numbered item. Below those thresholds, affected
+records are simply dropped and accounted for in `index_map.dropped`, and the
+stage completes normally.
 
 **Step ordering is deliberately reversed from the component spec's own
 numbering** — the spec (`spec/03-components/tokenizer.md`) lists

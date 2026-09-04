@@ -28,7 +28,7 @@ stay comparable rather than reproducible.
 | | Bucket | Path |
 | :--- | :--- | :--- |
 | Reads | `tuner-silver` | `{run_id}/` |
-| Writes | `tuner-gold` | `{run_id}/records-{NNNNN}.jsonl` + `{run_id}/manifest.json`, plus an MLflow run |
+| Writes | `tuner-gold` | `{run_id}/records-00000.jsonl` + `{run_id}/manifest.json` (never sharded, same as the Cleaner — verified against `src/tuner/judge/cli.py`), plus an MLflow run |
 
 A Silver record before, and the same record in Gold after, captured from a
 real run against the `mock-judge` sidecar (`configs/pipeline.e2e.yaml`):
@@ -66,9 +66,11 @@ For the Gold schema (identical to Silver's, `evaluation` now required), see
 (`src/tuner/judge/prompts.py`, versioned as `RUBRIC_V1`) scores four
 dimensions holistically — instruction adherence, factual plausibility,
 completeness, tone/formatting — as one integer 1–10, and instructs the model
-to reply with *only* `{"score": <int>, "reasoning": "..."}`. The request uses
-`temperature: 0` and, when the endpoint supports it, `response_format: {type:
-json_object}`.
+to reply with *only* `{"score": <int>, "reasoning": "..."}`. The request
+always sends `temperature: 0` and `response_format: {type: json_object}` —
+it doesn't probe or degrade based on what the endpoint claims to support; an
+endpoint that ignores or rejects `response_format` is on its own (the parser
+below is the actual safety net, not endpoint negotiation).
 
 **Reply parsing is stricter than "find some JSON in the text."** The parser
 scans for the *first* balanced `{...}` span that both parses as JSON and has

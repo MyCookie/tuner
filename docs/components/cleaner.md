@@ -27,7 +27,7 @@ that only gets populated by the Judge.
 | | Bucket | Path |
 | :--- | :--- | :--- |
 | Reads | `tuner-bronze` | `{run_id}/` (manifest read first — its absence means Bronze isn't done) |
-| Writes | `tuner-silver` | `{run_id}/records-{NNNNN}.jsonl` + `{run_id}/manifest.json` |
+| Writes | `tuner-silver` | `{run_id}/records-00000.jsonl` + `{run_id}/manifest.json` (unlike the Ingestor, the Cleaner never shards — always one file, verified against `src/tuner/cleaner/cli.py`) |
 
 Two before/after examples, captured from an actual `tuner run` against
 `configs/pipeline.e2e.yaml` and `fixtures/support_dialogs.csv` — both show

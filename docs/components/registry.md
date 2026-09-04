@@ -109,6 +109,9 @@ for the exact column shape.
 ## Configuring it
 
 Nothing in `pipeline.yaml` affects this stage — its only inputs are whatever
-is already sitting in `tuner-registry`. Its credentials come from the
-`REGISTRY_OPS_S3_*` environment pair (see
-[Configuration reference — environment variables](../03-configuration.md#environment-variables-env)).
+is already sitting in `tuner-registry`. Like every other stage, it reads
+`TUNER_S3_*` from its own process environment (see
+[Configuration reference — environment variables](../03-configuration.md#environment-variables-env))
+— there is no `registry-ops`-specific variable pair, and no compose service
+for it either, since `tuner registry list` runs as a plain CLI invocation,
+not a container.

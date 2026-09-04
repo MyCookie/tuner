@@ -4,8 +4,10 @@ The Trainer fine-tunes the selected adapter's base model on the tokenized
 tensors the Tokenizer produced, logs everything to MLflow, and — on success —
 writes the registry manifest that makes the resulting model version
 discoverable. It's the stage with the widest storage footprint: it both reads
-and writes the Artifact tier, and it's the only stage besides Registry ops
-that writes to `tuner-registry`. See
+and writes the Artifact tier, and — Registry ops holds a write grant on
+`tuner-registry` too, but its only implemented command (`list`) never uses
+it — the Trainer is, in practice, the only stage that actually writes there
+today. See
 [Architecture overview](../01-architecture-overview.md) for how it fits
 between the Tokenizer and Smoke-test. Everything below comes from reading
 `src/tuner/trainer/cli.py` and from running `tuner train`/`tuner run` on the
@@ -21,9 +23,14 @@ stacking, since `input_ids`/`attention_mask`/`labels` are already final), and
 trains for the configured method — QLoRA (a PEFT adapter on a 4-bit
 quantized base model) or full-parameter fine-tuning. On completion it saves
 the result as SafeTensors, uploads it to the Artifact tier, and writes the
-registry manifest — which is itself the "training succeeded" commit marker:
-if anything fails before that write, the run is invisible to
-`tuner registry list` and to the Smoke-test.
+registry manifest last. That manifest is the "training succeeded" commit
+marker for `tuner registry list` specifically — if anything fails before
+that write, the run stays invisible there. It is **not** a gate the
+Smoke-test checks: Smoke-test reads weights straight from the Artifact
+tier's `{run_id}/model|adapter/` prefix based on `train.method` in the
+config, never through the registry manifest, so it would still find and run
+against weights uploaded by a Trainer run that crashed before writing its
+manifest.
 
 ## Input and output
 
@@ -138,7 +145,8 @@ state.
 
 **No `.bin`/pickle files anywhere, ever** — verified directly: every object
 under this run's `tuner-artifacts` prefix after a real `method: full` run
-was `.safetensors`/`.json`. That the saved directory is genuinely loadable,
+was `.safetensors`, `.json`, or the tokenizer's own `chat_template.jinja` —
+never a pickle-based `.bin` weight file. That the saved directory is genuinely loadable,
 not just correctly named, was proven by the same run's own Smoke-test stage,
 which loads it back via `AutoModelForCausalLM.from_pretrained` and generated
 real completions from it (see [smoke-test.md](smoke-test.md)).
