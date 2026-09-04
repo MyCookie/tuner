@@ -238,14 +238,13 @@ coexist rather than collide.
 ## 5. Running the real pipeline (`gemma-e4b`, GPU)
 
 `uv run tuner run --config configs/pipeline.yaml` is the actual product path:
-default adapter `gemma-e4b`, QLoRA training, a real judge endpoint. As shipped,
-`configs/pipeline.yaml` has `judge.model: ""` — the Judge stage exits `2`
-immediately on an empty model name (`src/tuner/judge/cli.py`), before any
-GPU work, so the file isn't runnable until you set a real one. It needs:
+default adapter `gemma-e4b`, QLoRA training. The shipped `configs/pipeline.yaml`
+already sets `judge.model: mock-judge` so this runs out of the box against the
+compose `mock-judge` sidecar — for a production judge, replace that with a real
+model name and point `TUNER_JUDGE_BASE_URL` at a real OpenAI-compatible endpoint
+(bare origin, no `/v1` suffix — the client always posts to `/v1/chat/completions`
+itself) with a working `TUNER_JUDGE_API_KEY`. It needs:
 
-- `judge.model` in the config set to a real model name, plus
-  `TUNER_JUDGE_BASE_URL` pointed at a real OpenAI-compatible endpoint (not
-  `mock-judge`), with a working `TUNER_JUDGE_API_KEY`.
 - A CUDA-capable GPU for `train`/`smoke` (QLoRA's 4-bit quantization,
   `bitsandbytes`, requires one) — either via `docker compose`'s
   `trainer`/`smoke` services (which request `nvidia` GPU passthrough), or, if
@@ -256,20 +255,28 @@ GPU work, so the file isn't runnable until you set a real one. It needs:
 - A valid `HF_TOKEN` (the repository itself is public/ungated, but the
   download still goes through the Hugging Face Hub).
 
-**What we verified versus what we read:** this repository's sandbox does
-have a GPU, but no real judge endpoint reachable from it, and a full
-`gemma-e4b` fine-tune is a materially bigger, longer job than this page's
-CPU-fast path — so we did not run this path end-to-end. What we did verify by
-reading the actual source: `tuner.models.registry` resolves `gemma-e4b` to
-`GemmaE4BAdapter` (`src/tuner/models/gemma_e4b.py`); the Trainer's
-`method: full` + `supports_full_ft: False` combination (which `gemma-e4b`
-has) exits `2` before touching storage; and the `TUNER_S3_*`/`MLFLOW_*`/
-`HF_TOKEN` env-var contract and CLI flags are identical between this path and
-the one above — we exercised those mechanics directly, just against the
-smaller model. Treat everything in this section as spec- and code-verified,
-not run-verified, until someone runs it on real GPU hardware against a real
-judge endpoint (tracked as build-plan task T15,
-[docs/spec/07-build-plan.md](spec/07-build-plan.md)).
+**Run-verified in T15** (build-plan task T15, [docs/spec/07-build-plan.md](spec/07-build-plan.md);
+suite case `TRN-G-020`), on a real CUDA GPU, against the real `google/gemma-4-E4B-it`
+checkpoint (~16 GB, downloaded from Hugging Face) — not just spec- and code-verified
+like the rest of this page. `uv run tuner run --config configs/pipeline.yaml` ran
+every stage for real: ingest → clean → mock-judge (a genuine third-party judge
+endpoint is an operator-specific detail outside this repo's control; `mock-judge` is
+the sanctioned stand-in per [05-infrastructure.md](spec/05-infrastructure.md)) →
+tokenize → a real QLoRA fine-tune (3 epochs, train loss 1.93 → eval loss 0.51) → a
+real smoke-test PEFT adapter reload. Peak CUDA memory for a QLoRA run stayed at
+~18 GB, comfortably inside the 128 GB dev-box budget. The smoke transcript's
+before/after generations are a real, visible before/after — e.g. one held-out prompt's
+base-model output opened with "As a large language model, I don't have access to any
+specific 'team workspace'...", where the fine-tuned adapter's output was the terse,
+on-style "Go to Security, select Password Reset, and enter your email. A reset link
+will be sent to your inbox." This also surfaced and fixed two real bugs no smaller-model
+run had exercised: `google/gemma-4-E4B-it` is genuinely multimodal, and its
+vision/audio towers reuse the same leaf module names as the text backbone, which
+without an explicit exclusion made PEFT try (and fail) to LoRA-inject them too (see
+[04-model-adapters.md §3](spec/04-model-adapters.md)'s `lora_exclude_modules_regex`
+footnote); and the CUDA-runtime trainer/smoke Docker image failed to build at all
+until fixed, because its base image's own default user already claims uid 1000 (see
+[05-infrastructure.md](spec/05-infrastructure.md)).
 
 ## Exit codes
 
