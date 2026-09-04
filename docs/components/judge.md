@@ -68,9 +68,12 @@ dimensions holistically — instruction adherence, factual plausibility,
 completeness, tone/formatting — as one integer 1–10, and instructs the model
 to reply with *only* `{"score": <int>, "reasoning": "..."}`. The request
 always sends `temperature: 0` and `response_format: {type: json_object}` —
-it doesn't probe or degrade based on what the endpoint claims to support; an
-endpoint that ignores or rejects `response_format` is on its own (the parser
-below is the actual safety net, not endpoint negotiation).
+it doesn't probe or degrade based on what the endpoint claims to support. An
+endpoint that silently ignores the field but still replies with prose
+containing the requested JSON shape is covered by the parser below; one that
+actively rejects it with an HTTP error is not recovered at all — a 4xx is
+treated as fatal, not retried (see "Retries" below), so that specific failure
+surfaces as a judge error, not a parse error.
 
 **Reply parsing is stricter than "find some JSON in the text."** The parser
 scans for the *first* balanced `{...}` span that both parses as JSON and has

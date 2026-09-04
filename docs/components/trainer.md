@@ -4,10 +4,9 @@ The Trainer fine-tunes the selected adapter's base model on the tokenized
 tensors the Tokenizer produced, logs everything to MLflow, and — on success —
 writes the registry manifest that makes the resulting model version
 discoverable. It's the stage with the widest storage footprint: it both reads
-and writes the Artifact tier, and — Registry ops holds a write grant on
-`tuner-registry` too, but its only implemented command (`list`) never uses
-it — the Trainer is, in practice, the only stage that actually writes there
-today. See
+and writes the Artifact tier, and it's the only stage that actually writes to
+`tuner-registry` in practice today. (Registry ops holds a write grant there
+too, but its only implemented command — `list` — never uses it.) See
 [Architecture overview](../01-architecture-overview.md) for how it fits
 between the Tokenizer and Smoke-test. Everything below comes from reading
 `src/tuner/trainer/cli.py` and from running `tuner train`/`tuner run` on the

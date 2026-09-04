@@ -33,8 +33,8 @@ Real output from a run against `tiny-test` (`configs/pipeline.e2e.yaml`, 94
 Gold records in):
 
 ```
-# via StorageClient.download_dir("tuner-artifacts", f"{run_id}/tokens/") -- this
-# repo has no `mc`/MinIO-client CLI of its own; the MinIO console (see
+# via StorageClient.download_dir("tuner-artifacts", f"{run_id}/tokens/", local_dir)
+# -- this repo has no `mc`/MinIO-client CLI of its own; the MinIO console (see
 # Getting started §3) is the point-and-click equivalent.
 tuner-artifacts/{run_id}/tokens/
 train.safetensors    153616 bytes
@@ -71,12 +71,14 @@ see below.)
 0xFFFFFFFF` and compares against `eval_fraction` — nothing else feeds in, no
 run-specific seed, no ordering dependency. That means the same record ID
 always lands in the same split regardless of which run produced it, which
-machine ran the Tokenizer, or what order Gold's file lists records in. It also means the splits are strictly nested, not reshuffled, as
-`eval_fraction` changes: since the rule is `frac(id) < eval_fraction`, raising
-the fraction can only move records from train into eval, never the reverse, and
-every record already assigned to eval at a smaller fraction stays in eval at a
-larger one. Lowering `eval_fraction` moves records the other way, train-ward, by
-the same logic -- but a record never crosses from one side to the other and back.
+machine ran the Tokenizer, or what order Gold's file lists records in. It
+also means the splits are strictly nested, not reshuffled, as `eval_fraction`
+changes: since the rule is `frac(id) < eval_fraction`, raising the fraction
+can only move records from train into eval, never the reverse, and every
+record already assigned to eval at a smaller fraction stays in eval at a
+larger one. Lowering `eval_fraction` moves records the other way,
+train-ward, by the same logic -- but a record never crosses from one side to
+the other and back.
 
 **Label masking works by re-tokenizing incrementally, not by counting special
 tokens.** `build_labels` (`src/tuner/tokenizer/masking.py`) locates each

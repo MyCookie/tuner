@@ -23,7 +23,7 @@ inside `raw`.
 
 | | Bucket | Path |
 | :--- | :--- | :--- |
-| Reads | *(external)* | whatever `ingest.sources[].uri` names — a local path or `s3://` URI |
+| Reads | *(external)* | whatever `ingest.sources[].uri` names — a local path today (see below: `s3://` is spec'd but not yet implemented) |
 | Writes | `tuner-bronze` | `{run_id}/records-{NNNNN}.jsonl` + `{run_id}/manifest.json` |
 
 A CSV row before and after, taken from an actual run against
@@ -97,17 +97,19 @@ partway through ingestion. Note this validates *that the column exists*, not
 that it maps sensibly; a column existing but always empty is a Cleaner-side
 `unmappable` drop, not an Ingestor-side failure.
 
-**Malformed input aborts the whole stage, never partially — at fixture
-scale.** A CSV row with more fields than the header (an unescaped comma,
-typically) or a JSONL line that isn't valid JSON raises immediately and exits
-2. The manifest (the commit marker) is only written after every record from
-every source has streamed through successfully, so it's always absent on
-this kind of abort — verified directly, this repository's fixtures all fit
-in a single shard. Whether an already-completed *earlier* shard (see
-"Sharding" below) would still land in storage on a failure partway through a
-much larger, multi-shard run isn't something fixture-scale data can exercise
-either way; treat that specific case as unverified rather than assuming it
-follows the same all-or-nothing pattern.
+**Malformed input never leaves a partial shard, but it can leave earlier
+*complete* shards behind.** A CSV row with more fields than the header (an
+unescaped comma, typically) or a JSONL line that isn't valid JSON raises
+immediately and exits 2. The manifest (the commit marker) is only written
+after every record from every source has streamed through successfully, so
+it's always absent on this kind of abort. But each shard
+(`_write_shard` in `src/tuner/ingestor/cli.py`) is uploaded the moment it
+fills, inside the same loop that reads records -- so on a large, multi-shard
+run, any shard that already filled *before* the bad record survives the
+abort in storage, manifest or no manifest. This repository's own fixtures
+all fit in a single shard, so a fixture-scale abort really does leave Bronze
+completely empty; it's the code path, not a run of this scale, that proves
+the multi-shard case.
 
 **Zero records across every configured source is exit 3**, verified:
 

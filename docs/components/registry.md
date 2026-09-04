@@ -109,9 +109,13 @@ for the exact column shape.
 ## Configuring it
 
 Nothing in `pipeline.yaml` affects this stage — its only inputs are whatever
-is already sitting in `tuner-registry`. Like every other stage, it reads
-`TUNER_S3_*` from its own process environment (see
+is already sitting in `tuner-registry`. A `REGISTRY_OPS_S3_ACCESS_KEY` /
+`REGISTRY_OPS_S3_SECRET_KEY` pair does exist in `.env.example` — it's what
+`minio-init` uses to provision the least-privileged `registry-ops` MinIO
+principal at bootstrap time (`scripts/bootstrap_minio.py`). But the CLI
+process itself, when you actually run `tuner registry list`, reads
+`TUNER_S3_*` from its own environment like every other stage (see
 [Configuration reference — environment variables](../03-configuration.md#environment-variables-env))
-— there is no `registry-ops`-specific variable pair, and no compose service
-for it either, since `tuner registry list` runs as a plain CLI invocation,
-not a container.
+— there's no compose service running this stage as a container, so nothing
+ever hands it the `REGISTRY_OPS_S3_*` pair directly; you'd export it as
+`TUNER_S3_*` yourself to run genuinely least-privileged.
