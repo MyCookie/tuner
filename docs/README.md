@@ -29,7 +29,8 @@ wins over code, and over this guide, if the two ever disagree.
   - [Smoke-test](components/smoke-test.md)
   - [Registry](components/registry.md)
   - [Inference](components/inference.md) (spec-only — not implemented in the MVP)
-- Operations & troubleshooting — forthcoming
+- [Operations & troubleshooting](04-operations.md) (the running stack, IAM in
+  practice, inspecting a run, common failure modes, disaster recovery)
 
 ## Engineering specification
 
