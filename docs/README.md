@@ -16,10 +16,10 @@ wins over code, and over this guide, if the two ever disagree.
 <!-- Each page below is added to this list by the task that writes it; an
      unlinked bullet is a page not yet written. -->
 
-- Getting started (installation, first run) — forthcoming
-- Architecture overview (how the pipeline fits together) — forthcoming
-- CLI reference — forthcoming
-- Configuration reference — forthcoming
+- [Getting started](00-getting-started.md) (installation, first run)
+- [Architecture overview](01-architecture-overview.md) (how the pipeline fits together)
+- [CLI reference](02-cli-reference.md)
+- [Configuration reference](03-configuration.md)
 - Component guides (ingestor, cleaner, judge, tokenizer, trainer, smoke-test,
   registry, inference) — forthcoming
 - Operations & troubleshooting — forthcoming
