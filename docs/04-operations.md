@@ -58,21 +58,25 @@ every other worktree's view of the stack.
 
 ```
 $ docker compose ps
-NAME                 IMAGE                   SERVICE      STATUS
-tuner-minio-1        minio/minio             minio        Up (healthy)
-tuner-mlflow-1       ghcr.io/mlflow/mlflow   mlflow       Up (healthy)
-tuner-mock-judge-1   tuner-mock-judge        mock-judge   Up (healthy)
+NAME                 IMAGE                   SERVICE      STATUS                  PORTS
+tuner-minio-1        minio/minio             minio        Up (healthy)            0.0.0.0:9000-9001->9000-9001/tcp
+tuner-mlflow-1       ghcr.io/mlflow/mlflow   mlflow       Up (healthy)            0.0.0.0:5000->5000/tcp
+tuner-mock-judge-1   tuner-mock-judge        mock-judge   Up (healthy)            0.0.0.0:8088->8088/tcp
 ```
+(`PORTS` matters here — see the "healthy but unreachable" case just below,
+where this exact column is the tell.)
 
 (`minio-init` won't appear here once it's done — it's a one-shot job, not a
 resident service; see Getting started §3 for why `Exited (0)` there is
 success, not a crash.) The `(healthy)` suffix comes from each service's own
-`healthcheck:` — `curl` against MinIO's `/minio/health/live` and MLflow's own
-`/health` (which replies with a plain `OK`, verified directly). `docker
-compose logs <service>` is the next step when a container won't turn
-healthy; `docker compose logs minio-init` in particular is where a bootstrap
-failure (§4 below) shows up, since that container exits either way and
-`ps` alone won't tell you if it exited `0` or not.
+`healthcheck:` — only MinIO's actually uses `curl` (against
+`/minio/health/live`); MLflow's and mock-judge's are a `python -c` one-liner
+hitting `/health` and `/docs` respectively via `urllib.request` (verified
+against `docker-compose.yaml` directly — neither of those two images ships
+`curl`). `docker compose logs <service>` is the next step when a container
+won't turn healthy; `docker compose logs minio-init` in particular is where a
+bootstrap failure (§4 below) shows up, since that container exits either way
+and `ps` alone won't tell you if it exited `0` or not.
 
 The same three endpoints are reachable directly, which is a faster check
 than parsing `ps` output when you just want a yes/no:
@@ -137,7 +141,7 @@ docker compose --profile e2e up -d minio minio-init mlflow mock-judge
 ```
 
 We ran exactly this against this repository's own stack: both volumes gone,
-stack back up, all four health checks returning `200`/`OK` again, all seven
+stack back up, all three health checks returning `200`/`OK` again, all seven
 buckets present and empty, and the same eight MinIO principals (`ingestor`
 through `mlflow`) recreated with matching policies — `minio-init`'s bucket
 and IAM setup is idempotent from nothing, not just re-runnable against an
@@ -168,7 +172,7 @@ in place of the Ingestor's (the Cleaner has no write grant on
 `tuner-bronze`, which is exactly what Ingestor needs):
 
 ```
-$ TUNER_S3_ACCESS_KEY=<cleaner's key> TUNER_S3_SECRET_KEY=<cleaner's key> uv run tuner ingest --run-id <id> --config configs/pipeline.e2e.yaml
+$ TUNER_S3_ACCESS_KEY=<cleaner's key> TUNER_S3_SECRET_KEY=<cleaner's secret> uv run tuner ingest --run-id <id> --config configs/pipeline.e2e.yaml
 ingest: An error occurred (AccessDenied) when calling the PutObject operation: Access Denied.
 $ echo $?
 1
@@ -231,14 +235,21 @@ against this repository:
 ```json
 {
   "tier": "gold",
-  "run_id": "run-20260904-050051-20ee85",
+  "run_id": "run-20260904-153133-36b82c",
+  "created_at": "2026-09-04T15:31:43Z",
   "producer": {"stage": "judge", "version": "0.1.0"},
-  "input": {"tier": "silver", "manifest_uri": "s3://tuner-silver/run-20260904-050051-20ee85/manifest.json"},
+  "input": {"tier": "silver", "manifest_uri": "s3://tuner-silver/run-20260904-153133-36b82c/manifest.json"},
   "files": ["records-00000.jsonl"],
+  "records_hash": "sha256:b1e3468a9483d547180363d5c13dc1c0ca677e40d39912ab908694923d428672",
   "counts": {"read": 99, "written": 94, "dropped": 5},
   "drops": [{"reason": "below_threshold", "count": 5}]
 }
 ```
+
+(`created_at` and `records_hash` are both required fields on every tier
+manifest — `TierManifest` in `src/tuner/core/schemas.py` — easy to leave out
+of a hand-copied example since neither one is operationally interesting on
+its own, but they're really there on every manifest you'll actually open.)
 
 `input.manifest_uri` is what lets you walk backward tier by tier —
 Gold → Silver → Bronze — to the literal source row a given record came from,
@@ -259,7 +270,10 @@ hyperparameters, loss curve, and the smoke-test transcript attached as an
 artifact under `smoke/`. `tuner run`'s own final output line
 (`run: mlflow run: http://localhost:5000/#/experiments/...`) is a direct
 link to the Trainer's run if you have it; otherwise the MLflow UI's search
-box accepts `tags.\`tuner.run_id\` = '<run_id>'` directly.
+box accepts ``tags.`tuner.run_id` = '<run_id>'`` directly (verified against
+the live tracking server — the single-backtick form with escaped inner
+backticks renders literal backslashes and fails as an invalid filter
+clause).
 
 **The registry.** `uv run tuner registry list` lists every trained model
 version, newest first — real output against this repository:
@@ -296,12 +310,12 @@ row itself rather than presented as fact.
 | `...: missing required env var(s): TUNER_S3_ACCESS_KEY, ...` | `.env` missing/not filled in, or not exported into the shell running a host-venv stage | `cp .env.example .env`, fill it in, export it or inline it per [Getting started §4](00-getting-started.md) |
 | `<stage>: An error occurred (AccessDenied) when calling ... Access Denied.` (exit `1`) | The credential in `TUNER_S3_ACCESS_KEY`/`SECRET_KEY` doesn't hold the grant that operation needs — reproduced directly with a mismatched stage credential | See §2 above: use the right per-stage pair inside its own container, or the MinIO root pair for a whole-pipeline host run — never widen the policy |
 | `clean: missing manifest: s3://tuner-bronze/<run_id>/manifest.json` (or the same for any stage, exit `2`) | Wrong/typo'd `--run-id`, or the upstream stage never completed for that run ID — verified message, produced by pointing Clean at a run ID that was never ingested | Confirm the run ID, or re-run the missing upstream stage first — this is the "upstream incomplete" contract, not corruption |
-| `train`/`smoke` fail immediately with `Error: 'train' needs the \`train\` extra ...` | Torch/transformers/peft/accelerate aren't installed — deliberately lazy-imported so other stages don't need them | `uv sync --extra train` |
+| `train`/`smoke` fail immediately with ``Error: 'train' needs the `train` extra ...`` | Torch/transformers/peft/accelerate aren't installed — deliberately lazy-imported so other stages don't need them | `uv sync --extra train` |
 | `train`/`smoke` hang, crash, or can't find a CUDA device under `method: qlora` | No GPU, or Docker GPU passthrough isn't set up for the `trainer`/`smoke` services' `deploy.resources.reservations.devices: [nvidia]` stanza. **Not reproduced in this sandbox** — its own GPU passthrough works, so we could confirm the *fix* end to end but not the original failure mode | Either fix passthrough, or use the sanctioned fallback: run just `train`/`smoke` from a host `uv` venv with `--extra train`, same env vars, no code changes ([docs/spec/05-infrastructure.md §3](spec/05-infrastructure.md)). `method: full` (no QLoRA) needs no GPU at all, as the CPU-fast path already uses |
 | Judge hangs for minutes, then aborts with `judge: judge_error rate <n>/<n> exceeds 10% -- endpoint looks unhealthy, aborting` (exit `1`) | `TUNER_JUDGE_BASE_URL` is unreachable or wrong. Each record retries with exponential backoff before counting as a `judge_error`, so a fully dead endpoint fails *slowly*, not instantly — reproduced directly: 99/99 records errored against a closed port, taking a few minutes wall time, before the 10% abort threshold fired | Check `TUNER_JUDGE_BASE_URL`/`TUNER_JUDGE_API_KEY` are actually reachable from where the Judge runs (`http://host.docker.internal:...` from inside a container is not the same host as `http://localhost:...` from a host venv); see [components/judge.md](components/judge.md) for the full retry/threshold policy |
 | `smoke: expected exactly one trainer run for run_id <id>, found 2` (exit `2`) | Object storage is idempotently overwritten on a re-run, but **MLflow runs are not** — re-running `tuner train` by hand for a `run_id` that already trained successfully once creates a *second* MLflow run tagged with the same `(tuner.run_id, tuner.stage: trainer)` pair, and Smoke's lookup requires exactly one match. Reproduced directly: ran `train` twice for one run ID, then `smoke` failed with `found 2` | Delete the stale/duplicate trainer run in the MLflow UI (or `POST /api/2.0/mlflow/runs/delete`), keeping the one that actually matches the artifacts you want Smoke to test against — verified directly: deleting the older of the two let `smoke` succeed immediately after |
 | MinIO's disk usage keeps growing across many runs | Every run's data is additive — nothing is ever garbage-collected automatically. Measured directly against this repository's own dev stack: about **270 MB per completed `tiny-test`/`method: full` run**, almost entirely `tuner-artifacts` (full model weights); nine such runs had put the MinIO volume at 2.3 GB | There's no built-in cleanup command; delete a run's prefixes yourself with `StorageClient.delete_prefix(bucket, f"{run_id}/")` per bucket (root/admin credentials — a single stage's scoped principal can't reach every tier) once you've confirmed you no longer need that run, or reset entirely per §1 |
-| A run failed partway and you want its storage gone before re-running it | Nothing does this automatically — a stage only deletes its *own* output prefix, and only when it next actually runs for that ID (the idempotency contract) | Either just re-run the same stage with the same `--run-id` (it deletes-then-rewrites its own tier on its own — no manual cleanup needed for that), or manually clear every tier's `{run_id}/` prefix (and `tuner-registry/{adapter}-{run_id}/` if training got that far) the same way as the disk-usage row above if you want it gone rather than retried |
+| A run failed partway and you want its storage gone before re-running it | Nothing does this automatically — a stage only deletes its *own* output prefix, and only when it next actually runs for that ID (the idempotency contract) | Either just re-run the same stage with the same `--run-id` (it deletes-then-rewrites its own object-storage tier on its own — no manual cleanup needed *there*), or manually clear every tier's `{run_id}/` prefix (and `tuner-registry/{adapter}-{run_id}/` if training got that far) the same way as the disk-usage row above if you want it gone rather than retried. **One exception:** re-running `train` for a `run_id` that already has an MLflow run leaves that stale run behind (row above) — object-storage idempotency doesn't extend to MLflow, so that specific case does need the manual MLflow cleanup even on a plain re-run. |
 
 ## 5. Disaster recovery / rebuilding from scratch
 
@@ -318,7 +332,7 @@ network, both named volumes — is throwaway and reproducible from
 against this repository: `docker compose --profile e2e down -v` (both
 volumes confirmed gone via `docker volume ls`), then
 `docker compose --profile e2e up -d minio minio-init mlflow mock-judge`
-brought back all four health checks green, all seven buckets present and
+brought back all three health checks green, all seven buckets present and
 empty, and all eight MinIO principals (`ingestor` through `mlflow`)
 recreated with matching policies from `IAM_MATRIX` in
 `scripts/bootstrap_minio.py` — bootstrapping is idempotent from a truly

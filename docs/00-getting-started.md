@@ -287,6 +287,10 @@ each individual subcommand.
 
 ## Troubleshooting
 
+For anything past this first run — keeping the stack healthy over time,
+finding a run's data after the fact, or a fuller failure-mode reference —
+see [Operations & troubleshooting](04-operations.md).
+
 | Symptom | Cause | Fix |
 | :--- | :--- | :--- |
 | `ingest: missing required env var(s): TUNER_S3_ACCESS_KEY, TUNER_S3_SECRET_KEY` (or similar, any stage) | `.env` not created, not filled in, or not exported into your shell | `cp .env.example .env`, fill it in, and export it (or prefix each command as shown above) |
