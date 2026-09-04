@@ -11,7 +11,15 @@ RUN apt-get update \
        python3 python3-venv python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-RUN useradd --create-home --uid 1000 --shell /usr/sbin/nologin tuner
+# The nvidia/cuda:*-ubuntu24.04 base images ship a default non-root `ubuntu` user
+# already sitting on uid/gid 1000 (Canonical's own Ubuntu 24.04 base-image policy) --
+# a plain `useradd --uid 1000` fails outright ("UID 1000 is not unique", exit 4)
+# against this specific base, unlike python:3.11-slim (base.Dockerfile), which ships
+# no such user (T15/INF-S-020 finding: this build had never actually been run for
+# real before T15). Remove it first so `tuner` can claim uid/gid 1000 instead --
+# still exactly one non-root uid-1000 user in the final image, just renamed.
+RUN userdel -r ubuntu \
+    && useradd --create-home --uid 1000 --shell /usr/sbin/nologin tuner
 
 WORKDIR /app
 

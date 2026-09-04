@@ -47,7 +47,17 @@ def _write_config(tmp_path: Path, data: dict) -> Path:
 
 
 def test_shipped_config_round_trips_with_documented_defaults():
-    """CORE-U-001: the shipped configs/pipeline.yaml parses and matches 01-architecture.md §6."""
+    """CORE-U-001: the shipped configs/pipeline.yaml parses and matches 01-architecture.md §6.
+
+    `judge.model` asserts `"mock-judge"`, not the bare `JudgeConfig.model` pydantic
+    default (`""`) 01 §6's illustrative YAML snippet shows -- that snippet is
+    documenting the *schema field's own default and its empty-string failure mode*,
+    not mandating that the shipped, runnable file ship non-functional. Every other
+    field in this file already overrides its schema default with a concrete example
+    value (`adapter: gemma-e4b`, not blank); `judge.model` shipping blank instead was
+    a real bug that made `uv run tuner run --config configs/pipeline.yaml` -- the
+    README's own quick start -- exit 2 at the Judge stage before any GPU work,
+    caught and fixed in T15 (docs/spec/07-build-plan.md)."""
     config = load_config(DEFAULT_CONFIG_PATH)
 
     assert config.model.adapter == "gemma-e4b"
@@ -61,7 +71,7 @@ def test_shipped_config_round_trips_with_documented_defaults():
     assert config.clean.min_chars == 20
     assert config.clean.max_chars == 32000
     assert config.clean.pii == ["email", "phone"]
-    assert config.judge.model == ""
+    assert config.judge.model == "mock-judge"
     assert config.judge.threshold == 0.7
     assert config.judge.max_concurrency == 4
     assert config.judge.max_retries == 3

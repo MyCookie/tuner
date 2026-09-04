@@ -19,13 +19,15 @@ Environment story from local dev (MVP) to cloud production (Phase 3). The invari
 
 `.env` (git-ignored; `.env.example` committed) holds: MinIO root creds, per-stage keypairs, `TUNER_JUDGE_BASE_URL`, `TUNER_JUDGE_API_KEY`, `HF_TOKEN`. **No credential ever appears in compose files, configs, or code** (SAS §4.2).
 
-A real judge's LLM endpoint is not part of the compose topology: point `TUNER_JUDGE_BASE_URL` at whatever OpenAI-compatible server the team has (host-side Ollama at `http://host.docker.internal:11434/v1`, a lab vLLM box, or a cloud compat endpoint). The `mock-judge` service (above) is the one exception, and only for tests/E2E/CI — never a real environment.
+A real judge's LLM endpoint is not part of the compose topology: point `TUNER_JUDGE_BASE_URL` at whatever OpenAI-compatible server the team has (host-side Ollama at `http://host.docker.internal:11434`, a lab vLLM box, or a cloud compat endpoint). The `mock-judge` service (above) is the one exception, and only for tests/E2E/CI — never a real environment.
+
+**Bare origin, no `/v1` suffix (T15 finding):** `tuner.judge.client.score_record` always posts to the fixed relative path `/v1/chat/completions`, so `TUNER_JUDGE_BASE_URL` must be the server's bare origin — every test and CI config (`tests/integration/test_judge.py`, `tests/e2e/test_steel_thread.py`, `scripts/write_ci_env.sh`) already sets it that way. A base URL that itself ends in `/v1` (Ollama's own documented convention, and this doc's own earlier example) makes every judge call 404, since `httpx`'s base-URL join treats a leading-`/` request path as absolute and discards the base's own path component entirely. Confirmed empirically against the real `mock-judge` compose service during T15's GPU pipeline run.
 
 ## 2. Container images
 
 - `docker/base.Dockerfile`: `python:3.11-slim`, non-root user `tuner` (uid 1000), uv-installed dependencies, `src/tuner` installed. All stage images derive from it (SAS §4.2 hardening).
 - CPU stages (`ingestor`, `cleaner`, `judge`, `tokenizer`) share one image, entrypoint `tuner`.
-- `docker/trainer.Dockerfile`: CUDA runtime base (`nvidia/cuda:*-runtime`), same non-root pattern, adds torch/transformers/peft/bitsandbytes. Used by `trainer` and `smoke`.
+- `docker/trainer.Dockerfile`: CUDA runtime base (`nvidia/cuda:*-runtime`), same non-root pattern, adds torch/transformers/peft/bitsandbytes. Used by `trainer` and `smoke`. **T15 finding (`INF-S-020`):** the `ubuntu24.04`-tagged CUDA runtime base ships its own default non-root user already sitting on uid/gid 1000 (Canonical's own Ubuntu 24.04 base-image policy), so a plain `useradd --uid 1000 tuner` fails outright (`UID 1000 is not unique`) against this specific base — this build had never actually been run for real before T15. Fixed by removing that user first (`userdel -r ubuntu`) so `tuner` can claim uid/gid 1000 in its place; still exactly one non-root uid-1000 user in the final image.
 - `docker/mock-judge.Dockerfile` (T14): same non-root pattern, `dev` extra (fastapi/uvicorn) instead of `train`, copies `tests/mock_judge/` instead of `src/tuner` alone. Test infrastructure only — no product code.
 - Images never bake data or credentials; everything arrives via env + object store.
 

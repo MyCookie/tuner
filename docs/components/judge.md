@@ -109,9 +109,14 @@ must be set, and separately, `MLFLOW_TRACKING_URI` must be set — verified
 directly:
 
 ```
-$ uv run tuner judge --run-id <id> --config configs/pipeline.yaml   # ships with judge.model: ""
+$ uv run tuner judge --run-id <id> --config configs/pipeline.yaml   # judge.model: "" in the config
 judge: judge.model must be non-empty and TUNER_JUDGE_BASE_URL must be set
 ```
+
+(The shipped `configs/pipeline.yaml` itself sets `judge.model: mock-judge` so the
+README quick start runs end to end out of the box — this error is what you'd see if
+you blanked that key back out, e.g. while adapting the file for your own judge
+endpoint.)
 
 The `MLFLOW_TRACKING_URI` check exists specifically so a missing tracking URI
 can't surface *after* Gold has already been written — without it, the
