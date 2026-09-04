@@ -20,8 +20,15 @@ wins over code, and over this guide, if the two ever disagree.
 - [Architecture overview](01-architecture-overview.md) (how the pipeline fits together)
 - [CLI reference](02-cli-reference.md)
 - [Configuration reference](03-configuration.md)
-- Component guides (ingestor, cleaner, judge, tokenizer, trainer, smoke-test,
-  registry, inference) — forthcoming
+- Component guides
+  - [Ingestor](components/ingestor.md)
+  - [Cleaner](components/cleaner.md)
+  - [Judge](components/judge.md)
+  - [Tokenizer](components/tokenizer.md)
+  - [Trainer](components/trainer.md)
+  - [Smoke-test](components/smoke-test.md)
+  - [Registry](components/registry.md)
+  - [Inference](components/inference.md) (spec-only — not implemented in the MVP)
 - Operations & troubleshooting — forthcoming
 
 ## Engineering specification
