@@ -24,13 +24,13 @@ adapter-level override needed. Being ungated also means the "team's `HF_TOKEN` n
 license grant" caveat this file previously carried doesn't apply to this repo (though
 `HF_TOKEN` is presumably still needed for the download itself, per 01 §4.3's env list).
 
-**Not independently confirmed:** the exact PEFT/LoRA target-module names for this
-architecture's text backbone -- `config.json` doesn't name them (that's determined by
-the model's Python module implementation, not its config). `lora_target_modules` below
-keeps the standard Llama/Gemma-family attention+MLP projection names every prior Gemma
-generation has used; if this generation's implementation renamed them, PEFT will raise
-a clear "no matching modules" error at LoRA-injection time (T11) rather than silently
-targeting nothing.
+**Resolved in T15 (`TRN-G-020`), a real GPU run against the actual repo:** the
+projection names weren't renamed -- `lora_target_modules` below (the standard
+Llama/Gemma-family attention+MLP names) match the text backbone's real module names
+exactly. What T09 didn't anticipate is that this checkpoint's vision/audio towers
+reuse those *same* leaf names for their own projections, and PEFT's `target_modules`
+matches by bare leaf name -- see `lora_exclude_modules_regex` below for what that
+caused and how it's excluded.
 """
 
 from __future__ import annotations
@@ -64,6 +64,22 @@ class GemmaE4BAdapter(ModelAdapter):
             "up_proj",
             "down_proj",
         ],
+        # T15 (TRN-G-020) real-GPU finding: this repo's `Gemma4ForConditionalGeneration`
+        # is genuinely multimodal, and its vision_tower/audio_tower encoders reuse these
+        # exact same leaf names (q_proj, k_proj, ..., gate_proj, up_proj, down_proj) for
+        # their own projections -- `lora_target_modules` above matches by bare leaf name
+        # (04 §3), so without this exclusion PEFT also tries to LoRA-inject the towers.
+        # Their projections are wrapped in a custom `Gemma4ClippableLinear` (confirmed by
+        # inspecting the real, loaded, 4-bit-quantized model's `named_modules()`), which
+        # isn't one of PEFT's supported base classes (plain `torch.nn.Linear`/`Linear4bit`,
+        # `Conv1d/2d/3d`, `transformers.pytorch_utils.Conv1D`, `MultiheadAttention`) --
+        # `get_peft_model` raised `ValueError: Target module Gemma4ClippableLinear(...) is
+        # not supported` the first time this ran for real. The language backbone's own
+        # projections (`model.language_model.layers.N.*_proj`) are plain `Linear4bit` and
+        # inject cleanly; this pipeline is text-only regardless (04 §5 -- multimodal
+        # ingestion/training is Phase 4, not built), so excluding both towers is correct,
+        # not just a workaround.
+        lora_exclude_modules_regex=r".*\.(vision_tower|audio_tower)\..*",
     )
     quantization = {
         "load_in_4bit": True,
