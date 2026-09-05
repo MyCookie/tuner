@@ -97,6 +97,25 @@ def _cleanup(storage, run_id: str, model_version: str) -> None:
     storage.delete_prefix(REGISTRY_BUCKET, f"{model_version}/")
 
 
+def _run_pipeline(
+    cmd: list[str], env: dict[str, str], timeout: int
+) -> subprocess.CompletedProcess[str]:
+    """subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=timeout),
+    except a subprocess.TimeoutExpired is turned into a pytest.fail() that includes
+    whatever partial stdout/stderr had already been captured before the kill --
+    TimeoutExpired.__str__ never includes it (issue #20), so letting it propagate raw
+    is exactly how both real nightly failures (runs 33752165161, 33870306898) lost
+    all trace of which pipeline stage was still running when it hung."""
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        pytest.fail(
+            f"{cmd} timed out after {timeout}s\n"
+            f"--- captured stdout ---\n{exc.stdout}\n"
+            f"--- captured stderr ---\n{exc.stderr}"
+        )
+
+
 def test_run_pipeline_surfaces_captured_output_on_timeout(monkeypatch):
     """Not a spec case (CI test-harness hardening, not spec'd product behavior --
     issue #20). `_run_pipeline` must catch subprocess.TimeoutExpired and fail with
@@ -143,12 +162,10 @@ def e2e_run(storage):
         "TUNER_JUDGE_BASE_URL": "http://localhost:8088",
         "TUNER_JUDGE_API_KEY": "unused-mock-key",
     }
-    result = subprocess.run(
+    result = _run_pipeline(
         [sys.executable, "-m", "tuner", "run", "--config", CONFIG_PATH],
-        capture_output=True,
-        text=True,
         env=env,
-        timeout=600,
+        timeout=900,
     )
     assert result.returncode == 0, result.stdout + result.stderr
 
