@@ -16,7 +16,9 @@ clean:
   pii: [email, phone]           # enabled scrubbers
 
 judge:
-  model: ""                     # judge model name at TUNER_JUDGE_BASE_URL (empty => fail at startup)
+  model: ""                     # judge model name at TUNER_JUDGE_BASE_URL (empty => fail at startup;
+                                 # for the compose mock-judge sidecar, use "mock-judge" -- see
+                                 # docs/00-getting-started.md §5 for the full out-of-the-box run)
   threshold: 0.7                # min normalized score for Gold promotion
   max_concurrency: 4
   max_retries: 3

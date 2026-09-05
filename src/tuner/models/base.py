@@ -36,6 +36,17 @@ class TrainingDefaults:
     lora_alpha: int
     lora_dropout: float
     lora_target_modules: list[str]
+    # Regex against a module's full dotted name, passed straight through to PEFT's
+    # own `LoraConfig.exclude_modules` (a full-string regex when given as `str`, per
+    # peft.tuners.tuners_utils.check_target_module_exists) -- None means "exclude
+    # nothing." Added in T15 (TRN-G-020, a real finding): `lora_target_modules`
+    # matches by bare leaf name, so on a multimodal checkpoint whose vision/audio
+    # towers reuse the exact same leaf names (q_proj, k_proj, ...) as the language
+    # backbone, those bare names also match the towers -- harmless for an adapter
+    # whose towers are plain `nn.Linear`, but `gemma-e4b`'s aren't (see its own
+    # `lora_exclude_modules_regex` comment). A text-only adapter with no such
+    # collision leaves this None.
+    lora_exclude_modules_regex: str | None = None
 
 
 class UnsupportedModalityError(Exception):

@@ -28,6 +28,10 @@ TEST_DIRS = (
     REPO_ROOT / "tests" / "unit",
     REPO_ROOT / "tests" / "integration",
     REPO_ROOT / "tests" / "e2e",
+    # T15: INF-S-020/021 (container structure, scale smoke) live here per
+    # 08-test-specs/infra.md's own suite table ("Files: ... tests/slow/test_containers.py,
+    # tests/slow/test_scale.py") -- omitted until T15 actually wrote them.
+    REPO_ROOT / "tests" / "slow",
 )
 
 ID_RE = re.compile(r"[A-Z]+-[UIEGS]-\d{3}")
@@ -40,17 +44,19 @@ ID_RE = re.compile(r"[A-Z]+-[UIEGS]-\d{3}")
 SPEC_ROW_RE = re.compile(r"^\|\s*(" + ID_RE.pattern + r")\b")
 DOCSTRING_ID_RE = re.compile(r"^(" + ID_RE.pattern + r"):")
 
-# Cases whose own spec row says they land in a later task (docs/spec/07-build-plan.md's
+# Cases whose own spec row said they'd land in a later task (docs/spec/07-build-plan.md's
 # T15 Suite line: "TRN-G-020 ...; INF-S-020..021") -- G/S-marked, GPU-only or
 # nightly-slow-lane, not yet built at T14. Explicit and individually justified
 # (mirrors the coverage policy's own "# pragma: no cover ... names the T15 manual
 # check" discipline) rather than a blanket "skip every G/S case" rule, so a *future*
 # G/S case introduced within an already-built task still has to have a real test.
-_DEFERRED = {
-    "TRN-G-020": 'docs/spec/08-test-specs/trainer.md -- "executed in T15"',
-    "INF-S-020": "docs/spec/07-build-plan.md T15 Suite line",
-    "INF-S-021": "docs/spec/07-build-plan.md T15 Suite line",
-}
+#
+# T15 landed real tests for all three of the entries this dict used to carry
+# (TRN-G-020 in tests/integration/test_trainer.py; INF-S-020/021 in the new
+# tests/slow/ -- see TEST_DIRS above), so it's empty now. Left in place, not
+# deleted: it's the mechanism the *next* G/S case introduced within an
+# already-built task still needs.
+_DEFERRED: dict[str, str] = {}
 
 
 def _spec_ids() -> dict[str, list[str]]:

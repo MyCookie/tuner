@@ -25,7 +25,7 @@ Env: `TUNER_S3_*`, `HF_TOKEN`, `MLFLOW_TRACKING_URI`. Requires CUDA; absence ⇒
 
 1. Resolve adapter; merge hyperparameters (adapter defaults ← config overrides); validate `method` against `supports_full_ft`.
 2. Download tensors + index_map via `StorageClient` to a local work dir.
-3. Load base model: `adapter.load_base_model(quantized=(method=="qlora"))`; for QLoRA wrap with PEFT `LoraConfig` built from the merged hyperparameters (`r`, `alpha`, `dropout`, `target_modules`).
+3. Load base model: `adapter.load_base_model(quantized=(method=="qlora"))`; for QLoRA wrap with PEFT `LoraConfig` built from the merged hyperparameters (`r`, `alpha`, `dropout`, `target_modules`, `exclude_modules` ← `lora_exclude_modules_regex`, T15/`TRN-G-020` — needed for a multimodal checkpoint whose non-language towers reuse the language backbone's own leaf module names; see [04 §3](../04-model-adapters.md)).
 4. Build `Dataset` objects directly from the SafeTensors (`input_ids`, `attention_mask`, `labels` are already final — no collator logic beyond stacking).
 5. Start the MLflow run (experiment from config, run name = run ID, tags `tuner.run_id`, `tuner.adapter`, `tuner.model_version`, `tuner.stage: trainer`); log all effective hyperparameters, `gold_manifest_uri` and `index_map_uri` (the dataset version, SAS §3.2), package versions.
 6. Train with HF `Trainer`: bf16, gradient checkpointing on, eval on the eval split each epoch, loss logged to MLflow every 10 steps. No early stopping in MVP; seed fixed at 42 and logged.

@@ -18,6 +18,7 @@ from __future__ import annotations
 import dataclasses
 import math
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,7 @@ import mlflow
 import pytest
 import torch
 import yaml
+from peft import PeftModel
 
 from tuner.core.config import merge_hyperparameters
 from tuner.core.ids import canonical_hash, new_record_id, new_run_id
@@ -234,7 +236,10 @@ def test_lora_config_construction_no_model_loaded():
 
     Uses the real merge_hyperparameters, not a hand-written dict standing in for its
     result (round 1 finding 9) -- an override of lora_r specifically, so the "merge"
-    part is genuinely exercised, not just build_lora_config's own field mapping."""
+    part is genuinely exercised, not just build_lora_config's own field mapping.
+
+    `exclude_modules is None`: tiny-test has no vision/audio-tower name collision to
+    worry about (see the gemma-e4b sibling case below for the branch where it does)."""
     adapter = TinyTestAdapter()
     merged = merge_hyperparameters(adapter.training_defaults, {"lora_r": 8})
 
@@ -244,6 +249,28 @@ def test_lora_config_construction_no_model_loaded():
     assert lora_config.lora_alpha == adapter.training_defaults.lora_alpha  # from defaults
     assert lora_config.lora_dropout == adapter.training_defaults.lora_dropout
     assert set(lora_config.target_modules) == set(adapter.training_defaults.lora_target_modules)
+    assert lora_config.exclude_modules is None
+
+
+@pytest.mark.integration
+def test_lora_config_excludes_vision_and_audio_towers():
+    """TRN-I-002 (gemma-e4b sibling case, T15/TRN-G-020): build_lora_config's
+    `exclude_modules` carries `gemma-e4b`'s `lora_exclude_modules_regex` straight
+    through -- the other branch `test_lora_config_construction_no_model_loaded`
+    doesn't exercise. A pure function call, no model touched."""
+    adapter = GemmaE4BAdapter()
+    merged = merge_hyperparameters(adapter.training_defaults, {})
+
+    lora_config = build_lora_config(merged)
+
+    assert lora_config.exclude_modules == adapter.training_defaults.lora_exclude_modules_regex
+    assert re.fullmatch(
+        lora_config.exclude_modules, "model.vision_tower.encoder.layers.0.self_attn.q_proj"
+    )
+    assert re.fullmatch(lora_config.exclude_modules, "model.audio_tower.layers.0.self_attn.q_proj")
+    assert not re.fullmatch(
+        lora_config.exclude_modules, "model.language_model.layers.0.self_attn.q_proj"
+    )
 
 
 # The suffixes an actual pickle-format weight/checkpoint file could carry --
@@ -628,3 +655,85 @@ def test_qlora_without_cuda_exits_2(storage, run_id, tmp_path, monkeypatch, caps
 
     assert exit_code == 2
     assert "CUDA device" in capsys.readouterr().err
+
+
+@pytest.mark.gpu
+def test_real_gemma_e4b_qlora_smoke(storage):
+    """TRN-G-020: real `gemma-e4b` QLoRA smoke -- 10 fixture records, 1 epoch, on a
+    genuine CUDA device. Completes; the written adapter directory independently
+    reloads via `PeftModel.from_pretrained`; peak CUDA memory stays within the dev
+    box's 128 GB budget. Manual/GPU-only (`pytest -m gpu`, run in T15) -- excluded
+    from every other lane by the default addopts marker exclusion.
+
+    Real HF downloads (revision-pinned `google/gemma-4-E4B-it`, ~16 GB safetensors,
+    cached under `~/.cache/huggingface` after the first run) and real bitsandbytes
+    4-bit quantization -- there is no mock anywhere in this test.
+    """
+    assert torch.cuda.is_available(), "TRN-G-020 requires a real CUDA device"
+    torch.cuda.reset_peak_memory_stats()
+
+    run_id = new_run_id()
+    adapter_name = "gemma-e4b"
+    model_version = f"{adapter_name}-{run_id}"
+    record_ids = [new_record_id() for _ in range(10)]
+    records = [
+        _gold_record(run_id, f"Q{i}", f"A{i}", record_id=record_id)
+        for i, record_id in enumerate(record_ids)
+    ]
+    _seed_gold(storage, run_id, records)
+
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp) / "pipeline.yaml"
+            config_path.write_text(
+                yaml.safe_dump(
+                    {
+                        "model": {"adapter": adapter_name},
+                        "ingest": {"sources": []},
+                        # eval_fraction: 0.0 -- 10 records is too few to guarantee a
+                        # non-empty eval split by hash (same reasoning as INF-I-012's
+                        # own eval_fraction: 0.0 note); this case is about proving the
+                        # real QLoRA path completes, not exercising the eval branch.
+                        "tokenize": {"eval_fraction": 0.0},
+                        "train": {
+                            "method": "qlora",
+                            "hyperparameters": {"epochs": 1},
+                            "mlflow_experiment": "tuner-trainer-gpu-test",
+                        },
+                    }
+                )
+            )
+            assert tokenize(run_id, str(config_path), storage=storage) == 0
+            exit_code = train(run_id, str(config_path), storage=storage)
+
+        assert exit_code == 0, "TRN-G-020: real QLoRA train() did not complete"
+
+        adapter_keys = _all_object_keys(storage, ARTIFACTS_BUCKET, f"{run_id}/adapter/")
+        assert any(key.endswith("adapter_config.json") for key in adapter_keys)
+        assert any("safetensors" in key for key in adapter_keys)
+
+        manifest = storage.read_json(REGISTRY_BUCKET, f"{model_version}/manifest.json")
+        assert manifest is not None
+        assert math.isfinite(manifest["eval"]["final_train_loss"])
+
+        # Independent reload proof, not just "train() exited 0" -- the same
+        # PeftModel.from_pretrained call the Smoke-test stage makes against a real
+        # qlora adapter dir (src/tuner/smoke/cli.py's own GPU-only branch).
+        with tempfile.TemporaryDirectory() as tmp:
+            local_adapter_dir = Path(tmp) / "adapter"
+            storage.download_dir(ARTIFACTS_BUCKET, f"{run_id}/adapter/", local_adapter_dir)
+            adapter = GemmaE4BAdapter()
+            base_model = adapter.load_base_model(quantized=True)
+            peft_model = PeftModel.from_pretrained(base_model, str(local_adapter_dir))
+            assert peft_model is not None
+
+        peak_bytes = torch.cuda.max_memory_allocated()
+        peak_gib = peak_bytes / (1024**3)
+        print(f"TRN-G-020: peak CUDA memory allocated: {peak_gib:.2f} GiB")
+        # "VRAM within the 128 GB box" (08 trainer.md) -- a loose upper bound, not a
+        # tight one: this case is about catching a pathological blow-up, and a real
+        # OOM would already have raised before this line ran.
+        assert peak_gib < 100, f"peak CUDA memory {peak_gib:.2f} GiB looks unbounded"
+    finally:
+        storage.delete_prefix(GOLD_BUCKET, f"{run_id}/")
+        _cleanup_model_output(storage, run_id, model_version)

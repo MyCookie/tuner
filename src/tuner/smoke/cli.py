@@ -184,7 +184,12 @@ def smoke(
                 # No PEFT adapter for full FT -- the saved weights *are* the tuned
                 # model (02 §5.3's train.method: full clarification).
                 tuned_model = AutoModelForCausalLM.from_pretrained(str(weights_dir))
-            else:  # pragma: no cover -- GPU-only (PEFT/QLoRA); manual T15 check (08 smoke.md)
+            else:  # pragma: no cover -- GPU-only (PEFT/QLoRA); validated for real in
+                # T15's full `tuner run` steel thread against configs/pipeline.yaml
+                # (method: qlora) -- a genuine PEFT adapter reload against a real
+                # gemma-e4b checkpoint, producing real before/after generations
+                # (08 smoke.md). Pragma'd here permanently: the coverage gate itself
+                # still runs on CPU-only CI with no GPU to exercise this branch on.
                 tuned_model = PeftModel.from_pretrained(base_model, str(weights_dir))
             tuned_model.eval()
 

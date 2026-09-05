@@ -227,6 +227,10 @@ def test_gemma_declared_values_match_spec():
         "up_proj",
         "down_proj",
     ]
+    assert (
+        adapter.training_defaults.lora_exclude_modules_regex
+        == r".*\.(vision_tower|audio_tower)\..*"
+    )
     assert adapter.training_defaults.learning_rate == 2e-4
     assert adapter.training_defaults.epochs == 3
     assert adapter.training_defaults.per_device_batch_size == 4

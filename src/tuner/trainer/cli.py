@@ -74,12 +74,18 @@ class _MLflowStepLogger(TrainerCallback):
 def build_lora_config(hyperparameters: dict[str, Any]) -> LoraConfig:
     """Build the PEFT `LoraConfig` from the merged hyperparameters (adapter defaults <
     config overrides, 01 §6 precedence) -- a pure function, no model touched, so it's
-    testable without CUDA/bitsandbytes (TRN-I-002; core logic 3)."""
+    testable without CUDA/bitsandbytes (TRN-I-002; core logic 3).
+
+    `exclude_modules` is `lora_exclude_modules_regex` passed straight through --  None
+    for an adapter with no name collision to worry about (PEFT's own default), a regex
+    string for one that has one (T15/TRN-G-020's `gemma-e4b` finding; see
+    `tuner.models.base.TrainingDefaults.lora_exclude_modules_regex`)."""
     return LoraConfig(
         r=hyperparameters["lora_r"],
         lora_alpha=hyperparameters["lora_alpha"],
         lora_dropout=hyperparameters["lora_dropout"],
         target_modules=list(hyperparameters["lora_target_modules"]),
+        exclude_modules=hyperparameters["lora_exclude_modules_regex"],
     )
 
 
@@ -169,7 +175,11 @@ def train(
         click.echo(f"train: {exc}", err=True)
         return 2
 
-    if quantized:  # pragma: no cover -- GPU-only (bitsandbytes); TRN-G-020, T15
+    if quantized:  # pragma: no cover -- GPU-only (bitsandbytes); validated for real
+        # against a genuine CUDA device in T15 (TRN-G-020 + the full `tuner run`
+        # steel thread against configs/pipeline.yaml, method: qlora), pragma'd here
+        # permanently because the automated coverage gate itself still runs on
+        # CPU-only CI with no GPU to exercise this branch on.
         model = get_peft_model(base_model, build_lora_config(merged))
     else:
         model = base_model

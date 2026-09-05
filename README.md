@@ -11,13 +11,13 @@ Each stage is a stateless CLI that reads from one object-storage tier (MinIO loc
 
 ## Status
 
-The MVP slice is implemented and passing its own test suite end to end (T01–T14 of the build plan); one hardening task remains (T15: a real-GPU training run plus the nightly slow lane) before the pipeline is considered fully verified. See [docs/spec/07-build-plan.md](docs/spec/07-build-plan.md) for exactly what that covers.
+The MVP slice is implemented and fully verified (T01–T15 of the build plan): its test suite passes end to end, and T15's hardening pass ran the real product path for real — `google/gemma-4-E4B-it` QLoRA fine-tuned on a genuine CUDA GPU, the adapter reloaded independently via PEFT, the nightly slow lane (container structure + a 120,000-record scale smoke) green, and the IAM matrix and pickle-free artifact guarantees reverified against the live stack. See [docs/spec/07-build-plan.md](docs/spec/07-build-plan.md) for exactly what that covers.
 
 ## Documentation
 
 `docs/` holds two things side by side — see [docs/README.md](docs/README.md) for the full map:
 
-- **Top-level `docs/*.md`** — the user/operator guide: how to install, configure, run, and troubleshoot Tuner. Use it if you want to *use* the pipeline. Not yet written beyond this map — see `docs/README.md`'s "forthcoming" list.
+- **Top-level `docs/*.md`** — the user/operator guide: how to install, configure, run, and troubleshoot Tuner. Use it if you want to *use* the pipeline. Start at [docs/00-getting-started.md](docs/00-getting-started.md); [docs/README.md](docs/README.md) links every page (architecture overview, CLI reference, configuration, a guide per pipeline stage, and operations/troubleshooting).
 - **[docs/spec/](docs/spec/00-product-scope.md)** — the normative engineering specification the implementation is built from: architecture, data contracts, per-component specs, the build plan, and the git/review workflow. Start there if you want to *extend* the pipeline.
 
 The original architecture spec this doc set derives from is [SAS.md](SAS.md).
@@ -31,11 +31,25 @@ One command, `tuner run`, ingests fixture data and ends with a trained QLoRA ada
 ```bash
 cp .env.example .env                 # fill in HF_TOKEN, judge endpoint
 docker compose up -d minio minio-init mlflow
+# also set judge.model in configs/pipeline.yaml -- it ships blank on purpose,
+# so the Judge stage fails fast (exit 2) until you point it at your judge's
+# real model name (see docs/00-getting-started.md §5 for the full walkthrough,
+# including a mock-judge dry run that needs no real judge endpoint at all)
 uv run tuner run --config configs/pipeline.yaml     # full pipeline, prints run ID
 # MinIO console: http://localhost:9001  ·  MLflow: http://localhost:5000
 ```
 
-GPU stages (`train`, `smoke`) may run from a host venv if Docker GPU passthrough isn't set up — same commands, same env vars ([docs/spec/05-infrastructure.md §3](docs/spec/05-infrastructure.md)).
+This is the real product path — default adapter `gemma-e4b`, QLoRA — and needs a
+CUDA GPU (`train`/`smoke` exit 2 without one, naming the fallback below). For a
+CPU-only, fixture-scale dry run first, see
+[docs/00-getting-started.md](docs/00-getting-started.md) instead.
+
+GPU stages (`train`, `smoke`) ran via the host-`uv`-venv fallback for T15's own
+real-GPU verification (`uv sync --extra train`, then the same `tuner run` command
+above — no Docker GPU passthrough needed on this box). `docker compose`'s own
+`trainer`/`smoke` services (which request `nvidia` GPU passthrough) are spec'd but
+not yet run-verified end to end; either path uses the same commands and env vars
+([docs/spec/05-infrastructure.md §3](docs/spec/05-infrastructure.md)).
 
 ## Contributing
 
