@@ -39,11 +39,18 @@ SHARD_SIZE = 50_000  # tuner.ingestor.cli.SHARD_SIZE -- not imported, so a drift
 # suite's job is catching a full-tier-in-memory regression (e.g. an accidental
 # blowup to the multi-GB range), not chasing a specific byte count. Ingestor caps
 # its own working set at one shard at a time (writes and drops each 50,000-record
-# shard as it fills, 03-components/ingestor.md step 4); Cleaner reads its whole
-# Bronze input into one `bronze_records` list before writing Silver
-# (`src/tuner/cleaner/cli.py`) -- a real, known, already-accepted design point (the
-# component spec never promised streaming for Cleaner), not a regression this test
-# is meant to force a rewrite over.
+# shard as it fills, 03-components/ingestor.md step 4). Cleaner does NOT do the
+# same: 03-components/cleaner.md step 1 says the Cleaner should "stream envelopes",
+# but src/tuner/cleaner/cli.py actually reads its whole Bronze input into one
+# `bronze_records` list (and then the whole mapped output into one `silver_records`
+# list) before writing Silver -- memory linear in total record count, not bounded.
+# This is a real gap between the spec and the code, discovered running this suite
+# for real in T15 and recorded as a footnote under INF-S-021 in
+# docs/spec/08-test-specs/infra.md (with the note in cleaner.md step 1 pointing back
+# here) rather than fixed in this task: T15 chose to set this cap above the observed
+# peak and defer making the Cleaner actually stream to a later slice. This test
+# still asserts the spec row's literal instruction ("a generous cap"); it does not
+# and cannot prove streaming.
 #
 # Calibrated against real measurements on the T15 dev box for this exact
 # 120,000-record fixture, not guessed: ingest peaked at ~1.16 GB (one shard's worth
@@ -52,11 +59,20 @@ SHARD_SIZE = 50_000  # tuner.ingestor.cli.SHARD_SIZE -- not imported, so a drift
 # dicts at once, as expected from the code above). A first attempt at this cap
 # guessed both figures without actually measuring either (~90 MB / ~140 MB) and
 # failed the very first real run against this box on the clean side alone -- real
-# ingest overhead turned out to be an order of magnitude past that guess too. Set
-# to ~2.4x the observed clean peak (the larger of the two): enough headroom for
-# normal run-to-run variance, still low enough to fail hard if either stage's
-# memory profile changes by an order of magnitude.
-PEAK_RSS_CAP_KB = 4_000_000  # 4 GB
+# ingest overhead turned out to be an order of magnitude past that guess too.
+#
+# Per-stage caps, not one shared constant (T15 round-1 review): ingest is the stage
+# that actually streams (one shard resident at a time, bounded regardless of total
+# record count), so it deserves the tighter bound -- a single shared 4 GB cap would
+# give ingest enough slack to hide a real regression back to full-tier buffering.
+# Each cap is ~2.4x that stage's own observed peak: enough headroom for normal
+# run-to-run variance, still low enough to fail hard if either stage's memory
+# profile changes by an order of magnitude. Note this single 120k-record data point
+# can only catch a gross regression, not distinguish "streaming" from "linear but
+# still under the cap at this scale" -- see the INF-S-021 footnote in
+# docs/spec/08-test-specs/infra.md.
+PEAK_RSS_CAP_KB_INGEST = 2_800_000  # 2.8 GB (~2.4x the observed ~1.16 GB peak)
+PEAK_RSS_CAP_KB_CLEAN = 4_000_000  # 4 GB (~2.4x the observed ~1.66 GB peak)
 
 
 def _generate_jsonl(path: Path, count: int) -> None:
@@ -179,8 +195,8 @@ def test_scale_120k_ingest_clean(storage, run_id, tmp_path):
             actual_len = sum(1 for _ in storage.read_jsonl(BRONZE_BUCKET, f"{run_id}/{shard_name}"))
             assert actual_len == expected_len, f"{shard_name}: expected {expected_len}"
 
-        assert ingest_peak_kb <= PEAK_RSS_CAP_KB, (
-            f"ingest peak RSS {ingest_peak_kb} KiB exceeds the {PEAK_RSS_CAP_KB} KiB cap "
+        assert ingest_peak_kb <= PEAK_RSS_CAP_KB_INGEST, (
+            f"ingest peak RSS {ingest_peak_kb} KiB exceeds the {PEAK_RSS_CAP_KB_INGEST} KiB cap "
             "-- looks like a full-tier in-memory load, not streaming"
         )
 
@@ -211,8 +227,8 @@ def test_scale_120k_ingest_clean(storage, run_id, tmp_path):
         silver_count = sum(1 for _ in storage.read_jsonl(SILVER_BUCKET, f"{run_id}/"))
         assert silver_count == TOTAL_RECORDS
 
-        assert clean_peak_kb <= PEAK_RSS_CAP_KB, (
-            f"clean peak RSS {clean_peak_kb} KiB exceeds the {PEAK_RSS_CAP_KB} KiB cap "
+        assert clean_peak_kb <= PEAK_RSS_CAP_KB_CLEAN, (
+            f"clean peak RSS {clean_peak_kb} KiB exceeds the {PEAK_RSS_CAP_KB_CLEAN} KiB cap "
             "-- looks like a full-tier in-memory load, not streaming"
         )
     finally:

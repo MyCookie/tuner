@@ -21,7 +21,7 @@ Env: `TUNER_S3_*`. Exit 3 if zero records survive.
 
 ## Core logic
 
-1. Read Bronze manifest, then stream envelopes; validate each against the Bronze schema.
+1. Read Bronze manifest, then stream envelopes; validate each against the Bronze schema. **Known gap (T15):** the current implementation (`src/tuner/cleaner/cli.py`) does not actually stream — it buffers the full Bronze input, then the full mapped output, as in-memory lists, so peak memory is linear in total record count rather than bounded. See the `INF-S-021` footnote in [08-test-specs/infra.md](../08-test-specs/infra.md) for the measured numbers and the deferral.
 2. Delete `tuner-silver/{run_id}/` (idempotency).
 3. **Structure mapping** — build the `conversation` array:
    - `source.type == "csv"`: use the source's `mapping` config → optional system turn from `system_column`, user turn from `prompt_column`, assistant turn from `response_column`. Missing/empty prompt or response ⇒ drop `unmappable`.
