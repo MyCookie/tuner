@@ -69,9 +69,25 @@ jobs:
           set -a; . ./.env; set +a
           uv run pytest -m slow
 
+      - name: Seed the tiny-test HF cache
+        # Secondary hardening, not the fix for the timeout above (live verification
+        # on this branch found the real bottleneck was CPU training-step throughput,
+        # not a cold download -- see the e2e_run fixture's own timeout comment). Still
+        # a real gap worth closing on its own merits: without this, the E2E
+        # subprocess below does an unauthenticated, unbounded live-network HF Hub
+        # download of tiny-test's weights on every nightly run, same as pr.yml's own
+        # "Seed the tiny-test HF cache" step already does for the PR lane (INF-I-012).
+        run: uv run python scripts/seed_hf_cache.py
+
       - name: CPU E2E steel thread
+        # HF_HUB_OFFLINE=1 scoped to this one step, not blanket for the whole job:
+        # the seed step above needs real network and must run before this var is
+        # set (mirrors pr.yml's own comment on why its analogous var is scoped this
+        # narrowly -- huggingface_hub reads it at process start, so setting it any
+        # earlier would break the seed step's own download).
         run: |
           set -a; . ./.env; set +a
+          export HF_HUB_OFFLINE=1
           uv run pytest -m e2e tests/e2e/test_steel_thread.py -v
 
       - name: Compose logs (on failure)
