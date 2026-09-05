@@ -165,7 +165,17 @@ def e2e_run(storage):
     result = _run_pipeline(
         [sys.executable, "-m", "tuner", "run", "--config", CONFIG_PATH],
         env=env,
-        timeout=900,
+        # 1800s, not a round-number guess: the last green nightly run (2026-09-05,
+        # run 33962406770) completed this whole step in 395s end to end -- ~4.5x
+        # margin over that baseline. Sized off a live reproduction of the flake
+        # (issue #20, run 33983218685 on fix/nightly-ci-hardening): weights loaded
+        # in <1s (no network stall -- ruling out a cold-HF-download cause), but
+        # training proceeded at a steady ~28.5s/step vs. whatever much faster
+        # per-step rate the green run had, and 40 steps at that rate alone is
+        # ~1140s. This covers a 2-3x-worse compute draw on a shared GH-hosted
+        # runner (the observed cause) without being so loose it would silently
+        # tolerate a genuine multi-minute regression later.
+        timeout=1800,
     )
     assert result.returncode == 0, result.stdout + result.stderr
 
