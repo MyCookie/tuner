@@ -41,17 +41,14 @@ jobs:
           done
 
       - name: Slow lane (INF-S cases)
-        # INF-S-020/021 (docs/spec/07-build-plan.md T15 Suite line) don't exist yet, so
-        # `-m slow` currently selects zero tests -- pytest's own "no tests collected"
-        # exit code (5), tolerated here until T15 lands them. Any other nonzero exit
-        # (a real failure, once slow tests exist) still fails the job.
+        # INF-S-020/021 landed in T15 (docs/spec/07-build-plan.md) -- `-m slow` now
+        # selects real tests (tests/slow/test_containers.py, test_scale.py), so this
+        # must fail on any nonzero exit, including pytest's "no tests collected" (5):
+        # a renamed directory, a marker typo, or a conftest import error at the wrong
+        # level would otherwise silently pass this job.
         run: |
           set -a; . ./.env; set +a
-          # `cmd; ec=$?` would abort right here under this shell's default `set -e`
-          # before `ec` is ever assigned -- `|| ec=$?` absorbs the failure instead.
-          uv run pytest -m slow || ec=$?
-          ec=${ec:-0}
-          [ "$ec" -eq 0 ] || [ "$ec" -eq 5 ] || exit "$ec"
+          uv run pytest -m slow
 
       - name: CPU E2E steel thread
         run: |
