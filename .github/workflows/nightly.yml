@@ -40,6 +40,25 @@ jobs:
             [ "$status" = "healthy" ] || { echo "::error::$svc never became healthy"; docker compose logs "$svc"; exit 1; }
           done
 
+      - name: Warm up mock-judge's actual scoring path
+        # The healthcheck above only proves mock-judge's own GET /docs responds --
+        # not the POST /v1/chat/completions path the Judge stage will hammer
+        # repeatedly (tests/mock_judge/app.py). A container can report "healthy" while
+        # its actual scoring path is still cold, silently eating the pipeline's first
+        # several requests (issue #20's leading hypothesis for the nightly timeout).
+        # One real round-trip against that exact endpoint, with a minimal
+        # OpenAI-chat-shaped body matching what chat_completions() expects
+        # (payload["messages"], each with "content"; no marker -> default score, 200).
+        run: |
+          for _ in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8088/v1/chat/completions \
+              -H 'Content-Type: application/json' \
+              -d '{"messages": [{"role": "user", "content": "warmup"}], "model": "mock-judge"}')
+            [ "$code" = "200" ] && break
+            sleep 2
+          done
+          [ "$code" = "200" ] || { echo "::error::mock-judge's /v1/chat/completions never returned 200 (last: $code)"; docker compose logs mock-judge; exit 1; }
+
       - name: Slow lane (INF-S cases)
         # INF-S-020/021 landed in T15 (docs/spec/07-build-plan.md) -- `-m slow` now
         # selects real tests (tests/slow/test_containers.py, test_scale.py), so this
