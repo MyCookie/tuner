@@ -97,6 +97,33 @@ def _cleanup(storage, run_id: str, model_version: str) -> None:
     storage.delete_prefix(REGISTRY_BUCKET, f"{model_version}/")
 
 
+def test_run_pipeline_surfaces_captured_output_on_timeout(monkeypatch):
+    """Not a spec case (CI test-harness hardening, not spec'd product behavior --
+    issue #20). `_run_pipeline` must catch subprocess.TimeoutExpired and fail with
+    whatever partial stdout/stderr had already been captured before the kill --
+    TimeoutExpired.__str__ never includes it, so letting it propagate raw is exactly
+    how both real nightly failures (runs 33752165161, 33870306898) lost all trace of
+    which pipeline stage was still running. Pure unit test: subprocess.run itself is
+    monkeypatched, no docker/real subprocess involved."""
+
+    def fake_run(cmd, capture_output, text, env, timeout):
+        raise subprocess.TimeoutExpired(
+            cmd,
+            timeout,
+            output=b"partial stdout: judge stage still running\n",
+            stderr=b"partial stderr: connecting to mock-judge\n",
+        )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    with pytest.raises(pytest.fail.Exception) as exc_info:
+        _run_pipeline([sys.executable, "-m", "tuner", "run"], env={}, timeout=600)
+
+    message = str(exc_info.value)
+    assert "partial stdout: judge stage still running" in message
+    assert "partial stderr: connecting to mock-judge" in message
+
+
 @pytest.fixture(scope="module")
 def storage() -> StorageClient:
     """Module-scoped override of the conftest `storage` fixture (function-scoped
