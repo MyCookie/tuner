@@ -39,8 +39,12 @@ def _build(dockerfile: str, tag: str) -> None:
     )
 
 
-def _run(tag: str, args: list[str], entrypoint: str | None = None) -> subprocess.CompletedProcess:
+def _run(
+    tag: str, args: list[str], entrypoint: str | None = None, user: str | None = None
+) -> subprocess.CompletedProcess:
     cmd = ["docker", "run", "--rm"]
+    if user is not None:
+        cmd += ["--user", user]
     if entrypoint is not None:
         cmd += ["--entrypoint", entrypoint]
     cmd += [tag, *args]
@@ -107,7 +111,9 @@ def test_container_python_at_least_3_11(built_image):
 # contains a credential-adjacent word.
 _CREDENTIAL_FILENAMES = (
     ".env",
+    ".env.*",  # .env.local, .env.production, etc. -- glob, not a literal filename
     "credentials",  # ~/.aws/credentials
+    ".git-credentials",
     ".netrc",
     "id_rsa",
     "id_ed25519",
@@ -118,7 +124,18 @@ _CREDENTIAL_FILENAMES = (
 
 @pytest.mark.slow
 def test_container_has_no_baked_credentials(built_image):
-    """INF-S-020: image has no `.env` or credential files baked in."""
+    """INF-S-020: image has no `.env` or credential files baked in.
+
+    Runs the scan as `--user 0` (root) inside the container, not as the image's
+    own uid-1000 user: `find` run as uid 1000 gets `Permission denied` on
+    root-owned directories (`/root`, `/etc/ssl/private`, ...) and silently skips
+    them, which would make this check blind to exactly the paths a leaked
+    credential is most likely to land in (`~/.aws/credentials` for a root-built
+    image is `/root/.aws/credentials`) -- discovered running a deliberately
+    poisoned control image in T15 round-1 review. `--user 0` only changes what
+    the *scanner* can read; it says nothing about what uid the image itself runs
+    as, which `test_container_runs_as_non_root_uid_1000` already proves separately.
+    """
     name, tag = built_image
     # -type f: both `minio` and `docker` (real, expected dependencies of this repo's
     # own StorageClient/registry code) ship a *subpackage directory* literally named
@@ -132,6 +149,14 @@ def test_container_has_no_baked_credentials(built_image):
         find_args += ["-iname", filename]
     find_args.append(")")
 
-    result = _run(tag, find_args, entrypoint="find")
+    result = _run(tag, find_args, entrypoint="find", user="0")
+    # A non-zero exit (or any stderr) means the scan itself failed to cover the
+    # filesystem -- e.g. a permission error -- which must fail loud, not be
+    # indistinguishable from "scanned everything, found nothing" (T15 round-1
+    # review: the uid-1000 version of this check failed exactly this way).
+    assert result.returncode == 0, (
+        f"{name} credential scan did not complete cleanly (exit {result.returncode}): "
+        f"{result.stderr}"
+    )
     hits = [line for line in result.stdout.splitlines() if line.strip()]
     assert hits == [], f"{name} image bakes in credential-shaped file(s): {hits}"
