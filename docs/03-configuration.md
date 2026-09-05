@@ -214,7 +214,7 @@ value**, including our own local dev values while verifying these pages.
 | `TUNER_S3_ACCESS_KEY` / `TUNER_S3_SECRET_KEY` | all stages | credentials for that endpoint — per-stage scoped when a stage runs in its own container, or the admin pair when running a whole pipeline from one host process (see [00-getting-started.md §2](00-getting-started.md)) |
 | `TUNER_S3_REGION` | all stages | region (default `us-east-1`) |
 | `MLFLOW_TRACKING_URI` | judge, trainer, smoke | MLflow server URL |
-| `TUNER_JUDGE_BASE_URL` | judge | OpenAI-compatible chat-completions endpoint base URL |
+| `TUNER_JUDGE_BASE_URL` | judge | OpenAI-compatible chat-completions endpoint base URL — the bare origin, no `/v1` suffix; the client always appends `/v1/chat/completions` itself, and a base URL that already ends in `/v1` produces a doubled path that 404s ([05-infrastructure.md §1](spec/05-infrastructure.md)) |
 | `TUNER_JUDGE_API_KEY` | judge | key for that endpoint (a dummy value is fine for a local, unauthenticated server) |
 | `HF_TOKEN` | tokenizer, trainer, smoke | Hugging Face token, needed to pull the base model |
 
