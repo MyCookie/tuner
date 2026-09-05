@@ -6,9 +6,9 @@ It assumes you know roughly what a fine-tuning pipeline does, are comfortable
 with Docker and a CLI, but have never touched Tuner before.
 
 Every command below was actually run against this repository while writing
-this page (see "What we verified versus what we read" in §5 for the one
-part — the real-model, real-GPU path — that goes further than that) —
-nothing here is inferred from the spec alone.
+this page (see "Run-verified in T15" in §5, which goes further than that —
+it's the one part of this page run for real against the actual `gemma-e4b`
+model on real GPU hardware) — nothing here is inferred from the spec alone.
 
 ## Prerequisites
 
@@ -238,12 +238,27 @@ coexist rather than collide.
 ## 5. Running the real pipeline (`gemma-e4b`, GPU)
 
 `uv run tuner run --config configs/pipeline.yaml` is the actual product path:
-default adapter `gemma-e4b`, QLoRA training. The shipped `configs/pipeline.yaml`
-already sets `judge.model: mock-judge` so this runs out of the box against the
-compose `mock-judge` sidecar — for a production judge, replace that with a real
-model name and point `TUNER_JUDGE_BASE_URL` at a real OpenAI-compatible endpoint
-(bare origin, no `/v1` suffix — the client always posts to `/v1/chat/completions`
-itself) with a working `TUNER_JUDGE_API_KEY`. It needs:
+default adapter `gemma-e4b`, QLoRA training. This does **not** run unmodified —
+the shipped `configs/pipeline.yaml` ships `judge.model: ""` on purpose (it
+matches [01-architecture.md §6](spec/01-architecture.md), and the Judge stage
+is designed to exit 2 fast on a blank model name rather than silently run
+against nothing), so before you run it you must edit that key (or point
+`--config` at your own copy) to one of:
+
+- **A real judge endpoint** — the actual production path: set `judge.model` to
+  that endpoint's real model name, and point `TUNER_JUDGE_BASE_URL` at it
+  (bare origin, no `/v1` suffix — the client always posts to
+  `/v1/chat/completions` itself) with a working `TUNER_JUDGE_API_KEY`.
+- **The compose `mock-judge` sidecar**, for a local dry run of the real
+  `gemma-e4b`/QLoRA path without a real judge: set `judge.model: mock-judge`,
+  bring it up with `docker compose --profile e2e up -d minio minio-init mlflow
+  mock-judge` (it is **not** part of the plain `docker compose up -d minio
+  minio-init mlflow` from §3 — that profile is scoped to tests/E2E/CI, see
+  [05-infrastructure.md](spec/05-infrastructure.md)), and export
+  `TUNER_JUDGE_BASE_URL=http://localhost:8088` /
+  `TUNER_JUDGE_API_KEY=unused-mock-key` as in §4 above.
+
+Either way it also needs:
 
 - A CUDA-capable GPU for `train`/`smoke` (QLoRA's 4-bit quantization,
   `bitsandbytes`, requires one) — either via `docker compose`'s
@@ -258,10 +273,14 @@ itself) with a working `TUNER_JUDGE_API_KEY`. It needs:
 **Run-verified in T15** (build-plan task T15, [docs/spec/07-build-plan.md](spec/07-build-plan.md);
 suite case `TRN-G-020`), on a real CUDA GPU, against the real `google/gemma-4-E4B-it`
 checkpoint (~16 GB, downloaded from Hugging Face) — not just spec- and code-verified
-like the rest of this page. `uv run tuner run --config configs/pipeline.yaml` ran
-every stage for real: ingest → clean → mock-judge (a genuine third-party judge
-endpoint is an operator-specific detail outside this repo's control; `mock-judge` is
-the sanctioned stand-in per [05-infrastructure.md](spec/05-infrastructure.md)) →
+like the rest of this page. `uv run tuner run --config configs/pipeline.yaml`, run
+against a copy of the config with `judge.model: mock-judge` set as described above
+(the shipped file's blank default was corrected back to fail-fast after this run, in
+T15 round-1 review — see the `CORE-U-001` footnote in
+[08-test-specs/core.md](spec/08-test-specs/core.md)), ran every stage for real:
+ingest → clean → mock-judge (a genuine third-party judge endpoint is an
+operator-specific detail outside this repo's control; `mock-judge` is the
+sanctioned stand-in per [05-infrastructure.md](spec/05-infrastructure.md)) →
 tokenize → a real QLoRA fine-tune (3 epochs, train loss 1.93 → eval loss 0.51) → a
 real smoke-test PEFT adapter reload. Peak CUDA memory for a QLoRA run stayed at
 ~18 GB, comfortably inside the 128 GB dev-box budget. The smoke transcript's

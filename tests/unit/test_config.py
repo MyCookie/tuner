@@ -49,15 +49,17 @@ def _write_config(tmp_path: Path, data: dict) -> Path:
 def test_shipped_config_round_trips_with_documented_defaults():
     """CORE-U-001: the shipped configs/pipeline.yaml parses and matches 01-architecture.md §6.
 
-    `judge.model` asserts `"mock-judge"`, not the bare `JudgeConfig.model` pydantic
-    default (`""`) 01 §6's illustrative YAML snippet shows -- that snippet is
-    documenting the *schema field's own default and its empty-string failure mode*,
-    not mandating that the shipped, runnable file ship non-functional. Every other
-    field in this file already overrides its schema default with a concrete example
-    value (`adapter: gemma-e4b`, not blank); `judge.model` shipping blank instead was
-    a real bug that made `uv run tuner run --config configs/pipeline.yaml` -- the
-    README's own quick start -- exit 2 at the Judge stage before any GPU work,
-    caught and fixed in T15 (docs/spec/07-build-plan.md)."""
+    `judge.model` stays `""`, matching 01 §6's canonical YAML exactly: the shipped
+    file fails fast (exit 2) until an operator points it at a real judge endpoint
+    and model name, or at the compose `mock-judge` sidecar for a local dry run (see
+    docs/00-getting-started.md §5). T15 briefly shipped `mock-judge` as the default
+    here to make the README quick start "just work"; that traded away the fail-fast
+    guarantee and silently stamped test-infrastructure's name into every Gold
+    record's `judge_model` provenance field for any operator who didn't override it
+    (docs/spec/02-data-contracts.md), so it was reverted -- the actual "doesn't run
+    out of the box" problem is a documentation gap (finding 2/3, T15 review round 1),
+    fixed by being explicit in the docs about the compose profile and env var an
+    end-to-end run needs, not by weakening this default."""
     config = load_config(DEFAULT_CONFIG_PATH)
 
     assert config.model.adapter == "gemma-e4b"
@@ -71,7 +73,7 @@ def test_shipped_config_round_trips_with_documented_defaults():
     assert config.clean.min_chars == 20
     assert config.clean.max_chars == 32000
     assert config.clean.pii == ["email", "phone"]
-    assert config.judge.model == "mock-judge"
+    assert config.judge.model == ""
     assert config.judge.threshold == 0.7
     assert config.judge.max_concurrency == 4
     assert config.judge.max_retries == 3

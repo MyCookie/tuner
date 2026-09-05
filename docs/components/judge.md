@@ -113,10 +113,12 @@ $ uv run tuner judge --run-id <id> --config configs/pipeline.yaml   # judge.mode
 judge: judge.model must be non-empty and TUNER_JUDGE_BASE_URL must be set
 ```
 
-(The shipped `configs/pipeline.yaml` itself sets `judge.model: mock-judge` so the
-README quick start runs end to end out of the box — this error is what you'd see if
-you blanked that key back out, e.g. while adapting the file for your own judge
-endpoint.)
+(The shipped `configs/pipeline.yaml` ships `judge.model: ""` on purpose, so this
+is exactly what you'll see running it unmodified — the Judge stage is designed to
+fail fast here rather than silently run against nothing. Before a real run, edit
+`judge.model` to a real endpoint's model name, or to `mock-judge` for a local dry
+run against the compose sidecar; see
+[00-getting-started.md §5](../00-getting-started.md).)
 
 The `MLFLOW_TRACKING_URI` check exists specifically so a missing tracking URI
 can't surface *after* Gold has already been written — without it, the

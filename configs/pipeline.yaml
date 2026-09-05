@@ -16,11 +16,9 @@ clean:
   pii: [email, phone]           # enabled scrubbers
 
 judge:
-  model: mock-judge             # judge model name at TUNER_JUDGE_BASE_URL -- the mock judge
-                                 # (docs/spec/06-testing.md §4) ignores this value's content, but
-                                 # judge.model must be non-empty or the judge stage exits 2 at
-                                 # startup; point TUNER_JUDGE_BASE_URL at a real judge endpoint and
-                                 # set this to that endpoint's real model name for a production run
+  model: ""                     # judge model name at TUNER_JUDGE_BASE_URL (empty => fail at startup;
+                                 # for the compose mock-judge sidecar, use "mock-judge" -- see
+                                 # docs/00-getting-started.md §5 for the full out-of-the-box run)
   threshold: 0.7                # min normalized score for Gold promotion
   max_concurrency: 4
   max_retries: 3

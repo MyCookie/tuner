@@ -31,6 +31,10 @@ One command, `tuner run`, ingests fixture data and ends with a trained QLoRA ada
 ```bash
 cp .env.example .env                 # fill in HF_TOKEN, judge endpoint
 docker compose up -d minio minio-init mlflow
+# also set judge.model in configs/pipeline.yaml -- it ships blank on purpose,
+# so the Judge stage fails fast (exit 2) until you point it at your judge's
+# real model name (see docs/00-getting-started.md §5 for the full walkthrough,
+# including a mock-judge dry run that needs no real judge endpoint at all)
 uv run tuner run --config configs/pipeline.yaml     # full pipeline, prints run ID
 # MinIO console: http://localhost:9001  ·  MLflow: http://localhost:5000
 ```
