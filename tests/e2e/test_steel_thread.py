@@ -97,6 +97,22 @@ def _cleanup(storage, run_id: str, model_version: str) -> None:
     storage.delete_prefix(REGISTRY_BUCKET, f"{model_version}/")
 
 
+def _decode(captured: bytes | str | None) -> str:
+    """CPython quirk (verified directly, not assumed): subprocess.run(text=True)
+    decodes stdout/stderr on the success path, but on a TimeoutExpired it leaves
+    TimeoutExpired.stdout/.stderr as raw bytes regardless of text=True -- text= is
+    only ever applied by Popen.communicate()'s normal return, not its timeout
+    exception path. Formatting bytes straight into an f-string renders as an
+    escaped, single-line b'...' repr instead of the actual captured output (PR #21
+    review round 1, finding 4) -- exactly the kind of unreadable diagnostic this
+    helper exists to avoid."""
+    if captured is None:
+        return ""
+    if isinstance(captured, bytes):
+        return captured.decode(errors="replace")
+    return captured
+
+
 def _run_pipeline(
     cmd: list[str], env: dict[str, str], timeout: int
 ) -> subprocess.CompletedProcess[str]:
@@ -111,8 +127,8 @@ def _run_pipeline(
     except subprocess.TimeoutExpired as exc:
         pytest.fail(
             f"{cmd} timed out after {timeout}s\n"
-            f"--- captured stdout ---\n{exc.stdout}\n"
-            f"--- captured stderr ---\n{exc.stderr}"
+            f"--- captured stdout ---\n{_decode(exc.stdout)}\n"
+            f"--- captured stderr ---\n{_decode(exc.stderr)}"
         )
 
 
@@ -141,6 +157,21 @@ def test_run_pipeline_surfaces_captured_output_on_timeout(monkeypatch):
     message = str(exc_info.value)
     assert "partial stdout: judge stage still running" in message
     assert "partial stderr: connecting to mock-judge" in message
+    # Real subprocess.run(text=True) still leaves TimeoutExpired.stdout/.stderr as
+    # raw bytes (verified directly against CPython, not assumed) -- confirming no
+    # leftover bytes-repr (PR #21 review round 1, finding 4), not just the substring
+    # match above, which a `b'...'` repr would also satisfy.
+    assert "b'" not in message
+    assert 'b"' not in message
+
+
+def test_run_pipeline_decode_passes_through_str_and_none():
+    """_decode must also handle the two cases a real TimeoutExpired can carry besides
+    bytes: `str` (if some future Python version does decode before raising) and
+    `None` (nothing was captured before the kill, e.g. the process wrote nothing to
+    that stream) -- both without raising."""
+    assert _decode("already text") == "already text"
+    assert _decode(None) == ""
 
 
 @pytest.fixture(scope="module")
@@ -166,15 +197,27 @@ def e2e_run(storage):
         [sys.executable, "-m", "tuner", "run", "--config", CONFIG_PATH],
         env=env,
         # 1800s, not a round-number guess: the last green nightly run (2026-09-05,
-        # run 33962406770) completed this whole step in 395s end to end -- ~4.5x
-        # margin over that baseline. Sized off a live reproduction of the flake
-        # (issue #20, run 33983218685 on fix/nightly-ci-hardening): weights loaded
-        # in <1s (no network stall -- ruling out a cold-HF-download cause), but
-        # training proceeded at a steady ~28.5s/step vs. whatever much faster
+        # run 33962406770, at commit c19a9a2) completed this whole step in 395s end
+        # to end -- ~4.5x margin over that baseline. Sized off a live reproduction of
+        # the flake (issue #20, run 33983218685 on fix/nightly-ci-hardening, ten
+        # commits later at 12cb7d2 -- NOT identical code, see caveat below): weights
+        # loaded in <1s (no network stall -- ruling out a cold-HF-download cause),
+        # but training proceeded at a steady ~28.5s/step vs. whatever much faster
         # per-step rate the green run had, and 40 steps at that rate alone is
         # ~1140s. This covers a 2-3x-worse compute draw on a shared GH-hosted
-        # runner (the observed cause) without being so loose it would silently
-        # tolerate a genuine multi-minute regression later.
+        # runner without being so loose it would silently tolerate a genuine
+        # multi-minute regression later.
+        #
+        # Caveat (PR #21 review round 1, finding 2): the two runs are NOT the same
+        # code -- 12cb7d2 landed the whole T15 hardening pass after c19a9a2, so
+        # "runner variance, not a regression" is not provable from these two numbers
+        # alone. What does support it: the slowdown shows up uniformly across
+        # unrelated segments in the same run (the slow lane's own INF-S cases ran
+        # ~8.6x slower than their own past baseline; this subprocess's own segment
+        # ~5.8x) rather than being concentrated in code this branch or T15 touched,
+        # and diffing c19a9a2..12cb7d2 turns up nothing that changes the `method:
+        # full` CPU training path itself. Consistent with runner-level variance, not
+        # proof of it -- see the corrected issue #20 comment for the full caveat.
         timeout=1800,
     )
     assert result.returncode == 0, result.stdout + result.stderr
