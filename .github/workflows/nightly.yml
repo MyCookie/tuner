@@ -11,7 +11,17 @@ on:
 jobs:
   nightly:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # 90, not 60: the CPU E2E step alone can legitimately run its subprocess up to
+    # its own 1800s (30min) timeout (tests/e2e/test_steel_thread.py's e2e_run
+    # fixture) *plus* a second full in-process training in E2E-E-009 (measured at
+    # ~1346s on a normal run, so proportionally worse under the same slowdown that
+    # would make the subprocess use its full budget) *plus* ~5min of setup/slow-lane
+    # overhead. That worst case lands at roughly 65min -- past the old 60min cap,
+    # which would make GitHub cancel the job before the subprocess's own timeout
+    # (and its captured-output diagnostics, the whole point of this branch) ever
+    # fires (PR #21 review round 1, finding 1). 90 leaves real margin above that
+    # ~65min worst case without being loose enough to mask a job that's truly stuck.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
 
@@ -51,9 +61,16 @@ jobs:
         # (payload["messages"], each with "content"; no marker -> default score, 200).
         run: |
           for _ in $(seq 1 30); do
+            # `|| code=000` matters under this job's default `bash -e`: a transport
+            # failure (connection refused -- the container not accepting connections
+            # yet, not just a non-200 response) makes curl itself exit non-zero, which
+            # would abort the whole step on the very first iteration with no retry and
+            # no ::error:: (PR #21 review round 1, finding 3) -- the sibling
+            # "Wait for services to be healthy" step guards its own docker inspect the
+            # same way, with `|| echo "starting"`.
             code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8088/v1/chat/completions \
               -H 'Content-Type: application/json' \
-              -d '{"messages": [{"role": "user", "content": "warmup"}], "model": "mock-judge"}')
+              -d '{"messages": [{"role": "user", "content": "warmup"}], "model": "mock-judge"}') || code=000
             [ "$code" = "200" ] && break
             sleep 2
           done
