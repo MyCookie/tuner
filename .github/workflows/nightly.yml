@@ -11,11 +11,21 @@ on:
 jobs:
   nightly:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # 90, not 60: the CPU E2E step alone can legitimately run its subprocess up to
+    # its own 1800s (30min) timeout (tests/e2e/test_steel_thread.py's e2e_run
+    # fixture) *plus* a second full in-process training in E2E-E-009 (measured at
+    # ~1346s on a normal run, so proportionally worse under the same slowdown that
+    # would make the subprocess use its full budget) *plus* ~5min of setup/slow-lane
+    # overhead. That worst case lands at roughly 65min -- past the old 60min cap,
+    # which would make GitHub cancel the job before the subprocess's own timeout
+    # (and its captured-output diagnostics, the whole point of this branch) ever
+    # fires (PR #21 review round 1, finding 1). 90 leaves real margin above that
+    # ~65min worst case without being loose enough to mask a job that's truly stuck.
+    timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
           python-version: "3.11"
@@ -40,6 +50,32 @@ jobs:
             [ "$status" = "healthy" ] || { echo "::error::$svc never became healthy"; docker compose logs "$svc"; exit 1; }
           done
 
+      - name: Warm up mock-judge's actual scoring path
+        # The healthcheck above only proves mock-judge's own GET /docs responds --
+        # not the POST /v1/chat/completions path the Judge stage will hammer
+        # repeatedly (tests/mock_judge/app.py). A container can report "healthy" while
+        # its actual scoring path is still cold, silently eating the pipeline's first
+        # several requests (issue #20's leading hypothesis for the nightly timeout).
+        # One real round-trip against that exact endpoint, with a minimal
+        # OpenAI-chat-shaped body matching what chat_completions() expects
+        # (payload["messages"], each with "content"; no marker -> default score, 200).
+        run: |
+          for _ in $(seq 1 30); do
+            # `|| code=000` matters under this job's default `bash -e`: a transport
+            # failure (connection refused -- the container not accepting connections
+            # yet, not just a non-200 response) makes curl itself exit non-zero, which
+            # would abort the whole step on the very first iteration with no retry and
+            # no ::error:: (PR #21 review round 1, finding 3) -- the sibling
+            # "Wait for services to be healthy" step guards its own docker inspect the
+            # same way, with `|| echo "starting"`.
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8088/v1/chat/completions \
+              -H 'Content-Type: application/json' \
+              -d '{"messages": [{"role": "user", "content": "warmup"}], "model": "mock-judge"}') || code=000
+            [ "$code" = "200" ] && break
+            sleep 2
+          done
+          [ "$code" = "200" ] || { echo "::error::mock-judge's /v1/chat/completions never returned 200 (last: $code)"; docker compose logs mock-judge; exit 1; }
+
       - name: Slow lane (INF-S cases)
         # INF-S-020/021 landed in T15 (docs/spec/07-build-plan.md) -- `-m slow` now
         # selects real tests (tests/slow/test_containers.py, test_scale.py), so this
@@ -50,9 +86,25 @@ jobs:
           set -a; . ./.env; set +a
           uv run pytest -m slow
 
+      - name: Seed the tiny-test HF cache
+        # Secondary hardening, not the fix for the timeout above (live verification
+        # on this branch found the real bottleneck was CPU training-step throughput,
+        # not a cold download -- see the e2e_run fixture's own timeout comment). Still
+        # a real gap worth closing on its own merits: without this, the E2E
+        # subprocess below does an unauthenticated, unbounded live-network HF Hub
+        # download of tiny-test's weights on every nightly run, same as pr.yml's own
+        # "Seed the tiny-test HF cache" step already does for the PR lane (INF-I-012).
+        run: uv run python scripts/seed_hf_cache.py
+
       - name: CPU E2E steel thread
+        # HF_HUB_OFFLINE=1 scoped to this one step, not blanket for the whole job:
+        # the seed step above needs real network and must run before this var is
+        # set (mirrors pr.yml's own comment on why its analogous var is scoped this
+        # narrowly -- huggingface_hub reads it at process start, so setting it any
+        # earlier would break the seed step's own download).
         run: |
           set -a; . ./.env; set +a
+          export HF_HUB_OFFLINE=1
           uv run pytest -m e2e tests/e2e/test_steel_thread.py -v
 
       - name: Compose logs (on failure)

@@ -97,6 +97,83 @@ def _cleanup(storage, run_id: str, model_version: str) -> None:
     storage.delete_prefix(REGISTRY_BUCKET, f"{model_version}/")
 
 
+def _decode(captured: bytes | str | None) -> str:
+    """CPython quirk (verified directly, not assumed): subprocess.run(text=True)
+    decodes stdout/stderr on the success path, but on a TimeoutExpired it leaves
+    TimeoutExpired.stdout/.stderr as raw bytes regardless of text=True -- text= is
+    only ever applied by Popen.communicate()'s normal return, not its timeout
+    exception path. Formatting bytes straight into an f-string renders as an
+    escaped, single-line b'...' repr instead of the actual captured output (PR #21
+    review round 1, finding 4) -- exactly the kind of unreadable diagnostic this
+    helper exists to avoid."""
+    if captured is None:
+        return ""
+    if isinstance(captured, bytes):
+        return captured.decode(errors="replace")
+    return captured
+
+
+def _run_pipeline(
+    cmd: list[str], env: dict[str, str], timeout: int
+) -> subprocess.CompletedProcess[str]:
+    """subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=timeout),
+    except a subprocess.TimeoutExpired is turned into a pytest.fail() that includes
+    whatever partial stdout/stderr had already been captured before the kill --
+    TimeoutExpired.__str__ never includes it (issue #20), so letting it propagate raw
+    is exactly how both real nightly failures (runs 33752165161, 33870306898) lost
+    all trace of which pipeline stage was still running when it hung."""
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        pytest.fail(
+            f"{cmd} timed out after {timeout}s\n"
+            f"--- captured stdout ---\n{_decode(exc.stdout)}\n"
+            f"--- captured stderr ---\n{_decode(exc.stderr)}"
+        )
+
+
+def test_run_pipeline_surfaces_captured_output_on_timeout(monkeypatch):
+    """Not a spec case (CI test-harness hardening, not spec'd product behavior --
+    issue #20). `_run_pipeline` must catch subprocess.TimeoutExpired and fail with
+    whatever partial stdout/stderr had already been captured before the kill --
+    TimeoutExpired.__str__ never includes it, so letting it propagate raw is exactly
+    how both real nightly failures (runs 33752165161, 33870306898) lost all trace of
+    which pipeline stage was still running. Pure unit test: subprocess.run itself is
+    monkeypatched, no docker/real subprocess involved."""
+
+    def fake_run(cmd, capture_output, text, env, timeout):
+        raise subprocess.TimeoutExpired(
+            cmd,
+            timeout,
+            output=b"partial stdout: judge stage still running\n",
+            stderr=b"partial stderr: connecting to mock-judge\n",
+        )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    with pytest.raises(pytest.fail.Exception) as exc_info:
+        _run_pipeline([sys.executable, "-m", "tuner", "run"], env={}, timeout=600)
+
+    message = str(exc_info.value)
+    assert "partial stdout: judge stage still running" in message
+    assert "partial stderr: connecting to mock-judge" in message
+    # Real subprocess.run(text=True) still leaves TimeoutExpired.stdout/.stderr as
+    # raw bytes (verified directly against CPython, not assumed) -- confirming no
+    # leftover bytes-repr (PR #21 review round 1, finding 4), not just the substring
+    # match above, which a `b'...'` repr would also satisfy.
+    assert "b'" not in message
+    assert 'b"' not in message
+
+
+def test_run_pipeline_decode_passes_through_str_and_none():
+    """_decode must also handle the two cases a real TimeoutExpired can carry besides
+    bytes: `str` (if some future Python version does decode before raising) and
+    `None` (nothing was captured before the kill, e.g. the process wrote nothing to
+    that stream) -- both without raising."""
+    assert _decode("already text") == "already text"
+    assert _decode(None) == ""
+
+
 @pytest.fixture(scope="module")
 def storage() -> StorageClient:
     """Module-scoped override of the conftest `storage` fixture (function-scoped
@@ -116,12 +193,32 @@ def e2e_run(storage):
         "TUNER_JUDGE_BASE_URL": "http://localhost:8088",
         "TUNER_JUDGE_API_KEY": "unused-mock-key",
     }
-    result = subprocess.run(
+    result = _run_pipeline(
         [sys.executable, "-m", "tuner", "run", "--config", CONFIG_PATH],
-        capture_output=True,
-        text=True,
         env=env,
-        timeout=600,
+        # 1800s. Sized off a live reproduction of the flake (issue #20, run
+        # 33983218685 on fix/nightly-ci-hardening, then still on the pre-1800s
+        # timeout): weights loaded in <1s (no network stall -- ruling out a
+        # cold-HF-download cause), but training proceeded at a steady ~28.5s/step,
+        # and 40 steps at that rate alone is ~1140s -- already past what the run was
+        # actually budgeted at the time. This subprocess's own real, successful
+        # runtime on this branch since (run 33984768103: 1358s; run 34007634234:
+        # 1389s) sits comfortably under 1800s, giving ~1.3x headroom over both --
+        # smaller than an earlier version of this comment claimed (PR #21 review
+        # round 2, finding 2: that version compared against a pre-T15 baseline run,
+        # 395s at commit c19a9a2, and an invalid "uniform slowdown" argument to paper
+        # over the fact that baseline isn't the same code as this branch; both are
+        # retracted here rather than left standing). What *is* directly verifiable:
+        # diffing c19a9a2..12cb7d2 (ten commits, the T15 hardening pass) touches
+        # nothing that executes on tiny-test's `method: full` CPU path -- the only
+        # trainer/smoke changes in that range are gated behind `if quantized:`
+        # (GPU-only, `pragma: no cover` on this exact CPU lane) or are inert
+        # dataclass defaults never read outside that branch. So the *code* this test
+        # runs is unchanged across that range; whether the ~1.3x margin above is
+        # enough against a repeat of the measured flake is a real, open question,
+        # not a settled one -- see the corrected issue #20 comment for the full
+        # caveat and residual risk.
+        timeout=1800,
     )
     assert result.returncode == 0, result.stdout + result.stderr
 
