@@ -196,28 +196,28 @@ def e2e_run(storage):
     result = _run_pipeline(
         [sys.executable, "-m", "tuner", "run", "--config", CONFIG_PATH],
         env=env,
-        # 1800s, not a round-number guess: the last green nightly run (2026-09-05,
-        # run 33962406770, at commit c19a9a2) completed this whole step in 395s end
-        # to end -- ~4.5x margin over that baseline. Sized off a live reproduction of
-        # the flake (issue #20, run 33983218685 on fix/nightly-ci-hardening, ten
-        # commits later at 12cb7d2 -- NOT identical code, see caveat below): weights
-        # loaded in <1s (no network stall -- ruling out a cold-HF-download cause),
-        # but training proceeded at a steady ~28.5s/step vs. whatever much faster
-        # per-step rate the green run had, and 40 steps at that rate alone is
-        # ~1140s. This covers a 2-3x-worse compute draw on a shared GH-hosted
-        # runner without being so loose it would silently tolerate a genuine
-        # multi-minute regression later.
-        #
-        # Caveat (PR #21 review round 1, finding 2): the two runs are NOT the same
-        # code -- 12cb7d2 landed the whole T15 hardening pass after c19a9a2, so
-        # "runner variance, not a regression" is not provable from these two numbers
-        # alone. What does support it: the slowdown shows up uniformly across
-        # unrelated segments in the same run (the slow lane's own INF-S cases ran
-        # ~8.6x slower than their own past baseline; this subprocess's own segment
-        # ~5.8x) rather than being concentrated in code this branch or T15 touched,
-        # and diffing c19a9a2..12cb7d2 turns up nothing that changes the `method:
-        # full` CPU training path itself. Consistent with runner-level variance, not
-        # proof of it -- see the corrected issue #20 comment for the full caveat.
+        # 1800s. Sized off a live reproduction of the flake (issue #20, run
+        # 33983218685 on fix/nightly-ci-hardening, then still on the pre-1800s
+        # timeout): weights loaded in <1s (no network stall -- ruling out a
+        # cold-HF-download cause), but training proceeded at a steady ~28.5s/step,
+        # and 40 steps at that rate alone is ~1140s -- already past what the run was
+        # actually budgeted at the time. This subprocess's own real, successful
+        # runtime on this branch since (run 33984768103: 1358s; run 34007634234:
+        # 1389s) sits comfortably under 1800s, giving ~1.3x headroom over both --
+        # smaller than an earlier version of this comment claimed (PR #21 review
+        # round 2, finding 2: that version compared against a pre-T15 baseline run,
+        # 395s at commit c19a9a2, and an invalid "uniform slowdown" argument to paper
+        # over the fact that baseline isn't the same code as this branch; both are
+        # retracted here rather than left standing). What *is* directly verifiable:
+        # diffing c19a9a2..12cb7d2 (ten commits, the T15 hardening pass) touches
+        # nothing that executes on tiny-test's `method: full` CPU path -- the only
+        # trainer/smoke changes in that range are gated behind `if quantized:`
+        # (GPU-only, `pragma: no cover` on this exact CPU lane) or are inert
+        # dataclass defaults never read outside that branch. So the *code* this test
+        # runs is unchanged across that range; whether the ~1.3x margin above is
+        # enough against a repeat of the measured flake is a real, open question,
+        # not a settled one -- see the corrected issue #20 comment for the full
+        # caveat and residual risk.
         timeout=1800,
     )
     assert result.returncode == 0, result.stdout + result.stderr
