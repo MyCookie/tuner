@@ -9,6 +9,7 @@ import click
 from pydantic import ValidationError
 from safetensors.numpy import save as st_save
 
+from tuner.core.buckets import ARTIFACTS, GOLD
 from tuner.core.config import DEFAULT_CONFIG_PATH, ConfigError, load_config
 from tuner.core.ids import validate_run_id_option
 from tuner.core.manifest import UpstreamIncomplete, read_tier
@@ -24,8 +25,6 @@ from tuner.tokenizer.masking import (
 )
 from tuner.tokenizer.split import assign_split
 
-GOLD_BUCKET = "tuner-gold"
-ARTIFACTS_BUCKET = "tuner-artifacts"
 STAGE = "tokenizer"
 OVER_MAX_LEN_ABORT_FRACTION = 0.5
 MASKING_MISMATCH_ABORT_FRACTION = 0.01
@@ -147,14 +146,14 @@ def tokenize(
     storage = storage or StorageClient()
 
     try:
-        read_tier(storage, GOLD_BUCKET, run_id)
+        read_tier(storage, GOLD, run_id)
     except (UpstreamIncomplete, ValidationError) as exc:
         click.echo(f"tokenize: {exc}", err=True)
         return 2
 
     gold_records = []
     try:
-        for raw in storage.read_jsonl(GOLD_BUCKET, f"{run_id}/"):
+        for raw in storage.read_jsonl(GOLD, f"{run_id}/"):
             try:
                 gold_records.append(validate_gold(raw))
             except (ValidationError, ValueError) as exc:
@@ -181,7 +180,7 @@ def tokenize(
     try:
         # Delete the tokens/ prefix before writing anything new (idempotency, step 3) --
         # an aborted run should leave it definitively absent, not a stale copy.
-        storage.delete_prefix(ARTIFACTS_BUCKET, f"{run_id}/tokens/")
+        storage.delete_prefix(ARTIFACTS, f"{run_id}/tokens/")
 
         tokenizer = _PlainListTokenizer(hf_tokenizer)
         train_rows, eval_rows, dropped, over_max_len_count, masking_mismatch_count = (
@@ -215,19 +214,15 @@ def tokenize(
         train_tensors = pad_and_stack([(ids, lbls) for _, ids, lbls in train_rows], pad_token_id)
         eval_tensors = pad_and_stack([(ids, lbls) for _, ids, lbls in eval_rows], pad_token_id)
 
-        storage.write_bytes(
-            ARTIFACTS_BUCKET, f"{run_id}/tokens/train.safetensors", st_save(train_tensors)
-        )
-        storage.write_bytes(
-            ARTIFACTS_BUCKET, f"{run_id}/tokens/eval.safetensors", st_save(eval_tensors)
-        )
+        storage.write_bytes(ARTIFACTS, f"{run_id}/tokens/train.safetensors", st_save(train_tensors))
+        storage.write_bytes(ARTIFACTS, f"{run_id}/tokens/eval.safetensors", st_save(eval_tensors))
 
         index_map = IndexMap(
             run_id=run_id,
             adapter=adapter.name,
             tokenizer_id=adapter.hf_model_id,
             max_seq_len=max_seq_len,
-            gold_manifest_uri=f"s3://{GOLD_BUCKET}/{run_id}/manifest.json",
+            gold_manifest_uri=f"s3://{GOLD}/{run_id}/manifest.json",
             splits=IndexMapSplits(
                 train=[
                     IndexMapEntry(row=i, record_id=record_id)
@@ -241,7 +236,7 @@ def tokenize(
             dropped=dropped,
         )
         storage.write_json(
-            ARTIFACTS_BUCKET, f"{run_id}/tokens/index_map.json", index_map.model_dump(mode="json")
+            ARTIFACTS, f"{run_id}/tokens/index_map.json", index_map.model_dump(mode="json")
         )
     except Exception as exc:  # unexpected mid-run failure (I/O, storage, ...) -> exit 1
         click.echo(f"tokenize: {exc}", err=True)

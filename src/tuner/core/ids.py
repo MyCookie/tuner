@@ -36,6 +36,11 @@ def new_record_id() -> str:
     return str(uuid.uuid4())
 
 
+def utc_now() -> str:
+    """Current UTC time as an ISO-8601 string (shared across all stage CLIs, #25)."""
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def canonical_hash(obj: Any) -> str:
     """sha256 over canonical JSON: sorted keys, compact separators, UTF-8 (02-data-contracts.md)."""
     payload = json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)

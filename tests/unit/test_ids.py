@@ -40,6 +40,15 @@ def test_run_id_and_record_id_uniqueness_and_validity():
     assert len(set(same_second)) >= 990
 
 
+def test_utc_now_format():
+    """CORE-U-013: utc_now() returns a UTC timestamp matching ISO-8601 'Z' format (#25)."""
+    import re
+
+    result = ids.utc_now()
+
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", result)
+
+
 def test_main_prints_one_valid_run_id(capsys):
     """CORE-U-012: `python -m tuner.core.ids` prints one valid run ID with a trailing newline."""
     ids._main()

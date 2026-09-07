@@ -6,7 +6,6 @@ import os
 import sys
 import tempfile
 import traceback
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -21,21 +20,16 @@ from pydantic import ValidationError
 from safetensors.torch import load_file as st_load_file
 from transformers import Trainer, TrainerCallback, TrainingArguments, default_data_collator
 
+from tuner.core.buckets import ARTIFACTS, REGISTRY
 from tuner.core.config import DEFAULT_CONFIG_PATH, ConfigError, load_config, merge_hyperparameters
-from tuner.core.ids import validate_run_id_option
+from tuner.core.ids import utc_now, validate_run_id_option
 from tuner.core.schemas import IndexMap, RegistryEval, RegistryManifest
 from tuner.core.storage import StorageClient
 from tuner.models.base import HFAuthError, ModelAdapter
 from tuner.models.registry import get_adapter
 
-ARTIFACTS_BUCKET = "tuner-artifacts"
-REGISTRY_BUCKET = "tuner-registry"
 STAGE = "trainer"
 SEED = 42
-
-
-def _utc_now() -> str:
-    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class _TensorDataset(torch.utils.data.Dataset):
@@ -147,7 +141,7 @@ def train(
 
     storage = storage or StorageClient()
 
-    index_map_raw = storage.read_json(ARTIFACTS_BUCKET, f"{run_id}/tokens/index_map.json")
+    index_map_raw = storage.read_json(ARTIFACTS, f"{run_id}/tokens/index_map.json")
     if index_map_raw is None:
         click.echo(f"train: missing tokens/index_map.json for run {run_id}", err=True)
         return 2
@@ -195,7 +189,7 @@ def train(
         # finding 3).
         try:
             tokens_dir = work_dir / "tokens"
-            storage.download_dir(ARTIFACTS_BUCKET, f"{run_id}/tokens/", tokens_dir)
+            storage.download_dir(ARTIFACTS, f"{run_id}/tokens/", tokens_dir)
 
             train_tensors = st_load_file(str(tokens_dir / "train.safetensors"))
             eval_tensors = st_load_file(str(tokens_dir / "eval.safetensors"))
@@ -224,9 +218,7 @@ def train(
                             "method": config.train.method,
                             "seed": SEED,  # "seed fixed at 42 and logged" (core logic 6)
                             "gold_manifest_uri": index_map.gold_manifest_uri,
-                            "index_map_uri": (
-                                f"s3://{ARTIFACTS_BUCKET}/{run_id}/tokens/index_map.json"
-                            ),
+                            "index_map_uri": (f"s3://{ARTIFACTS}/{run_id}/tokens/index_map.json"),
                         }
                     )
                     mlflow.log_params(
@@ -294,20 +286,25 @@ def train(
                     # under the same run prefix forever (PR #11 review round 2 finding
                     # 3; idempotency per CLAUDE.md hard rule 4 means the whole run
                     # prefix is rebuilt, not just the current method's slice of it).
-                    storage.delete_prefix(ARTIFACTS_BUCKET, f"{run_id}/model/")
-                    storage.delete_prefix(ARTIFACTS_BUCKET, f"{run_id}/adapter/")
-                    storage.upload_dir(ARTIFACTS_BUCKET, f"{run_id}/{out_subdir}/", final_dir)
+                    storage.delete_prefix(ARTIFACTS, f"{run_id}/model/")
+                    storage.delete_prefix(ARTIFACTS, f"{run_id}/adapter/")
+                    storage.upload_dir(ARTIFACTS, f"{run_id}/{out_subdir}/", final_dir)
 
+                    # Idempotency (CLAUDE.md hard rule 4): delete the registry prefix
+                    # before writing the manifest, mirroring the artifacts-bucket deletes
+                    # above -- a re-run with the same run ID must not leave a stale
+                    # registry entry from the previous attempt (#27).
+                    storage.delete_prefix(REGISTRY, f"{model_version}/")
                     registry_manifest = RegistryManifest(
                         model_version=model_version,
                         run_id=run_id,
                         adapter_name=adapter.name,
                         base_model=adapter.hf_model_id,
                         method=config.train.method,
-                        created_at=_utc_now(),
+                        created_at=utc_now(),
                         gold_manifest_uri=index_map.gold_manifest_uri,
-                        index_map_uri=f"s3://{ARTIFACTS_BUCKET}/{run_id}/tokens/index_map.json",
-                        weights_uri=f"s3://{ARTIFACTS_BUCKET}/{run_id}/{out_subdir}/",
+                        index_map_uri=f"s3://{ARTIFACTS}/{run_id}/tokens/index_map.json",
+                        weights_uri=f"s3://{ARTIFACTS}/{run_id}/{out_subdir}/",
                         mlflow_run_id=run.info.run_id,
                         hyperparameters=merged,
                         eval=RegistryEval(
@@ -316,7 +313,7 @@ def train(
                         status="candidate",
                     )
                     storage.write_json(
-                        REGISTRY_BUCKET,
+                        REGISTRY,
                         f"{model_version}/manifest.json",
                         registry_manifest.model_dump(mode="json"),
                     )

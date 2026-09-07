@@ -26,6 +26,7 @@ import click
 import mlflow
 
 from tuner.cleaner.cli import clean_command
+from tuner.core.buckets import ARTIFACTS, REGISTRY
 from tuner.core.config import DEFAULT_CONFIG_PATH, ConfigError, load_config
 from tuner.core.ids import new_run_id
 from tuner.core.storage import StorageClient
@@ -33,9 +34,6 @@ from tuner.ingestor.cli import ingest_command
 from tuner.judge.cli import judge_command
 from tuner.registry_ops.cli import registry_group
 from tuner.tokenizer.cli import tokenize_command
-
-ARTIFACTS_BUCKET = "tuner-artifacts"
-REGISTRY_BUCKET = "tuner-registry"
 
 # ingest -> clean -> judge -> tokenize -> train -> smoke (01 §1.1's full pipeline
 # flow; registry ops is a separate, human-in-the-loop CLI, not part of this order).
@@ -183,7 +181,7 @@ def run_pipeline(
 
         storage = storage or StorageClient()
         model_version = f"{config.model.adapter}-{run_id}"
-        manifest = storage.read_json(REGISTRY_BUCKET, f"{model_version}/manifest.json")
+        manifest = storage.read_json(REGISTRY, f"{model_version}/manifest.json")
         if manifest is None:
             click.echo(f"run: run_id: {run_id}")
             click.echo(
@@ -193,7 +191,7 @@ def run_pipeline(
             )
             return 1
 
-        transcript_uri = f"s3://{ARTIFACTS_BUCKET}/{run_id}/smoke/transcript.json"
+        transcript_uri = f"s3://{ARTIFACTS}/{run_id}/smoke/transcript.json"
         tracking_uri = os.environ["MLFLOW_TRACKING_URI"]
         mlflow.set_tracking_uri(tracking_uri)
         mlflow_run = mlflow.get_run(manifest["mlflow_run_id"])

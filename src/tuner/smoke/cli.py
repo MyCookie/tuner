@@ -17,6 +17,7 @@ from peft import PeftModel
 from pydantic import ValidationError
 from transformers import AutoModelForCausalLM
 
+from tuner.core.buckets import ARTIFACTS, GOLD
 from tuner.core.config import DEFAULT_CONFIG_PATH, ConfigError, load_config
 from tuner.core.ids import validate_run_id_option
 from tuner.core.schemas import (
@@ -30,8 +31,6 @@ from tuner.core.storage import StorageClient
 from tuner.models.base import HFAuthError, ModelAdapter
 from tuner.models.registry import get_adapter
 
-ARTIFACTS_BUCKET = "tuner-artifacts"
-GOLD_BUCKET = "tuner-gold"
 TRAINER_STAGE = "trainer"
 
 
@@ -114,19 +113,19 @@ def smoke(
         try:
             work_dir = Path(work_dir_str)
             weights_dir = work_dir / out_subdir
-            storage.download_dir(ARTIFACTS_BUCKET, weights_prefix, weights_dir)
+            storage.download_dir(ARTIFACTS, weights_prefix, weights_dir)
             # Checked before load_tokenizer/load_base_model below -- "no model
             # download happens" for this case (SMK-I-005), same discrimination fix
             # TRN-I-006 needed (PR #11 review round 1 finding 2).
             if not any(weights_dir.rglob("*")):
                 click.echo(
                     f"smoke: trainer has not completed for this run ID "
-                    f"(missing s3://{ARTIFACTS_BUCKET}/{weights_prefix})",
+                    f"(missing s3://{ARTIFACTS}/{weights_prefix})",
                     err=True,
                 )
                 return 2
 
-            index_map_raw = storage.read_json(ARTIFACTS_BUCKET, f"{run_id}/tokens/index_map.json")
+            index_map_raw = storage.read_json(ARTIFACTS, f"{run_id}/tokens/index_map.json")
             if index_map_raw is None:
                 click.echo(f"smoke: missing tokens/index_map.json for run {run_id}", err=True)
                 return 2
@@ -152,7 +151,7 @@ def smoke(
             wanted_ids = {entry.record_id for entry in selected}
 
             gold_records = {}
-            for raw in storage.read_jsonl(GOLD_BUCKET, f"{run_id}/"):
+            for raw in storage.read_jsonl(GOLD, f"{run_id}/"):
                 if raw.get("id") in wanted_ids:
                     gold_records[raw["id"]] = validate_gold(raw)
             missing = wanted_ids - gold_records.keys()
@@ -234,8 +233,8 @@ def smoke(
                 )
                 return 2
 
-            storage.delete_prefix(ARTIFACTS_BUCKET, f"{run_id}/smoke/")
-            storage.write_json(ARTIFACTS_BUCKET, f"{run_id}/smoke/transcript.json", transcript_dict)
+            storage.delete_prefix(ARTIFACTS, f"{run_id}/smoke/")
+            storage.write_json(ARTIFACTS, f"{run_id}/smoke/transcript.json", transcript_dict)
 
             local_transcript_path = work_dir / "transcript.json"
             local_transcript_path.write_text(json.dumps(transcript_dict))
