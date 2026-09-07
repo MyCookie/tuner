@@ -18,6 +18,7 @@ model on real GPU hardware) — nothing here is inferred from the spec alone.
 | [`uv`](https://docs.astral.sh/uv/) | dependency/environment management — the only supported way to install and run Tuner | `uv 0.12.9` |
 | Docker + the `docker compose` CLI plugin (not the legacy standalone `docker-compose`) | local MinIO (object storage) + MLflow | `Docker 29.2.1` / Compose plugin `v5.0.2` |
 | An NVIDIA GPU + drivers (optional) | only needed for `train`/`smoke` against the real default model, `gemma-e4b`; the fixture-scale path below runs entirely on CPU | — |
+| [Hugging Face](https://huggingface.co) account + [access token](https://huggingface.co/settings/tokens) | generates `HF_TOKEN`; needed by Tokenizer/Trainer/Smoke-test to pull the base model (even public/ungated repositories require authentication) | — |
 
 You do **not** need a GPU to complete this page. You need one only if you go
 on to fine-tune the real default model (`gemma-e4b`) instead of the tiny
