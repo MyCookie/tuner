@@ -8,17 +8,15 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import Field, ValidationError
+
+from tuner.core.schemas import _Strict
 
 DEFAULT_CONFIG_PATH = Path("configs/pipeline.yaml")
 
 
 class ConfigError(Exception):
     """A missing config file or a schema/validation failure (exit code 2 at the CLI)."""
-
-
-class _Strict(BaseModel):
-    model_config = ConfigDict(extra="forbid")
 
 
 class ModelConfig(_Strict):
