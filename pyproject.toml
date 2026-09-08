@@ -57,6 +57,7 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]  # so tests/integration/test_infra.py can `import scripts.bootstrap_minio`
+testpaths = ["tests"]
 markers = [
   "integration: requires docker compose services (MinIO, MLflow)",
   "e2e: full pipeline steel-thread test",
