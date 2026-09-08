@@ -376,7 +376,7 @@ def test_eval_split_empties_proceeds_with_zero_row_eval_tensor(storage, run_id, 
 
 class _SpyStorage:
     """Wraps a real StorageClient, recording call order for write_bytes/write_json --
-    everything else passes straight through (TOK-I-028, mirrors CORE-I-032)."""
+    everything else passes straight through (TOK-I-028; manifest-last, 02 §3 commit-marker rule)."""
 
     def __init__(self, real: StorageClient) -> None:
         self._real = real
@@ -396,8 +396,8 @@ class _SpyStorage:
 
 @pytest.mark.integration
 def test_rerun_rebuilds_tokens_prefix_index_map_written_last(storage, run_id, tmp_path):
-    """TOK-I-028: re-run of the same run ID rebuilds tokens/ cleanly; index_map.json is
-    written after both SafeTensors shards (spy-order assert, mirrors CORE-I-032)."""
+    """TOK-I-028: re-run of the same run ID rebuilds tokens/ cleanly; index_map.json
+    written after both SafeTensors shards (spy-order assert; manifest-last, 02 §3)."""
     records = [_gold_record(run_id, f"Q{i}", f"A{i}") for i in range(5)]
     _seed_gold(storage, run_id, records)
     config_path = _write_config(tmp_path)

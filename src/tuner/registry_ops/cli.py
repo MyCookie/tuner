@@ -11,10 +11,9 @@ from pathlib import Path
 import click
 from pydantic import ValidationError
 
+from tuner.core.buckets import REGISTRY
 from tuner.core.schemas import RegistryManifest
 from tuner.core.storage import StorageClient
-
-REGISTRY_BUCKET = "tuner-registry"
 
 _COLUMNS = ("MODEL_VERSION", "ADAPTER", "CREATED_AT", "STATUS", "FINAL_EVAL_LOSS")
 
@@ -28,7 +27,7 @@ def _load_manifests(storage: StorageClient) -> tuple[list[RegistryManifest], lis
     valid: list[RegistryManifest] = []
     invalid: list[str] = []
     with tempfile.TemporaryDirectory() as tmp:
-        storage.download_dir(REGISTRY_BUCKET, "", tmp)
+        storage.download_dir(REGISTRY, "", tmp)
         root = Path(tmp)
         for path in sorted(root.rglob("manifest.json")):
             key = str(path.relative_to(root).as_posix())

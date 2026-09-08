@@ -1,14 +1,19 @@
 """Tier-manifest read/write helpers (docs/spec/02-data-contracts.md §3).
 
-`read_tier`/`write_tier` are written against a minimal, duck-typed storage
-interface (`StorageLike`) rather than importing `tuner.core.storage`, which
-doesn't exist until T03 — the real `StorageClient` satisfies this interface
-without any adapter.
+`read_tier` is written against a minimal, duck-typed storage interface
+(`StorageLike`) rather than importing `tuner.core.storage`, which doesn't
+exist until T03 — the real `StorageClient` satisfies this interface without
+any adapter.
+
+`write_tier` was removed (#30): it was a dead abstraction (no production
+caller) and was incomplete (no delete_prefix). Per-stage idempotency
+(delete → write records → write manifest) is each stage CLI's responsibility.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Iterable
 from typing import Any, Protocol
 
@@ -33,21 +38,17 @@ def records_hash(shard_bytes: Iterable[bytes]) -> str:
     return f"sha256:{digest.hexdigest()}"
 
 
+def shard_bytes(records: list[dict[str, Any]]) -> bytes:
+    """Mirrors StorageClient.write_jsonl's exact serialization (json.dumps + newline,
+    joined, utf-8-encoded) so `records_hash` matches what's actually written without a
+    read-back round trip. If that serialization ever changes, this must change with it."""
+    body = "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records)
+    return body.encode("utf-8")
+
+
 def read_tier(storage: StorageLike, bucket: str, run_id: str) -> TierManifest:
     """Read a tier's manifest; the manifest's absence means the upstream tier is incomplete."""
     raw = storage.read_json(bucket, f"{run_id}/manifest.json")
     if raw is None:
         raise UpstreamIncomplete(f"missing manifest: s3://{bucket}/{run_id}/manifest.json")
     return TierManifest.model_validate(raw)
-
-
-def write_tier(
-    storage: StorageLike,
-    bucket: str,
-    run_id: str,
-    records: list[dict[str, Any]],
-    manifest: TierManifest,
-) -> None:
-    """Write a tier's record shard(s), then its manifest last (the commit-marker order)."""
-    storage.write_jsonl(bucket, f"{run_id}/records-00000.jsonl", records)
-    storage.write_json(bucket, f"{run_id}/manifest.json", manifest.model_dump(mode="json"))

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import random
 import statistics
@@ -11,7 +10,6 @@ import tempfile
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -21,9 +19,10 @@ import mlflow
 from pydantic import ValidationError
 
 from tuner import __version__ as STAGE_VERSION
+from tuner.core.buckets import GOLD, SILVER
 from tuner.core.config import DEFAULT_CONFIG_PATH, ConfigError, load_config
-from tuner.core.ids import validate_run_id_option
-from tuner.core.manifest import UpstreamIncomplete, read_tier, records_hash
+from tuner.core.ids import utc_now, validate_run_id_option
+from tuner.core.manifest import UpstreamIncomplete, read_tier, records_hash, shard_bytes
 from tuner.core.schemas import (
     ManifestCounts,
     ManifestDrop,
@@ -37,22 +36,8 @@ from tuner.core.storage import StorageClient
 from tuner.judge.client import build_http_client, normalize_score, score_record
 from tuner.judge.prompts import RUBRIC_V1
 
-SILVER_BUCKET = "tuner-silver"
-GOLD_BUCKET = "tuner-gold"
 STAGE = "judge"
 JUDGE_ERROR_ABORT_FRACTION = 0.10
-
-
-def _utc_now() -> str:
-    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def _shard_bytes(records: list[dict[str, Any]]) -> bytes:
-    """Mirrors StorageClient.write_jsonl's exact serialization (json.dumps + newline, joined,
-    utf-8-encoded) so `records_hash` matches what's actually written without a read-back
-    round trip. If that serialization ever changes, this must change with it."""
-    body = "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records)
-    return body.encode("utf-8")
 
 
 def _score_histogram_text(scores: list[float]) -> str:
@@ -103,14 +88,14 @@ def judge(
     storage = storage or StorageClient()
 
     try:
-        read_tier(storage, SILVER_BUCKET, run_id)
+        read_tier(storage, SILVER, run_id)
     except (UpstreamIncomplete, ValidationError) as exc:
         click.echo(f"judge: {exc}", err=True)
         return 2
 
     silver_records: list[dict[str, Any]] = []
     try:
-        for raw in storage.read_jsonl(SILVER_BUCKET, f"{run_id}/"):
+        for raw in storage.read_jsonl(SILVER, f"{run_id}/"):
             try:
                 SilverGoldRecord.model_validate(raw)
             except ValidationError as exc:
@@ -131,7 +116,7 @@ def judge(
         # Delete Gold's own prefix before scoring even starts (core logic 2), not after
         # the error-rate check: an aborted run should leave Gold definitively absent, not
         # a stale copy from a previous run that this run's failure gives no reason to trust.
-        storage.delete_prefix(GOLD_BUCKET, f"{run_id}/")
+        storage.delete_prefix(GOLD, f"{run_id}/")
 
         # Keyed by index into silver_records, not record id: two records could in
         # principle share an id, and a dict keyed by id would silently collapse them --
@@ -182,7 +167,7 @@ def judge(
                         "score": normalized,
                         "judge_model": config.judge.model,
                         "reasoning": reasoning,
-                        "evaluated_at": _utc_now(),
+                        "evaluated_at": utc_now(),
                     },
                 }
                 # Defense in depth, matching the Silver-side validation on the way in
@@ -205,18 +190,18 @@ def judge(
             click.echo("judge: zero records promoted to Gold", err=True)
             return 3
 
-        storage.write_jsonl(GOLD_BUCKET, f"{run_id}/records-00000.jsonl", gold_records)
+        storage.write_jsonl(GOLD, f"{run_id}/records-00000.jsonl", gold_records)
 
         manifest = TierManifest(
             tier="gold",
             run_id=run_id,
-            created_at=_utc_now(),
+            created_at=utc_now(),
             producer=ManifestProducer(stage=STAGE, version=STAGE_VERSION),
             input=ManifestInputRef(
-                tier="silver", manifest_uri=f"s3://{SILVER_BUCKET}/{run_id}/manifest.json"
+                tier="silver", manifest_uri=f"s3://{SILVER}/{run_id}/manifest.json"
             ),
             files=["records-00000.jsonl"],
-            records_hash=records_hash([_shard_bytes(gold_records)]),
+            records_hash=records_hash([shard_bytes(gold_records)]),
             counts=ManifestCounts(
                 read=total_read, written=len(gold_records), dropped=sum(drops.values())
             ),
@@ -224,7 +209,7 @@ def judge(
                 ManifestDrop(reason=reason, count=count) for reason, count in sorted(drops.items())
             ],
         )
-        storage.write_json(GOLD_BUCKET, f"{run_id}/manifest.json", manifest.model_dump(mode="json"))
+        storage.write_json(GOLD, f"{run_id}/manifest.json", manifest.model_dump(mode="json"))
 
         _log_to_mlflow(config, run_id, all_scores, len(gold_records), judge_error_count, total_read)
     except Exception as exc:  # unexpected mid-run failure (I/O, storage, MLflow, ...) -> exit 1

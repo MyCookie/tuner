@@ -75,12 +75,12 @@ def test_read_tier_returns_validated_manifest():
     assert result.model_dump(mode="json") == manifest_dict
 
 
-def test_write_tier_writes_manifest_after_shards():
-    """CORE-I-032: write_tier writes record shards, then the manifest, in that order."""
-    storage = FakeStorage()
-    run_id = "run-20260720-142201-a3f9c2"
+def test_shard_bytes_matches_write_jsonl_serialization():
+    """CORE-U-033: shard_bytes mirrors StorageClient.write_jsonl's serialization exactly --
+    json.dumps with ensure_ascii=False + newline, joined, utf-8-encoded (#24/#28)."""
+    import json as _json
 
-    manifest.write_tier(storage, "tuner-silver", run_id, [{"id": "1"}], _load_manifest())
+    records = [{"id": "1", "emoji": "😀"}, {"id": "2"}]
+    expected = ("".join(_json.dumps(r, ensure_ascii=False) + "\n" for r in records)).encode("utf-8")
 
-    call_kinds = [call[0] for call in storage.calls]
-    assert call_kinds == ["write_jsonl", "write_json"]
+    assert manifest.shard_bytes(records) == expected
