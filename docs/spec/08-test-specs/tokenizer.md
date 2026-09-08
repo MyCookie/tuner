@@ -36,7 +36,7 @@ TOK-U-015 was added in review round 1 on PR #10: the schema permits a conversati
 | TOK-I-025 | Gold record with `evaluation: null` seeded | Exit 2 (CORE-U-024 wired in — wrong tier pointed at) |
 | TOK-I-026 | >50 % of records over `max_seq_len` (tiny max injected) | Exit 1 with the raise-`max_seq_len` message |
 | TOK-I-027 | Eval split empties (2 records, fraction 0.1, both hash to train) | Proceeds; `eval.safetensors` present with 0 rows; SMK-I-007 covers the downstream exit-3 |
-| TOK-I-028 | Re-run same run ID | `tokens/` prefix rebuilt cleanly; `index_map.json` written last (spy-order assert, mirrors CORE-I-032) |
+| TOK-I-028 | Re-run same run ID | `tokens/` prefix rebuilt cleanly; `index_map.json` written last (spy-order assert; manifest-last per 02 §3 commit-marker rule) |
 | TOK-I-029 | Unknown `model.adapter` in config | Exit 2 via ADP-U-011 path |
 | TOK-I-030 | **Real-tokenizer masking** (tiny-test's actual HF tokenizer, offline cache): all fixture conversations incl. multi-turn | Prefix properties hold for every record (zero `masking_mismatch`); every assistant span non-empty; decoding the unmasked positions yields the assistant text (+ end-of-turn token); all generation-prompt positions are −100 — the stub-tokenizer suite cannot catch real boundary-merge effects, this case can |
 | TOK-I-031 | Missing Gold manifest | Exit 2 (upstream incomplete) |
