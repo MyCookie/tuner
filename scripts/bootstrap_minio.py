@@ -16,6 +16,7 @@ import os
 import sys
 from urllib.parse import urlsplit
 
+import urllib3
 from minio import Minio
 from minio.credentials import StaticProvider
 from minio.error import MinioAdminException
@@ -76,6 +77,14 @@ def _policy_document(grants: dict[str, str]) -> dict:
     return {"Version": "2012-10-17", "Statement": statements}
 
 
+def _http_client() -> urllib3.PoolManager | None:
+    """Return a PoolManager pinned to CA_BUNDLE when set, else None (system CAs)."""
+    ca_bundle = os.environ.get("CA_BUNDLE")
+    if ca_bundle:
+        return urllib3.PoolManager(ca_certs=ca_bundle)
+    return None
+
+
 def _admin_client() -> MinioAdmin:
     endpoint = os.environ["TUNER_S3_ENDPOINT"]
     parts = urlsplit(endpoint)
@@ -85,7 +94,7 @@ def _admin_client() -> MinioAdmin:
         endpoint=parts.netloc or parts.path,
         credentials=StaticProvider(root_user, root_password),
         secure=parts.scheme == "https",
-        cert_check=False,
+        http_client=_http_client(),
     )
 
 
@@ -99,7 +108,7 @@ def _s3_client() -> Minio:
         access_key=root_user,
         secret_key=root_password,
         secure=parts.scheme == "https",
-        cert_check=False,
+        http_client=_http_client(),
     )
 
 

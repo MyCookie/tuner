@@ -130,7 +130,7 @@ Secrets and endpoints only — everything else lives in the config file (§6).
 | `MLFLOW_TRACKING_URI` | judge, trainer, smoke | MLflow server URL |
 | `TUNER_JUDGE_BASE_URL` | judge | OpenAI-compatible endpoint base URL |
 | `TUNER_JUDGE_API_KEY` | judge | key for that endpoint (dummy value ok for local servers) |
-| `HF_TOKEN` | tokenizer, trainer, smoke | Hugging Face token for gated models |
+| `HF_TOKEN` | tokenizer, trainer, smoke | Hugging Face token; required for model downloads (including public/ungated repositories — the Hub always requires authentication) |
 
 ### 4.4 CLI
 

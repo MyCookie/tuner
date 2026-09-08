@@ -171,6 +171,33 @@ def test_csv_row_more_fields_than_header_raises_malformed_line(tmp_path):
     assert exc_info.value.line_number == 1
 
 
+def test_csv_valid_mapping_all_columns_present(tmp_path):
+    """ING-U-011: CsvSource with a mapping where all non-None columns exist in the header
+    (including system_column=None) succeeds at construction — the for-loop iterates through
+    the three mapping fields, skips the None system_column without raising, and exits normally.
+    Covers the 67->exit (loop normal-exit) and 72->67 (column is None short-circuit) branches."""
+    csv_path = tmp_path / "dialogs.csv"
+    csv_path.write_text("question,answer\nq1,a1\n")
+
+    # system_column defaults to None; prompt_column and response_column are in the header
+    source = CsvSource(
+        _csv_config(str(csv_path), prompt_column="question", response_column="answer")
+    )
+    result = list(source.records())
+
+    assert result == [("row:1", {"question": "q1", "answer": "a1"})]
+
+
+def test_jsonl_source_unreadable_uri_raises_source_config_error():
+    """ING-U-012: JsonlSource with a nonexistent file URI raises SourceConfigError at
+    construction (OSError → SourceConfigError) — same exit-2 bucket as an unreadable CSV.
+    Covers the except OSError branch in JsonlSource.__init__ (lines 112-113).
+    Note: the UnicodeDecodeError sub-branch of that except clause is unreachable — open()+close()
+    reads no bytes and cannot decode-error; flagged for the source owner."""
+    with pytest.raises(SourceConfigError, match="cannot read source"):
+        JsonlSource(_jsonl_config("/nonexistent/path/data.jsonl"))
+
+
 def test_csv_byte_fidelity_no_trimming(tmp_path):
     """ING-U-006: CSV cell with leading/trailing spaces, embedded quotes, unicode -> raw values
     byte-identical to source (no trimming at Bronze)."""
