@@ -44,7 +44,7 @@ implementer:  branch  →  implement  →  ./scripts/gate.sh  →  git push -u  
 ```bash
 # 1. branch from up-to-date main
 git fetch origin && git switch main && git pull --ff-only
-git switch -c feat/tNN-<slug>
+git switch -c <type>/<issue#>-<slug>
 
 # 2. implement the task per 07-build-plan.md; atomic Conventional commits (09 §2–§3)
 
@@ -66,7 +66,7 @@ Then spawn the reviewer:
 ```
 Agent(subagent_type: "code-reviewer", isolation: "worktree",
       description: "Review PR #N",
-      prompt: "Review PR #<N> — branch feat/tNN-<slug>, build task TNN.")
+      prompt: "Review PR #<N> — branch <type>/<issue#>-<slug>, Issue #<issue#>.")
 ```
 
 Agent definitions in `.claude/agents/` are read when a session starts, so a newly added or edited one is **not** available as a `subagent_type` in the session that changed it. There, spawn a general-purpose agent and point it at `.claude/agents/code-reviewer.md` as its instructions instead — which also tests whether that file is self-sufficient.
@@ -184,12 +184,12 @@ Only the reviewer, only after posting `**Verdict: APPROVE**`:
 
 ```bash
 gh pr merge <N> --merge \
-  --subject "Merge feat/tNN-<slug>: TNN <task title>" \
-  --body "Refs: TNN
+  --subject "Merge <type>/<issue#>-<slug>: #<issue#> <title>" \
+  --body "Closes #<issue#>
 
 Reviewed-by: Opus 5 reviewer agent (round R)"
 
-git push origin --delete feat/tNN-<slug>      # NOT `gh pr merge --delete-branch`
+git push origin --delete <type>/<issue#>-<slug>      # NOT `gh pr merge --delete-branch`
 ```
 
 If `gh pr merge` reports `mergeStateStatus: BLOCKED` (distinct from the known `--delete-branch` false-failure below, which happens *after* a successful merge, not instead of one), branch protection has been (re-)enabled server-side (§9) — do not reach for `--admin` or a self-approving review to get past it; that decision belongs to the repository owner, not to the reviewer. Stop and report instead.

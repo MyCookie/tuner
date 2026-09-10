@@ -5,11 +5,11 @@ Rules for all work in this repo, human or agent. The core invariant: **`main` is
 ## 1. Branch model
 
 - `main` — protected trunk. Never commit to it directly; it only advances by merging a green feature branch.
-- One branch per unit of work, named `<type>/<scope>-<slug>`:
-  - Build-plan tasks: `feat/t06-ingestor`, `feat/t10-tokenizer` (one branch per task — tasks are already sized to be atomic features)
-  - Bug fixes: `fix/cleaner-phone-regex`
-  - Docs-only: `docs/test-specs`
-  - Refactors/chores: `refactor/...`, `chore/...`
+- One branch per unit of work, named `<type>/<issue#>-<slug>`. Every unit of work is tracked by a GitHub Issue, and its Issue number is the branch scope:
+  - Build-plan tasks (filed as Issues too): `feat/12-ingestor`, `feat/20-tokenizer`
+  - Bug fixes: `fix/34-cleaner-phone-regex`
+  - Docs-only: `docs/41-test-specs`
+  - Refactors/chores: `refactor/<issue#>-...`, `chore/<issue#>-...`
 - Branch from up-to-date `main`, keep branches short-lived (a task-sized branch should live hours-to-days, not weeks). Delete the branch after merge.
 - The existing `draft` branch holds the documentation set; once approved it merges to `main` under the same gate (link check + traceability read in place of pytest).
 
@@ -65,7 +65,7 @@ CI (T14) can attach the same checks to the PR, but nothing yet *requires* them: 
 
 ## 7. Agent session protocol (one build task per session)
 
-1. `git fetch origin && git switch main && git pull --ff-only`, then `git switch -c feat/tNN-<slug>`.
+1. `git fetch origin && git switch main && git pull --ff-only`, then `git switch -c <type>/<issue#>-<slug>`.
 2. Implement the task per [07-build-plan.md](07-build-plan.md); commit atomically as you go (§2–§3). Code and its spec'd test cases land in the same commit.
 3. Run the gate (§4): `./scripts/gate.sh`. Red and unfixable this session ⇒ **stop, push the branch, report honestly** — never merge, never weaken a test to pass it.
 4. Green ⇒ publish:

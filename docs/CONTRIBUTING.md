@@ -48,8 +48,10 @@ parallel, stack or sequence dependent ones (branch the dependent unit off the
 one it needs, not off `main`).
 
 **4. Branch, commit, PR per [09-git-workflow.md](spec/09-git-workflow.md).**
-Never commit to `main`. One branch per unit, Conventional Commits, code + its
-tests in the same commit. Open a PR that closes its issues (`Closes #NN`).
+Never commit to `main`. One branch per unit, named `<type>/<issue#>-<slug>`
+(`feat/`, `fix/`, `docs/`, `refactor/`…) — every unit is tracked by an Issue and
+its number is the branch scope. Conventional Commits, code + its tests in the
+same commit. Open a PR that closes its issues (`Closes #NN`).
 
 **5. "Done" means the full gate passed — `./scripts/gate.sh`, not just
 `pytest`.** The gate runs ruff, the pickle ban, unit + integration, coverage,
@@ -76,6 +78,39 @@ merge-then-fix.
 **8. Report faithfully.** If tests fail, say so with the output; if a step was
 skipped, say that. A test that looks wrong is a spec question — flag it, never
 weaken it (hard rule 7).
+
+## Team orchestration & handoffs
+
+Roles and routing are summarized in [CLAUDE.md](../CLAUDE.md#multi-agent-orchestration);
+this is the operational detail behind them. A **manager** session coordinates
+three sub-teams — **research** (files Issues), **implementation** (worktrees +
+PRs), **review** (diff-reviews PRs, files follow-up Issues) — and governs the
+review-implement loop.
+
+**Handoff protocols** (address sessions by `@name`, lead with status):
+- **Research → Implementation.** Research-lead → `@manager`: tracking-Issue URL,
+  Issue count, recommended priority order. Manager → `@impl-lead`: "Begin planning
+  pass on the open Issues. Show the unit plan before spawning."
+- **Implementation → Review.** Manager → `@review-lead`: "diff-review mode. Review
+  PRs: [list]. File new Issues for anything that needs fixing."
+- **Review → Implementation (loop).** Manager checks loop bounds; if continuing,
+  sends `@impl-lead` the new Issue list; if stopping, reports to the human.
+- **Review → Done.** Review reports zero new Issues (or bounds reached); manager
+  reports final state to the human.
+
+**Loop bounds** (manager persists them in `.manager-state.json`; edit before
+starting the manager): `max_iterations: 3` · `exit_severity_threshold: medium`
+(stop when no open Issue above it remains) · `human_checkpoint: every_cycle` ·
+`max_open_issues_to_continue: 0` (stop only when clean).
+
+**Issues & labels.** Every Issue carries an `area:` (`architecture`, `security`,
+`quality`, `docs`, `simplicity`, `research`), a `severity:` (`high|medium|low`),
+and a `type:` (`feature|bug|task`). Research Issues use `type:task`; review
+findings use their `area:` label. `needs-discussion` marks a call for a human;
+the reviewer agent sets `review:approved` / `review:changes-requested`.
+
+**Messaging.** Don't poll — use idle notifications when waiting on a phase.
+`crossSessionInbound: accept` is set project-wide.
 
 ## When a unit is finished
 

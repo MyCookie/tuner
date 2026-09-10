@@ -23,10 +23,41 @@ You are building the Enterprise Fine-Tuning Pipeline from the specs in `docs/spe
 
 ## Git & review (full rules: [docs/spec/09-git-workflow.md](docs/spec/09-git-workflow.md), [docs/spec/10-code-review.md](docs/spec/10-code-review.md))
 
-- Never commit to `main`. One branch per build task (`feat/tNN-<slug>`), branched from up-to-date `main`.
+- Never commit to `main`. One branch per unit of work, named `<type>/<issue#>-<slug>` (`feat/`, `fix/`, `docs/`, `refactor/`…), branched from up-to-date `main`. Every branch ties to an Issue — build-plan tasks get an Issue too.
 - Atomic commits, Conventional Commits format (`feat(cleaner): ...`), code + its tests in the same commit, unit tests passing at every commit.
 - The gate is one command: `./scripts/gate.sh` (ruff, pickle ban, unit, integration, coverage). Red and unfixable this session ⇒ leave the branch, report honestly. Never merge-then-fix, never force-push shared branches.
 - **Green is not done.** Push the branch, open a PR, then spawn a fresh reviewer — `Agent(subagent_type: "code-reviewer", isolation: "worktree")`. It re-runs the gate itself, reviews against the specs, and merges on `APPROVE`. **You never merge your own PR**, and you never report a review as approval it did not give. Keep iterating while each round finds new defects; stop and report when a finding is re-argued, when the spec itself is disputed, or at five rounds ([docs/spec/10 §8](docs/spec/10-code-review.md)).
+
+## Multi-agent orchestration
+
+When run by a team — a manager coordinating research, implementation, and review sub-teams — the roles and routing below govern the pipeline. Detailed handoff protocols and worktree-ownership mechanics live in [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
+
+**Teams** (each a named session, e.g. `claude --name impl-lead`):
+- **Manager** — intake; routes each goal, governs handoffs and the review-implement loop.
+- **Research** — decomposes goals into well-defined Issues and files them; implements nothing.
+- **Implementation** — takes open Issues, one non-overlapping unit per worktree, opens a PR per unit.
+- **Review** — post-implementation, diff-review mode; reviews PRs and files new Issues for anything that needs fixing.
+
+**Manager routing:**
+
+| User input | Route to |
+|---|---|
+| Vague goal / feature idea / open-ended question | Research |
+| Specific task with no existing Issue | Research |
+| Specific Issue number(s) / "fix #N" | Implementation |
+| "Review what we built" | Review |
+
+**Review & merge — two layers:**
+- *Per PR:* a fresh `code-reviewer` agent re-runs the gate, reviews against the specs, and merges on `APPROVE` (never self-merge; five-round cap) — see the Git & review section above and [docs/spec/10-code-review.md](docs/spec/10-code-review.md).
+- *Per cycle:* the review-lead diff-reviews the merged changes and files follow-up Issues; the manager governs the loop.
+
+**Loop bounds** (manager persists them in `.manager-state.json`; edit before starting): `max_iterations: 3` (hard ceiling) · `exit_severity_threshold: medium` (stop when no open Issue above it remains) · `human_checkpoint: every_cycle` · `max_open_issues_to_continue: 0` (stop only when clean).
+
+**Issues & labels:** `severity:high|medium|low`, `area:architecture|security|quality|docs|simplicity|research`, `type:feature|bug|task`, plus `needs-discussion` and the reviewer-set `review:approved` / `review:changes-requested`. Research Issues use `type:task`; review findings use their `area:` label. Every PR body carries `Closes #<n>` for each resolved Issue.
+
+**Messaging:** address sessions by `@name`; lead with status, then detail; don't poll — use idle notifications when waiting on a phase; `crossSessionInbound: accept` is set project-wide.
+
+**Plugins:** `ponytail@ponytail` (the simplicity-reviewer engine) and `mattpocock-skills@mattpocock` (`/grilling` for stress-testing a goal at intake) are declared in `.claude/settings.json`; per-person defaults belong in `.claude/settings.local.json`.
 
 ## Tooling (fixed — do not churn)
 
