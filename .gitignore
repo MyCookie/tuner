@@ -8,6 +8,7 @@
 mlruns/
 
 # Agent tooling: the code-reviewer definition is committed, local permissions are not
+.claude/settings.json
 .claude/settings.local.json
 .claude/worktrees/
 
