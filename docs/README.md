@@ -6,6 +6,7 @@ This directory holds two document sets, kept side by side on purpose:
 | :--- | :--- | :--- |
 | **User guide** | Someone installing, running, or operating Tuner | this directory (`docs/*.md`) |
 | **Engineering specification** | Someone implementing or extending Tuner | [`docs/spec/`](spec/00-product-scope.md) |
+| **Contributing** | An agent team implementing changes together | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 If you only want to run the pipeline, you should not need to open `docs/spec/` at
 all. If you're changing how a stage works, the specification is normative — it
