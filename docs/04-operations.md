@@ -58,10 +58,10 @@ every other worktree's view of the stack.
 
 ```
 $ docker compose ps
-NAME                 IMAGE                   SERVICE      STATUS                  PORTS
-tuner-minio-1        minio/minio             minio        Up (healthy)            0.0.0.0:9000-9001->9000-9001/tcp
-tuner-mlflow-1       ghcr.io/mlflow/mlflow   mlflow       Up (healthy)            0.0.0.0:5000->5000/tcp
-tuner-mock-judge-1   tuner-mock-judge        mock-judge   Up (healthy)            0.0.0.0:8088->8088/tcp
+NAME                 IMAGE                                              SERVICE      STATUS         PORTS
+tuner-minio-1        quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z   minio        Up (healthy)   0.0.0.0:9000-9001->9000-9001/tcp
+tuner-mlflow-1       ghcr.io/mlflow/mlflow                              mlflow       Up (healthy)   0.0.0.0:5000->5000/tcp
+tuner-mock-judge-1   tuner-mock-judge                                   mock-judge   Up (healthy)   0.0.0.0:8088->8088/tcp
 ```
 (`PORTS` matters here — see the "healthy but unreachable" case just below,
 where this exact column is the tell.)

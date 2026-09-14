@@ -10,7 +10,7 @@ Environment story from local dev (MVP) to cloud production (Phase 3). The invari
 
 | Service | Image | Ports | Notes |
 | :--- | :--- | :--- | :--- |
-| `minio` | `minio/minio` | 9000 (S3), 9001 (console) | volume-backed; root creds only in `.env` |
+| `minio` | `quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z` | 9000 (S3), 9001 (console) | volume-backed; root creds only in `.env`. Pinned to an explicit release on MinIO's own registry: untagged `minio/minio` resolves to `:latest`, which Docker Hub stopped serving anonymously and broke the nightly on 2026-09-12 (#44) |
 | `minio-init` | tuner base image | — | runs `scripts/bootstrap_minio.py` once: creates the six buckets and per-stage credentials (§5), then exits |
 | `mlflow` | `ghcr.io/mlflow/mlflow` | 5000 | backend store: sqlite on a volume; artifact store: `s3://tuner-mlflow` on MinIO, **proxied** (`--serve-artifacts`) so stage clients need no artifact-bucket credentials |
 | `mock-judge` | own image (`docker/mock-judge.Dockerfile`) | 8088 | `profiles: [e2e]` (T14) — test infrastructure only ([06-testing.md §4](06-testing.md)), never a real deployment's judge endpoint; used by the E2E steel thread and CI |
