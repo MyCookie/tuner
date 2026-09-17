@@ -54,7 +54,10 @@ services:
         condition: service_healthy
 
   mlflow:
-    image: ghcr.io/mlflow/mlflow
+    # pinned; must bundle boto3 for S3 artifact upload — verify e2e before bumping (#46)
+    build:
+      context: .
+      dockerfile: docker/mlflow.Dockerfile
     entrypoint: ["mlflow"]
     command:
       - server
