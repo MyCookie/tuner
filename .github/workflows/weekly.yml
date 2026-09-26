@@ -28,4 +28,13 @@ jobs:
         run: uv export --extra dev --extra train --no-hashes -o requirements-audit.txt
 
       - name: pip-audit
-        run: uvx pip-audit -r requirements-audit.txt
+        # SUPPRESSION: PYSEC-2026-3804 (accelerate <=1.14.0, path traversal + DoS in
+        # load_checkpoint_in_model / load_checkpoint_and_dispatch). No upstream fix
+        # release exists (advisory marks accelerate affected *through* 1.14.0, the
+        # current release -- a bump cannot resolve it). Not reachable in Tuner: those
+        # functions are never called, and every checkpoint we load is either a pinned
+        # upstream repo@revision or Tuner's own SafeTensors output -- never an
+        # attacker-influenced weight_map. Full exposure analysis + revisit trigger:
+        # tracking Issue #48. Remove this ignore when accelerate
+        # ships a fixed release.
+        run: uvx pip-audit -r requirements-audit.txt --ignore-vuln PYSEC-2026-3804
