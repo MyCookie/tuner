@@ -5,7 +5,7 @@ description: >
   review-lead to audit for over-engineering, unnecessary abstractions,
   bloated dependencies, and existing ponytail debt markers. Never invoked
   directly by the human — invoke review-lead instead.
-model: claude-sonnet-4-6
+model: claude-sonnet-5-5
 tools: Read, Grep, Glob, Bash, mcp__github
 disallowedTools: Edit, Write, MultiEdit
 permissionMode: default

@@ -6,7 +6,7 @@ description: >
   file-ownership units, shows the plan to the human, then spawns one
   implementation teammate per independent unit in its own git worktree.
   Reports completion to @manager with PR URLs.
-model: claude-opus-4-8
+model: claude-opus-5-5
 tools: Bash, Agent(implementer)
 permissionMode: default
 maxTurns: 300

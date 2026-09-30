@@ -5,7 +5,7 @@ description: >
   handoffs between research, implementation, and review, and governs the
   review-implement loop. Does not spawn teammates. Does not modify files.
   Invoke to run any pipeline task from end to end.
-model: claude-sonnet-4-6
+model: claude-opus-5-5
 tools: Bash
 disallowedTools: Edit, Write, MultiEdit
 permissionMode: default

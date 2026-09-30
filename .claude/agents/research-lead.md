@@ -6,7 +6,7 @@ description: >
   synthesises their findings into well-defined GitHub Issues, and reports
   back to @manager. Invoke to decompose a vague or complex goal into
   actionable tasks before implementation begins.
-model: claude-opus-4-8
+model: claude-opus-5-5
 tools: Read, Grep, Glob, Bash, mcp__github, Agent(researcher)
 disallowedTools: Edit, Write, MultiEdit
 permissionMode: default

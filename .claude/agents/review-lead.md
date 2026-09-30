@@ -6,7 +6,7 @@ description: >
   or full-audit (broad codebase audit, used when explicitly requested).
   Spawns five specialist reviewer teammates, synthesises findings into
   GitHub Issues, and reports back to @manager.
-model: claude-opus-4-8
+model: claude-opus-5-5
 tools: Bash, Agent(architect-reviewer, security-reviewer, quality-reviewer, docs-reviewer, simplicity-reviewer)
 permissionMode: default
 maxTurns: 200

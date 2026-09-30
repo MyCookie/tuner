@@ -4,7 +4,7 @@ description: >
   Read-only architect reviewer. Spawned by review-lead to audit the codebase
   from the architect perspective and file findings as GitHub Issues.
   Never invoked directly by the human — invoke review-lead instead.
-model: claude-sonnet-4-6
+model: claude-sonnet-5-5
 tools: Read, Grep, Glob, Bash, mcp__github
 disallowedTools: Edit, Write, MultiEdit
 permissionMode: default

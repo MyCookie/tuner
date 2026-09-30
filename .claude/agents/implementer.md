@@ -5,7 +5,7 @@ description: >
   GitHub Issues within an assigned git worktree. Owns a defined set of
   files exclusively. Opens a PR when done. Never invoked directly by the
   human — invoke impl-lead instead.
-model: claude-sonnet-4-6
+model: claude-sonnet-5-5
 tools: Read, Grep, Glob, Edit, Write, MultiEdit, Bash, mcp__github
 disallowedTools: Agent
 permissionMode: default
