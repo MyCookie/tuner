@@ -69,6 +69,8 @@ Agent(subagent_type: "code-reviewer", isolation: "worktree",
       prompt: "Review PR #<N> — branch <type>/<issue#>-<slug>, Issue #<issue#>.")
 ```
 
+In a team run the implementer is a subagent without the `Agent` tool, so the spawn is made by `impl-lead` or `review-lead`, both of which list `code-reviewer` in their `Agent(...)` allowlist. The lead that spawns the reviewer owns that round and must not spawn a second while one is running; the prompt rules below apply to it unchanged.
+
 Agent definitions in `.claude/agents/` are read when a session starts, so a newly added or edited one is **not** available as a `subagent_type` in the session that changed it. There, spawn a general-purpose agent and point it at `.claude/agents/code-reviewer.md` as its instructions instead — which also tests whether that file is self-sufficient.
 
 Keep that prompt short. §9 records it as the largest channel undermining the reviewer's independence: every risk it names, and the order it names them in, is the implementer deciding what gets looked at. Give the PR number, the branch, the task, and the facts the reviewer would otherwise waste time discovering — not a ranked list of what you think is risky.

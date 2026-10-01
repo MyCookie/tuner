@@ -48,14 +48,16 @@ When run by a team — a manager coordinating research, implementation, and revi
 | "Review what we built" | Review |
 
 **Review & merge — two layers:**
-- *Per PR:* a fresh `code-reviewer` agent re-runs the gate, reviews against the specs, and merges on `APPROVE` (never self-merge; five-round cap) — see the Git & review section above and [docs/spec/10-code-review.md](docs/spec/10-code-review.md).
+- *Per PR:* a fresh `code-reviewer` agent re-runs the gate, reviews against the specs, and merges on `APPROVE` (never self-merge; five-round cap). In a team run the `implementer` cannot spawn agents, so `impl-lead` and `review-lead` hold the permission to spawn `code-reviewer`; whichever lead spawns it owns that round, and a PR never has two reviewers running at once — see the Git & review section above and [docs/spec/10-code-review.md](docs/spec/10-code-review.md).
 - *Per cycle:* the review-lead diff-reviews the merged changes and files follow-up Issues; the manager governs the loop.
 
 **Loop bounds** (manager persists them in `.manager-state.json`; edit before starting): `max_iterations: 3` (hard ceiling) · `exit_severity_threshold: medium` (stop when no open Issue above it remains) · `human_checkpoint: every_cycle` · `max_open_issues_to_continue: 0` (stop only when clean).
 
 **Issues & labels:** `severity:high|medium|low`, `area:architecture|security|quality|docs|simplicity|research`, `type:feature|bug|task`, plus `needs-discussion` and the reviewer-set `review:approved` / `review:changes-requested`. Research Issues use `type:task`; review findings use their `area:` label. Every PR body carries `Closes #<n>` for each resolved Issue.
 
-**Messaging:** address sessions by `@name`; lead with status, then detail; don't poll — use idle notifications when waiting on a phase; `crossSessionInbound: accept` is set project-wide.
+**Models:** manager and the three leads run `claude-opus-5-5`; every subagent the leads spawn runs `claude-sonnet-5-5`; `code-reviewer` runs `opus` at `effort: high`.
+
+**Messaging:** address sessions by `@name`; every subagent a lead spawns has `SendMessage` and `ListAgents`; lead with status, then detail; don't poll — use idle notifications when waiting on a phase; `crossSessionInbound: accept` is set project-wide.
 
 **Plugins:** `ponytail@ponytail` (the simplicity-reviewer engine) and `mattpocock-skills@mattpocock` (`/grilling` for stress-testing a goal at intake) are declared in `.claude/settings.json`; per-person defaults belong in `.claude/settings.local.json`.
 
