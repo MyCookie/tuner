@@ -5,6 +5,8 @@ work across implementer agents, the implementers, and the reviewer that merges.
 It summarizes the workflow and routes you to the engineering docs that are
 normative. It does **not** restate the rules those docs already own — read them.
 
+Standing the team up from scratch? See [05-agent-team-setup.md](05-agent-team-setup.md).
+
 Single agent, one task? You mostly want [CLAUDE.md](../CLAUDE.md) and
 [docs/spec/07-build-plan.md](spec/07-build-plan.md); the team mechanics below
 still apply the moment a second agent joins.
