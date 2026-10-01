@@ -7,7 +7,7 @@ description: >
   Spawns five specialist reviewer teammates, synthesises findings into
   GitHub Issues, and reports back to @manager.
 model: claude-opus-5-5
-tools: Bash, SendMessage, ListAgents, Agent(architect-reviewer, security-reviewer, quality-reviewer, docs-reviewer, simplicity-reviewer)
+tools: Bash, SendMessage, ListAgents, Agent(architect-reviewer, security-reviewer, quality-reviewer, docs-reviewer, simplicity-reviewer, code-reviewer)
 permissionMode: default
 maxTurns: 200
 ---

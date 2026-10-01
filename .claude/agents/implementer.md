@@ -6,7 +6,7 @@ description: >
   files exclusively. Opens a PR when done. Never invoked directly by the
   human — invoke impl-lead instead.
 model: claude-sonnet-5-5
-tools: Read, Grep, Glob, Edit, Write, MultiEdit, Bash, mcp__github
+tools: Read, Grep, Glob, Edit, Write, MultiEdit, Bash, mcp__github, SendMessage, ListAgents
 disallowedTools: Agent
 permissionMode: default
 maxTurns: 150

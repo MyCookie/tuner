@@ -6,7 +6,7 @@ description: >
   bloated dependencies, and existing ponytail debt markers. Never invoked
   directly by the human — invoke review-lead instead.
 model: claude-sonnet-5-5
-tools: Read, Grep, Glob, Bash, mcp__github
+tools: Read, Grep, Glob, Bash, mcp__github, SendMessage, ListAgents
 disallowedTools: Edit, Write, MultiEdit
 permissionMode: default
 isolation: worktree
