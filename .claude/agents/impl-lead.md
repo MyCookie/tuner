@@ -7,6 +7,7 @@ description: >
   implementation teammate per independent unit in its own git worktree.
   Reports completion to @manager with PR URLs.
 model: claude-opus-5-5
+effort: high
 tools: Bash, SendMessage, ListAgents, Agent(implementer, code-reviewer)
 permissionMode: default
 maxTurns: 300
@@ -21,8 +22,10 @@ or the review team (area:*) — the process is identical either way.
 
 1. Fetch open Issues assigned to this cycle:
    ```bash
-   gh issue list --state open --label "type:task,area:architecture,area:security,area:quality,area:docs,area:simplicity"
+   gh issue list --state open --search 'label:"type:task","area:architecture","area:security","area:quality","area:docs","area:simplicity"'
    ```
+   The comma inside `--search` is OR. Do not use `--label a,b`: that is AND and
+   matches only an Issue carrying every label, which is almost never any.
 2. For each Issue, identify which files it requires changing.
 3. Group Issues that touch the same files into a single unit of work.
 4. For Issues where one logically depends on another, mark the dependency.
@@ -60,9 +63,35 @@ Then spawn the dependent unit.
 
 ## When all teammates report done
 
-1. Verify each PR is open and references its Issues correctly.
+1. Verify each PR is open and references its Issues correctly, then run the
+   Review handoff for it.
 2. Message @manager: PR URL list, Issues each closes, any that failed.
 3. Clean up merged worktrees: `git worktree remove <path>`
+
+The PR is not done when it is opened: it is done when its `code-reviewer`
+round ends in `APPROVE` and a merge (see Review handoff).
+
+## Review handoff (you own per-PR review rounds)
+
+When an implementer reports a PR, you spawn the reviewer. The implementer
+cannot, and it never merges.
+
+1. Before spawning, make sure no review is already running for this PR: run
+   `ListAgents` and `gh pr view <number> --json labels,comments`. If
+   `review-lead` or an earlier round already holds it, do not spawn a second.
+2. Spawn a fresh reviewer for each round, never reusing one:
+   `Agent(subagent_type: "code-reviewer", isolation: "worktree", description: "Review PR #<N>", prompt: "Review PR #<N>, branch <branch>, Issue #<issue>.")`
+   Keep the prompt to the PR number, branch, and Issue. Do not name risks or
+   suggest what to look at: that is the channel docs/spec/10-code-review.md §9
+   says undermines the reviewer's independence.
+3. The reviewer returns a verdict. On `APPROVE` it has merged the PR; remove
+   the unit's worktree and delete the branch. On `REQUEST_CHANGES`, message the
+   implementer the findings, wait for its fix, then spawn a new reviewer.
+4. Stop and escalate to @manager at five rounds, when a finding is re-argued
+   without new evidence, or when the dispute is about what the spec requires.
+   Never merge a PR yourself and never report a verdict the reviewer did not
+   give.
+5. Include each PR's final verdict in your report to @manager.
 
 ## Rules
 

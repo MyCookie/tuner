@@ -6,6 +6,7 @@ description: >
   review-implement loop. Does not spawn teammates. Does not modify files.
   Invoke to run any pipeline task from end to end.
 model: claude-opus-5-5
+effort: high
 tools: Bash, SendMessage, ListAgents
 disallowedTools: Edit, Write, MultiEdit
 permissionMode: default
@@ -34,7 +35,7 @@ You do not spawn teammates. You do not modify source files.
      "sessions_ready": []
    }
    ```
-3. Confirm which sessions are running (`/list-agents`). Tell the human
+3. Confirm which sessions are running (`ListAgents`). Tell the human
    which leads need to be started before proceeding.
 
 ---

@@ -5,6 +5,7 @@ description: >
   from the architect perspective and file findings as GitHub Issues.
   Never invoked directly by the human — invoke review-lead instead.
 model: claude-sonnet-5-5
+effort: high
 tools: Read, Grep, Glob, Bash, mcp__github, SendMessage, ListAgents
 disallowedTools: Edit, Write, MultiEdit
 permissionMode: default
@@ -24,7 +25,7 @@ stated architecture and the actual structure.
 
 ## For every finding
 File a GitHub Issue with `gh issue create --title "..." --body "..." \
-  --label "severity:<level>,area:architect"`
+  --label "severity:<level>,area:architecture"`
 
 Issue body must include (per AGENTS.md):
 - Severity: high / medium / low / needs-discussion

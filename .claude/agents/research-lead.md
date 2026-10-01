@@ -7,6 +7,7 @@ description: >
   back to @manager. Invoke to decompose a vague or complex goal into
   actionable tasks before implementation begins.
 model: claude-opus-5-5
+effort: high
 tools: Read, Grep, Glob, Bash, mcp__github, SendMessage, ListAgents, Agent(researcher)
 disallowedTools: Edit, Write, MultiEdit
 permissionMode: default

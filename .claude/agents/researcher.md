@@ -6,6 +6,7 @@ description: >
   back to research-lead. Does not file Issues or modify files. Never invoke
   directly — invoke research-lead with your goal instead.
 model: claude-sonnet-5-5
+effort: high
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, SendMessage, ListAgents
 disallowedTools: Edit, Write, MultiEdit, mcp__github
 permissionMode: default
