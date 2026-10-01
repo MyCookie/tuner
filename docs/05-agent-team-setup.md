@@ -24,19 +24,22 @@ spawned them.
 | `researcher` | `research-lead` | `claude-sonnet-5-5` | worktree | no |
 | `implementer` | `impl-lead` | `claude-sonnet-5-5` | the worktree `impl-lead` assigns | yes, only files it owns |
 | `architect-reviewer`, `security-reviewer`, `quality-reviewer`, `docs-reviewer`, `simplicity-reviewer` | `review-lead` | `claude-sonnet-5-5` | worktree | no |
-| `code-reviewer` | `impl-lead` or `review-lead`, per PR | `opus` (effort `high`) | worktree | no (merges PRs) |
+| `code-reviewer` | `impl-lead` (per PR); `review-lead` only when `@manager` asks | `opus` (effort `high`) | worktree | no (merges PRs) |
 
 `code-reviewer` is spawned fresh for each review round of each PR and is the only actor
 allowed to merge ([spec/10](spec/10-code-review.md)). The implementer has no `Agent` tool, so
 in a team run a lead spawns it: both `impl-lead` and `review-lead` list it in their
-`Agent(...)` allowlist. The lead that spawns it owns that round, and a PR never has two
-reviewers running at once.
+`Agent(...)` allowlist. `impl-lead` owns per-PR review
+rounds. `review-lead` spawns one only when `@manager` explicitly asks it to merge-review a
+PR. A PR never has two reviewers running at once.
 
-Every subagent a lead spawns (`researcher`, `implementer`, the five specialist reviewers) has
-`SendMessage` and `ListAgents` in its `tools:` line, so it can message its lead or another
-session and look up exact session names. `code-reviewer` does not have them.
+The manager, the three leads and every subagent (`researcher`, `implementer`, the five specialist
+reviewers, `code-reviewer`) have `SendMessage` and `ListAgents` in their `tools:` line, so they can
+message each other and look up exact session names. `code-reviewer` uses them only to
+escalate to the lead that spawned it (missing `.env`, branch protection, a disputed spec, a
+critical security finding); the verdict itself always goes on the PR.
 
-Model policy: leads and the manager on Opus 5.5, subagents on Sonnet 5.5. The model is a
+Model policy: leads and the manager on Opus 5.5, subagents on Sonnet 5.5, all at `effort: high`. The model is a
 single `model:` line in each agent's frontmatter, so a change is one line per file.
 
 ## 2. Prerequisites
@@ -56,7 +59,7 @@ Everything is checked in except per-person settings.
 | Path | Role |
 | :--- | :--- |
 | `.claude/agents/*.md` | one file per agent: frontmatter (model, tools, limits, isolation) plus the system prompt |
-| `.claude/settings.json` | sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`; declares the `ponytail` and `mattpocock` plugin marketplaces and enables both plugins |
+| `.claude/settings.json` | sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` and `crossSessionInbound: accept` (lets sessions deliver each other's messages); declares the `ponytail` and `mattpocock` plugin marketplaces and enables both plugins |
 | `.claude/settings.local.json` | per-person overrides; gitignored |
 | `CLAUDE.md` | conventions, routing table, loop bounds; loaded by every agent |
 | `AGENTS.md` | behavioural rules, Issue filing format, research output format; loaded by every agent |
@@ -148,8 +151,7 @@ Bounds live in two places that must agree: `CLAUDE.md` (the human-readable sourc
 }
 ```
 
-The manager creates this file itself if it is missing. It is not gitignored, so add
-`.manager-state.json` to `.gitignore` or it will end up in someone's commit.
+The manager creates this file itself if it is missing. It is gitignored.
 
 ### Step 6. Start the sessions
 
@@ -189,9 +191,9 @@ Run these in order. Each is cheap and each catches a distinct failure.
 
 1. Agent definitions load. In any session, run `/agents`. All 12 names appear, with the
    models from section 1.
-2. Leads can see each other. In `manager`, run `/list-agents`. The three leads are listed.
+2. Leads can see each other. In `manager`, use `ListAgents`. The three leads are listed.
    If they are not, the sessions were started from different directories or the
-   cross-session setting is off (see section 6).
+   `crossSessionInbound` setting in `.claude/settings.json` is not `accept`.
 3. Read-only roles are read-only. Ask `manager` to create a file. It must refuse.
    Also confirm a spawned subagent can call `ListAgents`; if it cannot, the lead was
    started before the `tools:` edit and needs a restart.
@@ -206,25 +208,17 @@ Run these in order. Each is cheap and each catches a distinct failure.
 Clean up after step 5: `git worktree list`, then `git worktree remove` for each leftover,
 delete the merged branch, and confirm `origin/main` is still green.
 
-## 6. Known drift to fix or work around
+## 6. Known drift
 
-These are mismatches between the agent files and the docs, found while writing this page.
-None blocks standing the stack up, but the first three will bite.
-
-| Where | Problem | Effect | Fix |
-| :--- | :--- | :--- | :--- |
-| `CLAUDE.md`, `docs/CONTRIBUTING.md` say `crossSessionInbound: accept` is set project-wide | it is not in `.claude/settings.json`, and no other file sets it | leads may not receive each other's messages | confirm the setting for your Claude Code version and commit it to `.claude/settings.json` |
-| `impl-lead.md` and `review-lead.md` prompts | both leads may spawn `code-reviewer`, but neither prompt says when or which lead does | the permission is unused, or both spawn a reviewer for the same PR | add one step to `impl-lead` ("after the implementer reports a PR, spawn `code-reviewer`") and tell `review-lead` not to unless asked |
-| `.claude/agents/architect-reviewer.md` files Issues with `area:architect` | the label is `area:architecture` | `gh issue create` fails or files an unlabeled Issue, and `impl-lead` never picks it up | change the label in the agent file |
-| `.claude/agents/manager.md` tells the manager to read "Review-implement loop bounds" | the `CLAUDE.md` heading is "Loop bounds" | manager cannot find the section and falls back to the JSON defaults | rename one of them |
-| `docs/spec/09-git-workflow.md` steps 5 and 6, `docs/spec/07-build-plan.md` | describe the single-agent flow where the implementer spawns the reviewer | contradicts the team flow, where the implementer cannot spawn | add a team-run note, as `spec/10` now has |
-| `.claude/agents/implementer.md` commits as `fix: <description> (closes #N)` | [spec/09](spec/09-git-workflow.md) requires `<type>(<scope>): ...` and `Refs:` | reviewer flags the commit format | have the implementer follow spec/09 |
-| `.manager-state.json` | not gitignored | state committed by accident | add it to `.gitignore` |
+None open. The mismatches found while writing this page (who spawns `code-reviewer`, models,
+messaging tools, labels, the loop-bounds heading, commit format, the cross-session setting, the
+`.manager-state.json` ignore, effort, the `impl-lead` label query) are fixed. If you find new
+drift between an agent file and the docs, record it here until it is fixed.
 
 ## 7. Changing the stack
 
-- Change a model: edit the `model:` line in the agent file. Effort goes in an `effort:`
-  line; only `code-reviewer` sets one today.
+- Change a model: edit the `model:` line in the agent file. Effort is the `effort:`
+  line below it; every agent sets `high`.
 - Add a subagent: create `.claude/agents/<name>.md`, then add `Agent(<name>)` to its
   lead's `tools:` line and to the lead's prompt. A lead cannot spawn what it does not list.
   Give it `SendMessage, ListAgents` in its own `tools:` if it needs to reach its lead.

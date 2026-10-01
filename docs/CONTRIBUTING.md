@@ -75,8 +75,9 @@ gate, reviews against the specs, and merges on `APPROVE`
 ([10-code-review.md](spec/10-code-review.md)). **You never merge your own PR**,
 and never report a review as approval it did not give. In a team run the
 implementer cannot spawn agents (`disallowedTools: Agent`), so `impl-lead` or
-`review-lead` spawns the `code-reviewer` for it; both are permitted to. Whichever
-lead does owns that round, and a PR never has two reviewers running at once. **CI is the source of
+`review-lead` spawns the `code-reviewer` for it; both are permitted to. `impl-lead`
+owns per-PR review rounds; `review-lead` spawns one only when `@manager` explicitly
+asks it to merge-review a PR, and a PR never has two reviewers running at once. **CI is the source of
 truth — never merge a red PR** (branch protection should enforce this); never
 merge-then-fix.
 
@@ -115,14 +116,14 @@ findings use their `area:` label. `needs-discussion` marks a call for a human;
 the reviewer agent sets `review:approved` / `review:changes-requested`.
 
 **Models and permissions.** The manager and the three leads run `claude-opus-5-5`;
-subagents run `claude-sonnet-5-5`; `code-reviewer` runs `opus` at `effort: high`.
-Every subagent a lead spawns has `SendMessage` and `ListAgents`, so it can message
-its lead and see which sessions are running. `impl-lead` may spawn `implementer` and
+subagents run `claude-sonnet-5-5`; `code-reviewer` runs `opus`. Every agent sets `effort: high`.
+The manager, the leads and every subagent have `SendMessage` and `ListAgents`, so
+they can message each other and see which sessions are running. `impl-lead` may spawn `implementer` and
 `code-reviewer`; `review-lead` may spawn the five specialist reviewers and
 `code-reviewer`. The definitions are in `.claude/agents/`.
 
 **Messaging.** Don't poll — use idle notifications when waiting on a phase.
-`crossSessionInbound: accept` is set project-wide.
+`crossSessionInbound: accept` is set project-wide in `.claude/settings.json`.
 
 ## When a unit is finished
 

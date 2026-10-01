@@ -69,7 +69,7 @@ Agent(subagent_type: "code-reviewer", isolation: "worktree",
       prompt: "Review PR #<N> — branch <type>/<issue#>-<slug>, Issue #<issue#>.")
 ```
 
-In a team run the implementer is a subagent without the `Agent` tool, so the spawn is made by `impl-lead` or `review-lead`, both of which list `code-reviewer` in their `Agent(...)` allowlist. The lead that spawns the reviewer owns that round and must not spawn a second while one is running; the prompt rules below apply to it unchanged.
+In a team run the implementer is a subagent without the `Agent` tool, so the spawn is made by `impl-lead` or `review-lead`, both of which list `code-reviewer` in their `Agent(...)` allowlist. `impl-lead` owns per-PR review rounds and spawns a fresh reviewer for each; `review-lead` spawns one only when `@manager` explicitly asks it to merge-review a PR. Neither may spawn a second reviewer while one is running, and the prompt rules below apply unchanged.
 
 Agent definitions in `.claude/agents/` are read when a session starts, so a newly added or edited one is **not** available as a `subagent_type` in the session that changed it. There, spawn a general-purpose agent and point it at `.claude/agents/code-reviewer.md` as its instructions instead — which also tests whether that file is self-sufficient.
 
