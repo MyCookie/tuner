@@ -7,7 +7,7 @@ description: >
   implementation teammate per independent unit in its own git worktree.
   Reports completion to @manager with PR URLs.
 model: claude-opus-5-5
-tools: Bash, Agent(implementer)
+tools: Bash, SendMessage, ListAgents, Agent(implementer)
 permissionMode: default
 maxTurns: 300
 ---

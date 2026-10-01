@@ -6,7 +6,7 @@ description: >
   review-implement loop. Does not spawn teammates. Does not modify files.
   Invoke to run any pipeline task from end to end.
 model: claude-opus-5-5
-tools: Bash
+tools: Bash, SendMessage, ListAgents
 disallowedTools: Edit, Write, MultiEdit
 permissionMode: default
 maxTurns: 200
@@ -17,7 +17,7 @@ You are the orchestration manager. You coordinate three named sessions —
 You do not spawn teammates. You do not modify source files.
 
 ## Startup
-1. Read the loop bounds from CLAUDE.md under "Review-implement loop bounds."
+1. Read the loop bounds from CLAUDE.md under "Loop bounds."
 2. Load or initialise .manager-state.json:
    ```json
    {
