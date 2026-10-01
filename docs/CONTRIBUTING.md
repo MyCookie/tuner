@@ -74,10 +74,8 @@ spawn a fresh independent reviewer
 gate, reviews against the specs, and merges on `APPROVE`
 ([10-code-review.md](spec/10-code-review.md)). **You never merge your own PR**,
 and never report a review as approval it did not give. In a team run the
-implementer cannot spawn agents (`disallowedTools: Agent`), so `impl-lead` or
-`review-lead` spawns the `code-reviewer` for it; both are permitted to. `impl-lead`
-owns per-PR review rounds; `review-lead` spawns one only when `@manager` explicitly
-asks it to merge-review a PR, and a PR never has two reviewers running at once. **CI is the source of
+implementer cannot spawn agents, so a lead spawns the reviewer
+([10 §3](spec/10-code-review.md)). **CI is the source of
 truth — never merge a red PR** (branch protection should enforce this); never
 merge-then-fix.
 
@@ -113,14 +111,13 @@ starting the manager): `max_iterations: 3` · `exit_severity_threshold: medium`
 `quality`, `docs`, `simplicity`, `research`), a `severity:` (`high|medium|low`),
 and a `type:` (`feature|bug|task`). Research Issues use `type:task`; review
 findings use their `area:` label. `needs-discussion` marks a call for a human;
-the reviewer agent sets `review:approved` / `review:changes-requested`.
+the reviewer agent sets `review:approved` / `review:changes-requested`; the
+lead that spawns a reviewer sets `review:in-progress` while it holds the PR.
 
-**Models and permissions.** The manager and the three leads run `claude-opus-5-5`;
-subagents run `claude-sonnet-5-5`; `code-reviewer` runs `opus`. Every agent sets `effort: high`.
-The manager, the leads and every subagent have `SendMessage` and `ListAgents`, so
-they can message each other and see which sessions are running. `impl-lead` may spawn `implementer` and
-`code-reviewer`; `review-lead` may spawn the five specialist reviewers and
-`code-reviewer`. The definitions are in `.claude/agents/`.
+**Models and permissions.** Each agent's frontmatter in `.claude/agents/` is the
+record of its model, effort, tools and what it may spawn;
+[05-agent-team-setup.md](05-agent-team-setup.md) §1 maps them. A subagent
+messages its lead with `SendMessage(to: "main")`, one-way.
 
 **Messaging.** Don't poll — use idle notifications when waiting on a phase.
 `crossSessionInbound: accept` is set project-wide in `.claude/settings.json`.
