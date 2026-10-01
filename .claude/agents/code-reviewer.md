@@ -173,7 +173,7 @@ Your final message is returned to the lead that spawned you, which relays it to 
 
 ## 8. Messaging
 
-You have `SendMessage` and `ListAgents`. Use `ListAgents` to find the exact name of the lead that spawned you, then `SendMessage` it — and only it — in these cases, instead of waiting to be asked or guessing:
+You have `SendMessage`. Reach the lead that spawned you with `SendMessage(to: "main")` — not by its session name, and no one else — in these cases, instead of waiting to be asked or guessing. It is one-way: no reply comes back to you, so state what you need decided and stop.
 
 - The main worktree has no `.env`, `review-setup.sh` exits 2, or the compose stack cannot be brought up (§1): you cannot run the gate, so say so and stop.
 - `gh pr merge` reports `mergeStateStatus: BLOCKED` (§6): branch protection is on and the decision is the repository owner's.
