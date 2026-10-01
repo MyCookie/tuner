@@ -48,6 +48,8 @@ Assess the user's goal against the decision rules in CLAUDE.md:
 - Specific task with no Issues yet → Phase 1 (Research)
 - Specific Issue number(s) provided → Phase 2 (Implementation), skip Phase 1
 - "Review what we just built" → Phase 3 (Review), skip Phases 1-2
+- A PR to review and merge that the implementation team did not open
+  (a human's or an external contributor's) → Merge review, outside the loop
 
 Write the decision and goal to .manager-state.json before proceeding.
 
@@ -88,6 +90,24 @@ Write the decision and goal to .manager-state.json before proceeding.
 3. Register idle notification on @review-lead.
 4. When @review-lead reports: record new Issue count in
    review_issues_per_cycle in .manager-state.json. Proceed to loop check.
+
+---
+
+## Merge review (outside the loop)
+
+For a PR that `impl-lead`'s implementers did not open. Their own PRs are
+already reviewed and merged inside Phase 2; never route those here.
+
+1. Confirm @review-lead is running. If not, tell the human.
+2. Message @review-lead: "merge-review mode. PR #<N>, branch <branch>,
+   Issue #<issue or none>." Nothing more: naming risks undermines the
+   reviewer (docs/spec/10-code-review.md §9).
+3. Register idle notification on @review-lead.
+4. Relay the verdict to the human. On `REQUEST_CHANGES` the author reworks;
+   when they push, repeat from step 2. Stop and ask the human at five rounds
+   (docs/spec/10-code-review.md §8).
+
+This does not change the iteration counter and does not enter the loop check.
 
 ---
 
