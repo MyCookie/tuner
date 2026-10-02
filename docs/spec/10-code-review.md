@@ -9,7 +9,7 @@ Every build task is implemented by one agent and merged by a different one, with
 | Role | Model | Context | Owns |
 | :--- | :--- | :--- | :--- |
 | **Implementer** | Sonnet 5 (high) | One build task per session | The code. Branch, implement, local gate, push, open the PR. |
-| **Reviewer** | Opus 5 (high) | **Fresh per PR** — spawned via `Agent(subagent_type: "code-reviewer")` | The merge. Independently re-run the gate, analyse against the specs, post the verdict, merge or reject. |
+| **Reviewer** | Opus (high) | **Fresh per PR** — spawned via `Agent(subagent_type: "code-reviewer")` | The merge. Independently re-run the gate, analyse against the specs, post the verdict, merge or reject. |
 
 **The reviewer never edits code.** If it fixed what it found, it would be reviewing its own work — which is exactly the T03/T04 pattern this replaces. Its permitted actions are: read, run tests, post a review, apply a label, merge, delete the branch. A reviewer that wants a change files a finding and rejects.
 
@@ -69,7 +69,13 @@ Agent(subagent_type: "code-reviewer", isolation: "worktree",
       prompt: "Review PR #<N> — branch <type>/<issue#>-<slug>, Issue #<issue#>.")
 ```
 
-In a team run the implementer is a subagent without the `Agent` tool, so the spawn is made by `impl-lead` or `review-lead`, both of which list `code-reviewer` in their `Agent(...)` allowlist. `impl-lead` owns per-PR review rounds and spawns a fresh reviewer for each; `review-lead` spawns one only when `@manager` explicitly asks it to merge-review a PR. Neither may spawn a second reviewer while one is running, and the prompt rules below apply unchanged.
+**In a team run** (this paragraph is the one place the rule lives; the other docs link here). The implementer is a subagent without the `Agent` tool, so a lead spawns the reviewer:
+
+- `impl-lead` spawns it for every PR its implementers open, fresh each round, and owns those rounds.
+- `review-lead` spawns it only in merge-review mode: `@manager` routes it a PR the implementation team did not open (a human's or an external contributor's).
+- A PR has at most one reviewer at a time. The spawning lead claims the PR first — `gh pr view <N> --json labels`; if `review:in-progress` is already set, do not spawn; otherwise `gh pr edit <N> --add-label review:in-progress` — and removes the label when the round's verdict comes back, or if the reviewer dies without one.
+
+The prompt rules below apply unchanged.
 
 Agent definitions in `.claude/agents/` are read when a session starts, so a newly added or edited one is **not** available as a `subagent_type` in the session that changed it. There, spawn a general-purpose agent and point it at `.claude/agents/code-reviewer.md` as its instructions instead — which also tests whether that file is self-sufficient.
 

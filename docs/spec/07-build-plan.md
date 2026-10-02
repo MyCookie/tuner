@@ -12,7 +12,7 @@ Every task from **T05** on is done when all ten hold. Steps 6–10 are the revie
 4. `./scripts/gate.sh` is green: ruff check + format, the pickle ban, unit and integration tests, and the ≥ 90 % global branch-coverage gate. It reports the per-module 100 % gate as `skipped` until `scripts/check_coverage.py` exists at T14 — until then, verify the listed modules in the coverage table yourself.
 5. Commits are atomic and Conventional ([09 §2–§3](09-git-workflow.md)); code and its tests land in the same commit.
 6. The branch is pushed to `origin` and a PR is open against `main` on the [repo template](../../.github/pull_request_template.md).
-7. A **fresh Opus 5 reviewer agent** has independently re-run the gate on the pushed branch in its own worktree — not trusting the implementer's output. (In a team run `impl-lead` or `review-lead` spawns it; the implementer cannot.)
+7. A **fresh Opus reviewer agent** has independently re-run the gate on the pushed branch in its own worktree — not trusting the implementer's output. (In a team run a lead spawns it: [10 §3](10-code-review.md).)
 8. That reviewer has posted a review on the PR: verdict, gate transcript, and every finding with a severity and the spec citation explaining why it is required.
 9. The verdict is `APPROVE` — no `blocker` or `major` findings outstanding.
 10. The reviewer merged the PR with a merge commit and deleted the branch; local `main` fast-forwards onto it.

@@ -8,7 +8,7 @@ description: >
   actionable tasks before implementation begins.
 model: claude-opus-5-5
 effort: high
-tools: Read, Grep, Glob, Bash, mcp__github, SendMessage, ListAgents, Agent(researcher)
+tools: Read, Grep, Glob, Bash, SendMessage, ListAgents, Agent(researcher)
 disallowedTools: Edit, Write, MultiEdit
 permissionMode: default
 maxTurns: 150

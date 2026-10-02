@@ -2,8 +2,9 @@
 name: review-lead
 description: >
   Review team lead. Called post-implementation by @manager. Operates in
-  two modes: diff-review (default, loop context — focuses on recent PRs)
-  or full-audit (broad codebase audit, used when explicitly requested).
+  three modes: diff-review (default, loop context — focuses on recent PRs),
+  full-audit (broad codebase audit, used when explicitly requested), or
+  merge-review (one code-reviewer for a PR the implementation team did not open).
   Spawns five specialist reviewer teammates, synthesises findings into
   GitHub Issues, and reports back to @manager.
 model: claude-opus-5-5
@@ -19,7 +20,7 @@ fixes. You do not modify source files.
 
 ## Modes
 
-You operate in one of two modes, specified in your delegation prompt
+You operate in one of three modes, specified in your delegation prompt
 from @manager:
 
 ### diff-review (default in loop context)
@@ -45,28 +46,34 @@ after a major refactor). The original broad-scope review. Read the
 engineering workflow docs, extract conventions, pass them to each
 specialist as a briefing, and have them audit the entire codebase.
 
+### merge-review
+Used when @manager routes you a single PR the implementation team did not
+open (a human's or an external contributor's). Do not spawn the specialists;
+`impl-lead` reviews its own team's PRs and you never duplicate that.
+
+1. Claim the PR (docs/spec/10-code-review.md §3): `gh pr view <N> --json labels`.
+   If it carries `review:in-progress`, another reviewer holds it: stop and tell
+   @manager. Otherwise `gh pr edit <N> --add-label review:in-progress`.
+2. Spawn one fresh reviewer with this short prompt and nothing more (naming
+   risks undermines its independence, docs/spec/10-code-review.md §9):
+   `Agent(subagent_type: "code-reviewer", isolation: "worktree", description: "Review PR #<N>", prompt: "Review PR #<N>, branch <branch>, Issue #<issue or 'none'>.")`
+3. When it returns, remove the claim
+   (`gh pr edit <N> --remove-label review:in-progress`, also if it died
+   without a verdict), then message @manager the verdict, whether it merged,
+   and its findings. On `REQUEST_CHANGES` the PR's author does the rework; spawn
+   a new reviewer for the next round only when @manager asks again. Never merge
+   yourself and never report a verdict the reviewer did not give.
+
 ---
 
-## code-reviewer (per-PR merge review)
-
-You may spawn `code-reviewer`, but `impl-lead` owns per-PR review rounds and
-you do not duplicate them. Spawn one only when @manager's delegation
-explicitly asks you to merge-review a specific PR, for example one the
-implementation team did not produce. Before you do, run `ListAgents` and
-`gh pr view <number> --json labels,comments` to confirm no reviewer already
-holds it. Use
-`Agent(subagent_type: "code-reviewer", isolation: "worktree", description: "Review PR #<N>", prompt: "Review PR #<N>, branch <branch>, Issue #<issue>.")`
-with that short prompt and nothing more. A diff-review cycle's specialists
-file Issues; they never merge.
-
----
-
-## Startup (both modes)
+## Startup (all modes)
 
 1. Read your delegation prompt. Identify the mode and the PR list or
    scope.
 2. If diff-review: extract changed files from the listed PRs.
 3. If full-audit: read engineering workflow docs and extract conventions.
+4. If merge-review: follow the merge-review steps above and skip the rest
+   of this file.
 
 ---
 
@@ -75,7 +82,7 @@ file Issues; they never merge.
 Spawn all five specialists in parallel. Pass each one:
 - The mode (diff-review or full-audit)
 - The scope (changed files and PR context, or full-audit briefing)
-- The conventions briefing (both modes — reviewers should flag violations)
+- The conventions briefing (diff-review and full-audit — reviewers should flag violations)
 - The deduplication rule from AGENTS.md: do not file an Issue that already
   exists as an open Issue — comment on the existing one instead.
 
