@@ -101,9 +101,20 @@ healthy container, unreachable from the host. `docker compose up -d
 **Loopback only.** Compose publishes every port on `127.0.0.1`, so the
 services are reachable from this machine and not from the LAN. That is the
 condition under which the archived MinIO build is accepted (local development
-and ephemeral CI only). If you genuinely need remote access, use a local
-`docker-compose.override.yaml` to republish the port. It sits outside that risk
-acceptance, so never commit it.
+and ephemeral CI only). If you genuinely need remote access, republish the port in a local
+`docker-compose.override.yaml` (git-ignored). Compose *appends* an override's
+`ports:` to the base file's, so a plain entry ends up binding both
+`127.0.0.1:5000` and `0.0.0.0:5000` and fails with `address already in use`; use
+`!override` to replace the list:
+
+```yaml
+services:
+  mlflow:
+    ports: !override
+      - "5000:5000"
+```
+
+This sits outside the risk acceptance, so never commit it.
 
 ### Stopping and restarting
 
