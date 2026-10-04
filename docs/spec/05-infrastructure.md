@@ -6,7 +6,7 @@ Environment story from local dev (MVP) to cloud production (Phase 3). The invari
 
 ## 1. Local topology (MVP) — Docker Compose
 
-`docker-compose.yaml` services:
+`docker-compose.yaml` services. Every published port (MinIO S3 + console, MLflow, and `mock-judge` in the `e2e` profile) is bound to `127.0.0.1` only (`"127.0.0.1:<port>:<port>"`), never `0.0.0.0` (#66); INF-U-007 asserts it. Services reach each other by service name on the compose network, which publishing does not affect.
 
 | Service | Image | Ports | Notes |
 | :--- | :--- | :--- | :--- |
@@ -85,6 +85,6 @@ Legend — `R` = `s3:ListBucket` + `s3:GetObject`; `W` = `R` **plus** `s3:PutObj
 - **Secrets:** env-only, per-stage scoped, never logged; `.env` git-ignored; K8s Secrets in cloud.
 - **Containers:** non-root, slim/CUDA-runtime bases, no package managers invoked at runtime.
 - **Weights & tensors:** SafeTensors end-to-end; `torch.load`/pickle is banned repo-wide (enforced by a ruff custom rule / grep check in CI).
-- **Network:** MVP has no ingress at all; only MinIO/MLflow consoles bound to localhost.
+- **Network:** MVP has no ingress at all; every published port (MinIO S3 + console, MLflow, and mock-judge in the e2e profile) is bound to `127.0.0.1` (§1).
 
 **MVP scope:** §1–§3, §5 (MinIO policies), §6. §4 is Phase 3.

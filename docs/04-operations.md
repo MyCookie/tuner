@@ -59,9 +59,9 @@ every other worktree's view of the stack.
 ```
 $ docker compose ps
 NAME                 IMAGE                                                                                                                         SERVICE      STATUS         PORTS
-tuner-minio-1        ghcr.io/mycookie/minio:RELEASE.2025-04-22T22-12-26Z@sha256:cb9cd82620b03734ef13b983c2cb479a67babe9e090cfb55499da614d40a0b75   minio        Up (healthy)   0.0.0.0:9000-9001->9000-9001/tcp
-tuner-mlflow-1       tuner-mlflow                                                                                                                  mlflow       Up (healthy)   0.0.0.0:5000->5000/tcp
-tuner-mock-judge-1   tuner-mock-judge                                                                                                              mock-judge   Up (healthy)   0.0.0.0:8088->8088/tcp
+tuner-minio-1        ghcr.io/mycookie/minio:RELEASE.2025-04-22T22-12-26Z@sha256:cb9cd82620b03734ef13b983c2cb479a67babe9e090cfb55499da614d40a0b75   minio        Up (healthy)   127.0.0.1:9000-9001->9000-9001/tcp
+tuner-mlflow-1       tuner-mlflow                                                                                                                  mlflow       Up (healthy)   127.0.0.1:5000->5000/tcp
+tuner-mock-judge-1   tuner-mock-judge                                                                                                              mock-judge   Up (healthy)   127.0.0.1:8088->8088/tcp
 ```
 (`PORTS` matters here — see the "healthy but unreachable" case just below,
 where this exact column is the tell.)
@@ -97,6 +97,13 @@ after MinIO had failed to bind port 9000 once brought the container back
 healthy container, unreachable from the host. `docker compose up -d
 --force-recreate minio` fixed it immediately. If a service is "healthy" but
 `curl` to its port fails, try that before anything more exotic.
+
+**Loopback only.** Compose publishes every port on `127.0.0.1`, so the
+services are reachable from this machine and not from the LAN. That is the
+condition under which the archived MinIO build is accepted (local development
+and ephemeral CI only). If you genuinely need remote access, use a local
+`docker-compose.override.yaml` to republish the port. It sits outside that risk
+acceptance, so never commit it.
 
 ### Stopping and restarting
 
@@ -304,7 +311,7 @@ row itself rather than presented as fact.
 | Symptom | Likely cause | What to do |
 | :--- | :--- | :--- |
 | `docker compose ps` shows a service without `(healthy)`, or it never turns healthy | The dependent service failed first — `mlflow` won't even start until `minio-init` exits `0` (`depends_on: condition: service_completed_successfully`) | `docker compose logs minio-init` first (it exits either way, so `ps` alone doesn't tell you if it failed); then `docker compose logs <service>` for whichever is stuck |
-| `docker compose up` fails with `Bind for 0.0.0.0:<port> failed: port is already allocated` | Something else on the host already owns 9000/9001/5000/8088 | Reproduced directly (another container held 9000): find and stop whatever's on that port (`docker ps`, or `lsof -i :<port>` outside Docker), or remap the port in a local compose override |
+| `docker compose up` fails with `Bind for 127.0.0.1:<port> failed: port is already allocated` | Something else on the host already owns 9000/9001/5000/8088 | Reproduced directly (another container held 9000): find and stop whatever's on that port (`docker ps`, or `lsof -i :<port>` outside Docker), or remap the port in a local compose override |
 | A service is `Up (healthy)` but `curl`/the browser can't reach its port; `docker compose ps`'s `PORTS` column is empty for it | The healthcheck runs inside the container and doesn't prove the host port bound — we saw this concretely after a port-conflict retry left the container "healthy" with no port mapping | `docker compose up -d --force-recreate <service>` — fixed it immediately in our test |
 | `docker compose down` (or `down -v`) leaves `mock-judge` running and prints `Network tuner_default Resource is still in use` | `mock-judge` is `profiles: ["e2e"]`; a plain `down` only manages default-profile services — verified directly | `docker compose --profile e2e down` (add `-v` too for a full reset) |
 | `...: missing required env var(s): TUNER_S3_ACCESS_KEY, ...` | `.env` missing/not filled in, or not exported into the shell running a host-venv stage | `cp .env.example .env`, fill it in, export it or inline it per [Getting started §4](00-getting-started.md) |
