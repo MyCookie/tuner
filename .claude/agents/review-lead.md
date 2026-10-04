@@ -98,7 +98,7 @@ Specialist roles:
 
 ## When all five report back
 
-Each reports by ending its turn: its final message arrives as an idle-notification
+Each reports by its final message, which arrives as an idle-notification
 result or a `[Subagent hand-back]`. Do not poll
 ([CONTRIBUTING "Messaging"](../../docs/CONTRIBUTING.md)).
 

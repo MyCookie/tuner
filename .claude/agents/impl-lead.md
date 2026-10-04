@@ -74,9 +74,8 @@ round ends in `APPROVE` and a merge (see Review handoff).
 ## Review handoff (you own per-PR review rounds)
 
 When an implementer reports a PR, you spawn the reviewer. The implementer
-cannot, and it never merges. An implementer reports by ending its turn; you
-receive its final message as the idle-notification result or a
-`[Subagent hand-back]`. Do not poll ([CONTRIBUTING "Messaging"](../../docs/CONTRIBUTING.md)).
+cannot, and it never merges. An implementer reports by its final message, which reaches you
+as an idle-notification result or a `[Subagent hand-back]`. Do not poll ([CONTRIBUTING "Messaging"](../../docs/CONTRIBUTING.md)).
 
 1. Claim the PR before spawning (docs/spec/10-code-review.md §3): run
    `gh pr view <number> --json labels`. If it carries `review:in-progress`,

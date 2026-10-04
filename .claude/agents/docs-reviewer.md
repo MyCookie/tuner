@@ -34,5 +34,5 @@ Issue body must include (per AGENTS.md):
 - Convention violated: cite the specific rule, or state needs-discussion
 
 ## Completion
-When all findings are filed, your final message is the report (call `SubagentHandback` if you have that tool; plain final text is not delivered), with: total count
+When all findings are filed, report by your final message: call `SubagentHandback` if you have it, otherwise end your turn ([CONTRIBUTING "Messaging"](../../docs/CONTRIBUTING.md)). Include: total count
 filed and the highest-severity finding (issue number + one-line summary).

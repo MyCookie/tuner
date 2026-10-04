@@ -211,7 +211,7 @@ Run these in order. Each is cheap and each catches a distinct failure.
 6. Subagent reporting. Have `impl-lead` spawn a named `implementer` probe told to
    `SendMessage(to: "team-lead")` once and then end. The message (attributed with the probe's
    name) and the final report must both reach the lead. Repeat with an `isolation: "worktree"` probe: it
-   must `SendMessage(to: "team-lead")` once (attributed) and end via `SubagentHandback`, which
+   must `SendMessage(to: "team-lead")` once (attributed) and report as [CONTRIBUTING "Messaging"](CONTRIBUTING.md) says; its final message
    arrives as a `[Subagent hand-back]`. Neither probe may touch `.env`.
 
 Clean up after steps 5-6: `git worktree list`, then `git worktree remove` for each leftover,
@@ -232,7 +232,7 @@ drift between an agent file and the docs, record it here until it is fixed.
   line below it.
 - Add a subagent: create `.claude/agents/<name>.md`, then add `Agent(<name>)` to its
   lead's `tools:` line and to the lead's prompt. A lead cannot spawn what it does not list.
-  Give it `SendMessage` (not `ListAgents`) in its own `tools:` if it needs a mid-task message to `team-lead`.
+  Give it `SendMessage` (not `ListAgents`) in its own `tools:` if it needs a mid-task message ([CONTRIBUTING "Messaging"](CONTRIBUTING.md)).
 - Add a lead: create its file, add it to the manager's phases and to the routing table in
   `CLAUDE.md`, and start a session for it.
 - After any edit to `.claude/agents/`, restart the affected sessions. A running session keeps

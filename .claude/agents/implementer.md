@@ -74,7 +74,7 @@ scope.
    ```
    The title is `TNN — <task title>` for a build-plan task
    (docs/spec/09-git-workflow.md §4), otherwise `<type>(<scope>): <description>`.
-5. Stop and report (your final message): PR URL, Issues closed, the gate result, any caveats.
+5. Stop and report (your final message; call `SubagentHandback` if you have it, otherwise end your turn ([CONTRIBUTING "Messaging"](../../docs/CONTRIBUTING.md))): PR URL, Issues closed, the gate result, any caveats.
    Then stop. You do not spawn a reviewer and you never merge: impl-lead
    spawns a fresh `code-reviewer`, which re-runs the gate and merges on APPROVE.
 6. If the reviewer requests changes, impl-lead resumes you with the findings.

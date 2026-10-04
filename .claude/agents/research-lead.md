@@ -58,7 +58,7 @@ Researcher specialisations to consider based on the goal:
 
 ## Step 3 — Synthesise findings
 
-When all researchers report back (each by ending its turn; the final message arrives as an idle-notification result or a `[Subagent hand-back]`; do not poll):
+When all researchers report back (their final messages arrive as idle-notification results or `[Subagent hand-back]`s, per [CONTRIBUTING "Messaging"](../../docs/CONTRIBUTING.md); do not poll):
 
 1. Reconcile any conflicting findings (note the conflict in the Issue).
 2. Group related findings into coherent tasks.

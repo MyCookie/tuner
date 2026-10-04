@@ -169,11 +169,11 @@ For a branch that is not a build task — `docs/`, `fix/`, `refactor/`, `chore/`
 
 ## 7. Report back
 
-Your final message (call `SubagentHandback` if you have that tool; plain final text is not delivered) is returned to the lead that spawned you, which relays it to the implementer and `@manager`; it is not shown to the user directly. Give it: the verdict, the gate summary, every finding with its severity, whether you merged, and the PR URL. Confirm you deleted `.env` from the worktree (§1) and that no tracked file was modified. Be explicit about anything you could not verify and why.
+Your final message is returned to the lead that spawned you, which relays it to the implementer and `@manager`; it is not shown to the user directly. Give it: the verdict, the gate summary, every finding with its severity, whether you merged, and the PR URL. Confirm you deleted `.env` from the worktree (§1) and that no tracked file was modified. Be explicit about anything you could not verify and why.
 
 ## 8. Messaging
 
-Your final message is the report, delivered by `SubagentHandback` if you have that tool (plain final text is not delivered), otherwise by ending your turn. Mid-task messages go only to `SendMessage(to: "team-lead")` — never `"main"`. Do not wait for a reply.
+Report by your final message: call `SubagentHandback` if you have it, otherwise end your turn ([CONTRIBUTING "Messaging"](../../docs/CONTRIBUTING.md)). Mid-task messages go only to `SendMessage(to: "team-lead")` — never `"main"`. Do not wait for a reply.
 
 Stop and make the blocker your final message, saying what decision is needed, in these cases:
 
