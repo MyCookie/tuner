@@ -56,17 +56,6 @@ DOCSTRING_ID_RE = re.compile(r"^(" + ID_RE.pattern + r"):")
 # lands. Kept in place: it's the mechanism the next case introduced ahead of
 # its test still needs.
 _DEFERRED: dict[str, str] = {
-    "MCP-U-001": "#63 (MCP server)",
-    "MCP-U-010": "#63 (MCP server)",
-    "MCP-U-011": "#63 (MCP server)",
-    "MCP-U-012": "#63 (MCP server)",
-    "MCP-U-013": "#63 (MCP server)",
-    "MCP-U-014": "#63 (MCP server)",
-    "MCP-U-020": "#63 (MCP server)",
-    "MCP-U-021": "#63 (MCP server)",
-    "MCP-U-022": "#63 (MCP server)",
-    "MCP-U-023": "#63 (MCP server)",
-    "MCP-U-030": "#63 (MCP server)",
     "MCP-I-030": "#63 (MCP server)",
     "MCP-I-031": "#63 (MCP server)",
     "MCP-I-032": "#63 (MCP server)",
