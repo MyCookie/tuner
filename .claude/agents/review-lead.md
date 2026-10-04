@@ -98,6 +98,10 @@ Specialist roles:
 
 ## When all five report back
 
+Each reports by ending its turn: its final message arrives as an idle-notification
+result or a `[Subagent hand-back]`. Do not poll
+([CONTRIBUTING "Messaging"](../../docs/CONTRIBUTING.md)).
+
 1. Deduplicate: collapse Issues with the same file:line and defect type.
 2. File each distinct finding as a GitHub Issue (or comment on existing).
 3. Open a tracking Issue for this review cycle: net new Issues filed,

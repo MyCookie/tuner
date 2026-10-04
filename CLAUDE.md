@@ -58,7 +58,7 @@ When run by a team — a manager coordinating research, implementation, and revi
 
 **Models:** each agent's `model:` and `effort:` lines in `.claude/agents/` are the only record; don't restate them in docs.
 
-**Messaging:** address sessions by `@name`; the manager, the leads and every subagent have `SendMessage` and `ListAgents`; lead with status, then detail; don't poll — use idle notifications when waiting on a phase; `crossSessionInbound: accept` is set project-wide in `.claude/settings.json`.
+**Messaging:** address sessions by `@name`; a subagent's final message is its report (via `SubagentHandback` when it has that tool), and mid-task messages go only to `SendMessage(to: "team-lead")` ([CONTRIBUTING "Messaging"](docs/CONTRIBUTING.md)); lead with status, then detail; don't poll — use idle notifications when waiting on a phase; `crossSessionInbound: accept` is set project-wide in `.claude/settings.json`.
 
 **Plugins:** `ponytail@ponytail` (the simplicity-reviewer engine) and `mattpocock-skills@mattpocock` (`/grilling` for stress-testing a goal at intake) are declared in `.claude/settings.json`; per-person defaults belong in `.claude/settings.local.json`.
 

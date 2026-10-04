@@ -7,7 +7,7 @@ description: >
   human — invoke impl-lead instead.
 model: claude-sonnet-5-5
 effort: high
-tools: Read, Grep, Glob, Edit, Write, MultiEdit, Bash, SendMessage, ListAgents
+tools: Read, Grep, Glob, Edit, Write, MultiEdit, Bash, SendMessage
 disallowedTools: Agent
 permissionMode: default
 maxTurns: 150
@@ -28,7 +28,7 @@ scope.
    (`git worktree list` shows it first), then
    `uv sync --extra dev --extra train` (the gate's integration tests need
    both, as in `scripts/review-setup.sh`). If the
-   main worktree has no `.env`, STOP and message @impl-lead: never invent
+   main worktree has no `.env`, STOP and report (your final message): never invent
    credentials or copy `.env.example` as-is, because the gate would fail on
    placeholder values. The compose stack is shared; if it is down,
    `docker compose up -d minio minio-init mlflow`. Delete your `.env` copy when
@@ -38,10 +38,10 @@ scope.
 - You own ONLY the files listed in your brief. Read others freely for
   context; modify only yours.
 - If fixing an issue correctly requires modifying a file outside your
-  ownership list, STOP. Message @impl-lead with the conflict before
+  ownership list, STOP and report the conflict (your final message) before
   proceeding.
 - If you discover your fix depends on work in another unit that has not
-  yet merged, STOP. Message @impl-lead to check dependency status.
+  yet merged, STOP and report the dependency (your final message).
 
 ## Implementation
 - Follow the engineering conventions in CLAUDE.md and AGENTS.md.
@@ -56,7 +56,7 @@ scope.
 1. Run the gate: `./scripts/gate.sh`. Not just the tests: it also runs ruff,
    the pickle ban, coverage and the docs and test-ID checks. Every check must
    pass. If it is red and you cannot fix it within your owned files, push the
-   branch, do not open a PR, and report the failing checks to @impl-lead.
+   branch, do not open a PR, and stop and report the failing checks (your final message).
 2. `git status` — confirm only your owned files changed and the tree is clean.
 3. Write the PR body from the template. It is the one permitted write outside
    your worktree, so the tree stays clean for step 4:
@@ -74,9 +74,9 @@ scope.
    ```
    The title is `TNN — <task title>` for a build-plan task
    (docs/spec/09-git-workflow.md §4), otherwise `<type>(<scope>): <description>`.
-5. Report to @impl-lead: PR URL, Issues closed, the gate result, any caveats.
-   Then stop. You do not spawn a reviewer and you never merge: @impl-lead
+5. Stop and report (your final message): PR URL, Issues closed, the gate result, any caveats.
+   Then stop. You do not spawn a reviewer and you never merge: impl-lead
    spawns a fresh `code-reviewer`, which re-runs the gate and merges on APPROVE.
-6. If the reviewer requests changes, @impl-lead will message you the findings.
+6. If the reviewer requests changes, impl-lead resumes you with the findings.
    Fix every blocker and major on the same branch, run the gate again, push,
-   and report back. A new reviewer is spawned for each round.
+   and end with your report again. A new reviewer is spawned for each round.

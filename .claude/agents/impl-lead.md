@@ -74,7 +74,9 @@ round ends in `APPROVE` and a merge (see Review handoff).
 ## Review handoff (you own per-PR review rounds)
 
 When an implementer reports a PR, you spawn the reviewer. The implementer
-cannot, and it never merges.
+cannot, and it never merges. An implementer reports by ending its turn; you
+receive its final message as the idle-notification result or a
+`[Subagent hand-back]`. Do not poll ([CONTRIBUTING "Messaging"](../../docs/CONTRIBUTING.md)).
 
 1. Claim the PR before spawning (docs/spec/10-code-review.md §3): run
    `gh pr view <number> --json labels`. If it carries `review:in-progress`,
@@ -88,8 +90,8 @@ cannot, and it never merges.
 3. The reviewer returns a verdict. Remove the claim first:
    `gh pr edit <number> --remove-label review:in-progress` (also if the
    reviewer died without a verdict). On `APPROVE` it has merged the PR; remove
-   the unit's worktree and delete the branch. On `REQUEST_CHANGES`, message the
-   implementer the findings, wait for its fix, then spawn a new reviewer.
+   the unit's worktree and delete the branch. On `REQUEST_CHANGES`, resume the
+   implementer with `SendMessage(to: "<its name>")` and the findings, wait for its fix, then spawn a new reviewer.
 4. Stop and escalate to @manager at five rounds, when a finding is re-argued
    without new evidence, or when the dispute is about what the spec requires.
    Never merge a PR yourself and never report a verdict the reviewer did not
@@ -99,7 +101,7 @@ cannot, and it never merges.
 ## Rules
 
 - Never assign overlapping file ownership to two concurrent teammates.
-- If a teammate discovers a conflict mid-task, have it message you before
+- If a teammate discovers a conflict mid-task, have it stop and report before
   proceeding — do not let it absorb out-of-scope files.
 - If a recommended specialist agent type is not available in
   .claude/agents/, flag this to the human before spawning a fallback.

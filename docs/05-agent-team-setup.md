@@ -34,9 +34,10 @@ lines are the only record, so a change is one line in one file. To see them all:
 merge. Which lead spawns it, and how a lead claims a PR so it never has two reviewers,
 is in [spec/10 §3](spec/10-code-review.md).
 
-Messaging is by `@name` between the four sessions. `code-reviewer` messages its lead only to escalate (missing
-`.env`, branch protection, a disputed spec, a critical security finding); the verdict
-itself always goes on the PR.
+Messaging is by `@name` between the four sessions. A subagent, `code-reviewer` included,
+reports by its final message, escalations too (missing `.env`, branch protection, a disputed
+spec, a critical security finding); the verdict itself always goes on the PR. See
+[CONTRIBUTING "Messaging"](CONTRIBUTING.md).
 
 ## 2. Prerequisites
 
@@ -66,7 +67,8 @@ Frontmatter fields the stack relies on:
 
 - `tools` is an allowlist. A lead lists the subagents it may spawn as `Agent(name, ...)`; a
   subagent that must not spawn lists `disallowedTools: Agent` or omits `Agent`. Messaging
-  tools (`SendMessage`, `ListAgents`) are granted the same way, by name in `tools:`.
+  tools are granted the same way, by name in `tools:`: subagents get `SendMessage` only;
+  leads and the manager also get `ListAgents`.
 - `disallowedTools: Edit, Write, MultiEdit` is what makes a role read-only. It is a guard
   rail, not a wall: any agent with `Bash` can still write. `AGENTS.md` states the rule.
 - `isolation: worktree` gives the subagent its own checkout.
@@ -206,7 +208,13 @@ Run these in order. Each is cheap and each catches a distinct failure.
    `./scripts/gate.sh` itself. The PR carries `review:in-progress` while the reviewer
    runs and loses it when the verdict lands.
 
-Clean up after step 5: `git worktree list`, then `git worktree remove` for each leftover,
+6. Subagent reporting. Have `impl-lead` spawn a named `implementer` probe told to
+   `SendMessage(to: "team-lead")` once and then end. The message (attributed with the probe's
+   name) and the final report must both reach the lead. Repeat with an `isolation: "worktree"` probe: it
+   must `SendMessage(to: "team-lead")` once (attributed) and end via `SubagentHandback`, which
+   arrives as a `[Subagent hand-back]`. Neither probe may touch `.env`.
+
+Clean up after steps 5-6: `git worktree list`, then `git worktree remove` for each leftover,
 delete the merged branch, delete the `worktree-agent-*` branches that `isolation: worktree`
 subagents leave behind (`git branch --list 'worktree-agent-*'`), and confirm `origin/main`
 is still green.
@@ -224,7 +232,7 @@ drift between an agent file and the docs, record it here until it is fixed.
   line below it.
 - Add a subagent: create `.claude/agents/<name>.md`, then add `Agent(<name>)` to its
   lead's `tools:` line and to the lead's prompt. A lead cannot spawn what it does not list.
-  Give it `SendMessage` in its own `tools:` if it needs to reach its lead.
+  Give it `SendMessage` (not `ListAgents`) in its own `tools:` if it needs a mid-task message to `team-lead`.
 - Add a lead: create its file, add it to the manager's phases and to the routing table in
   `CLAUDE.md`, and start a session for it.
 - After any edit to `.claude/agents/`, restart the affected sessions. A running session keeps

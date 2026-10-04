@@ -22,7 +22,7 @@ The `code-reviewer` agent definition withholds Edit and Write for this reason �
 ```
 implementer:  branch  →  implement  →  ./scripts/gate.sh  →  git push -u  →  gh pr create
                                                                                   ↓
-                                                          spawn fresh Opus reviewer (own worktree)
+                                                            spawn fresh reviewer (own worktree)
                                                                                   ↓
                                                   detached checkout of origin/<branch> → gate.sh → semantic analysis
                                                                                   ↓
