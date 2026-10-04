@@ -1,6 +1,6 @@
 # Test Suite: MCP Server (`MCP`)
 
-Spec under test: [mcp-server.md](../03-components/mcp-server.md), with contracts in [02 §5.2](../02-data-contracts.md) and the principal in [05 §5](../05-infrastructure.md). Files: `tests/unit/test_mcp_server.py`, `tests/integration/test_mcp_server.py`. Built in the implementation task for #63 ([07](../07-build-plan.md)).
+Spec under test: [mcp-server.md](../03-components/mcp-server.md), with contracts in [02 §5.2](../02-data-contracts.md) and the principal in [05 §5](../05-infrastructure.md). Files: `tests/unit/test_mcp_server.py`, `tests/integration/test_mcp_server_integration.py` (a distinct basename: the test dirs have no `__init__.py`, so pytest cannot import two `test_mcp_server.py`). Built in the implementation task for #63 ([07](../07-build-plan.md)).
 
 ## Setup
 
@@ -30,6 +30,6 @@ Spec under test: [mcp-server.md](../03-components/mcp-server.md), with contracts
 | :--- | :--- | :--- |
 | MCP-I-030 | Seeded manifests round-trip through both tools against real MinIO | `list_models` lists them newest first; `get_model` returns each as a valid `RegistryManifest` |
 | MCP-I-031 | The `tuner-mcp` credentials attempting a write to `tuner-registry` through the same `StorageClient` | Denied (the server's principal is read-only; complements `INF-I-003`) |
-| MCP-I-032 | **Stdio subprocess:** launch `tuner mcp` via `mcp.Client(StdioServerParameters(...))` with `TUNER_S3_*` set to the `tuner-mcp` pair; call `list_models` | The call succeeds, and ANY non-JSON-RPC line on the server's stdout fails the test: stdout is observed through the client's `message_handler` or a raw read of the subprocess stdout, because SDK 2.3's stdio client tolerates junk lines and a plain successful call proves nothing¹ |
+| MCP-I-032 | **Stdio subprocess:** launch `tuner mcp` via `mcp.Client(StdioServerParameters(...))` with `TUNER_S3_*` set to the `tuner-mcp` pair; call `list_models` | The call succeeds, and ANY non-JSON-RPC line on the server's stdout fails the test: stdout is observed by a raw read of the subprocess stdout (a tee wrapper), because SDK 2.3's stdio client tolerates junk lines (verified: not even `message_handler` sees them), so a plain successful call proves nothing¹ |
 
 ¹ **Explicit exception** to the README's "never subprocess" rule for exit-code assertions ([README Conventions](README.md)): the protocol wire is exactly what is under test. Coverage comes from the unit cases, not this one.

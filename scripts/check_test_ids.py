@@ -55,11 +55,7 @@ DOCSTRING_ID_RE = re.compile(r"^(" + ID_RE.pattern + r"):")
 # same commit that adds its test, and the dict goes back to empty once #63
 # lands. Kept in place: it's the mechanism the next case introduced ahead of
 # its test still needs.
-_DEFERRED: dict[str, str] = {
-    "MCP-I-030": "#63 (MCP server)",
-    "MCP-I-031": "#63 (MCP server)",
-    "MCP-I-032": "#63 (MCP server)",
-}
+_DEFERRED: dict[str, str] = {}
 
 
 def _spec_ids() -> dict[str, list[str]]:
