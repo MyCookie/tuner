@@ -78,7 +78,7 @@ clear message naming the fix, rather than a raw `ModuleNotFoundError`:
 
 ```
 $ uv run tuner train --help
-Error: 'train' needs the `train` extra (torch/transformers/peft/accelerate) -- run `uv sync --extra train` (05-infrastructure.md §3). Underlying import error: No module named 'accelerate'
+Error: 'train' needs the `train` extra (torch/transformers/peft/accelerate) -- run `uv sync --extra dev --extra train` (05-infrastructure.md §3). Underlying import error: No module named 'accelerate'
 ```
 
 (click prints this as one line — wrapped above only for this page's width.)
@@ -168,7 +168,7 @@ deployment — and the `train` extra, since `train`/`smoke` are part of `tuner
 run`:
 
 ```bash
-uv sync --extra train
+uv sync --extra dev --extra train
 docker compose --profile e2e up -d minio minio-init mlflow mock-judge
 ```
 
@@ -265,7 +265,7 @@ Either way it also needs:
   `bitsandbytes`, requires one) — either via `docker compose`'s
   `trainer`/`smoke` services (which request `nvidia` GPU passthrough), or, if
   that passthrough isn't set up on your box, the sanctioned fallback: run
-  those two stages from a host `uv` venv (`uv sync --extra train`, then
+  those two stages from a host `uv` venv (`uv sync --extra dev --extra train`, then
   `uv run tuner train ...` / `uv run tuner smoke ...`, same env vars, no code
   or command changes otherwise).
 - A valid `HF_TOKEN` (the repository itself is public/ungated, but the
@@ -323,7 +323,7 @@ see [Operations & troubleshooting](04-operations.md).
 | `ingest: missing required env var(s): TUNER_S3_ACCESS_KEY, TUNER_S3_SECRET_KEY` (or similar, any stage) | `.env` not created, not filled in, or not exported into your shell | `cp .env.example .env`, fill it in, and export it (or prefix each command as shown above) |
 | `...: Could not connect to the endpoint URL: "http://localhost:.../..."` (exit `1`) | MinIO isn't running, or `TUNER_S3_ENDPOINT` points somewhere unreachable | `docker compose up -d minio minio-init mlflow`, then re-check `TUNER_S3_ENDPOINT` |
 | `gate: no MinIO at ... — start the stack: docker compose up -d minio minio-init mlflow` | same, surfaced by `./scripts/gate.sh`'s own preflight check | same fix |
-| `Error: 'train' needs the \`train\` extra ...` | you called `train`/`smoke` without installing torch/transformers/peft/accelerate | `uv sync --extra train` |
+| `Error: 'train' needs the \`train\` extra ...` | you called `train`/`smoke` without installing torch/transformers/peft/accelerate | `uv sync --extra dev --extra train` |
 | `train`/`smoke` hang or fail looking for a CUDA device under `method: qlora` | no GPU, and no passthrough into Docker | either enable NVIDIA Docker passthrough, or run just `train`/`smoke` from a host venv per §5 above (`method: full`, as the CPU-fast path uses, needs no GPU at all) |
 | `run: pipeline empty at <stage>` (exit `3`) | every record was dropped at that stage (e.g. all filtered by cleaning rules or judge threshold) | check that stage's drop counts in its tier manifest (`{bucket}/{run_id}/manifest.json` in the MinIO console) |
 
