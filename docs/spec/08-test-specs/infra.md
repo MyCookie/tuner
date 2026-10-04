@@ -23,7 +23,7 @@ Integration cases read MinIO root credentials (`MINIO_ROOT_USER`/`MINIO_ROOT_PAS
 | ID | Scenario | Expected |
 | :--- | :--- | :--- |
 | INF-U-006 | `.env.example` completeness | Contains every env var named in [01 §4.3](../01-architecture.md), placeholder values only (a regex asserts nothing token-shaped) |
-| INF-U-007 | Compose validity | `docker compose config -q` succeeds; services/ports/profiles match the [05 §1](../05-infrastructure.md) table; no service defines a credential literal |
+| INF-U-007 | Compose validity | `docker compose config -q` succeeds; services/ports/profiles match the [05 §1](../05-infrastructure.md) table; every published port (9000, 9001, 5000, 8088) is published on `127.0.0.1` only; no service defines a credential literal |
 
 ## Hugging Face interaction
 

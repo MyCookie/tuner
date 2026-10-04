@@ -74,10 +74,15 @@ def test_compose_config_is_valid():
     assert result.returncode == 0, result.stderr
 
     compose_text = (REPO_ROOT / "docker-compose.yaml").read_text()
-    for service, ports in (("minio", ("9000", "9001")), ("mlflow", ("5000",))):
+    for service, ports in (
+        ("minio", ("9000", "9001")),
+        ("mlflow", ("5000",)),
+        ("mock-judge", ("8088",)),
+    ):
         assert f"\n  {service}:" in compose_text
         for port in ports:
-            assert f'"{port}:{port}"' in compose_text
+            assert f'"127.0.0.1:{port}:{port}"' in compose_text
+            assert f'"{port}:{port}"' not in compose_text, f"{port} published on all interfaces"
     for stage in ("ingestor", "cleaner", "judge", "tokenizer", "trainer", "smoke"):
         block = compose_text.split(f"\n  {stage}:")[1].split("\n\n")[0]
         assert 'profiles: ["pipeline"]' in block
