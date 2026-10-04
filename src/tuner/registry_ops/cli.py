@@ -18,7 +18,7 @@ from tuner.core.storage import StorageClient
 _COLUMNS = ("MODEL_VERSION", "ADAPTER", "CREATED_AT", "STATUS", "FINAL_EVAL_LOSS")
 
 
-def _load_manifests(storage: StorageClient) -> tuple[list[RegistryManifest], list[str]]:
+def load_manifests(storage: StorageClient) -> tuple[list[RegistryManifest], list[str]]:
     """Downloads every object under `tuner-registry` (CORE-I-048's empty-prefix fix --
     `{model_version}/manifest.json` keys have no shared parent prefix to enumerate
     under) and returns `(valid manifests, invalid object keys)` -- a manifest that
@@ -47,7 +47,7 @@ def registry_list(storage: StorageClient | None = None) -> int:
     """List every registered model version; returns the process exit code (always 0
     -- a diagnostic tool, per registry.md's own "must not die on one bad object")."""
     storage = storage or StorageClient()
-    manifests, invalid_keys = _load_manifests(storage)
+    manifests, invalid_keys = load_manifests(storage)
 
     if not manifests and not invalid_keys:
         click.echo("no models registered")
