@@ -122,7 +122,7 @@ record of its model, effort, tools and what it may spawn;
 its final message, and the lead always receives it: **call `SubagentHandback` if you have it,
 otherwise end your turn.** `SubagentHandback` is injected by the harness in async spawns and
 is not listed in any agent's `tools:`; in the teammate shape the tool is absent and ending
-the turn delivers the report. Plain final text without either is lost only in the async shape.
+the turn delivers the report. Plain final text is not delivered in the async shape, so there the tool is required.
 In a STOP case it stops and makes the blocker its final
 message, saying what decision is needed, and does not wait for a reply. Any mid-task message
 goes only to `SendMessage(to: "team-lead")` — never `"main"` and never the lead's session
