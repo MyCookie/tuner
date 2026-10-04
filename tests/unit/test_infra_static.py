@@ -62,6 +62,21 @@ def test_env_example_completeness():
         assert not _TOKEN_SHAPED.match(value), f"{name} looks token-shaped: {value!r}"
 
 
+def _published_ports(compose_text: str) -> set[tuple[str, str | None, str]]:
+    """(service, host_ip, published port) for every `ports:` entry, short or long syntax."""
+    published = set()
+    for service, spec in yaml.safe_load(compose_text)["services"].items():
+        for entry in spec.get("ports", []):
+            if isinstance(entry, dict):
+                host_ip, port = entry.get("host_ip"), str(entry.get("published", ""))
+            else:
+                parts = str(entry).rsplit(":", 2)
+                host_ip = parts[0] if len(parts) == 3 else None
+                port = parts[-2] if len(parts) >= 2 else ""
+            published.add((service, host_ip, port))
+    return published
+
+
 def test_compose_config_is_valid():
     """INF-U-007: `docker compose config -q` succeeds; services/ports/profiles per 05 §1."""
     result = subprocess.run(
@@ -74,10 +89,12 @@ def test_compose_config_is_valid():
     assert result.returncode == 0, result.stderr
 
     compose_text = (REPO_ROOT / "docker-compose.yaml").read_text()
-    for service, ports in (("minio", ("9000", "9001")), ("mlflow", ("5000",))):
-        assert f"\n  {service}:" in compose_text
-        for port in ports:
-            assert f'"{port}:{port}"' in compose_text
+    assert _published_ports(compose_text) == {
+        ("minio", "127.0.0.1", "9000"),
+        ("minio", "127.0.0.1", "9001"),
+        ("mlflow", "127.0.0.1", "5000"),
+        ("mock-judge", "127.0.0.1", "8088"),
+    }
     for stage in ("ingestor", "cleaner", "judge", "tokenizer", "trainer", "smoke"):
         block = compose_text.split(f"\n  {stage}:")[1].split("\n\n")[0]
         assert 'profiles: ["pipeline"]' in block

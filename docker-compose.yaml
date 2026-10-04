@@ -10,8 +10,8 @@ services:
     image: ghcr.io/mycookie/minio:RELEASE.2025-04-22T22-12-26Z@sha256:cb9cd82620b03734ef13b983c2cb479a67babe9e090cfb55499da614d40a0b75
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
@@ -69,7 +69,7 @@ services:
       - --port=5000
       - --allowed-hosts=localhost,localhost:5000,mlflow,mlflow:5000
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     environment:
       MLFLOW_S3_ENDPOINT_URL: http://minio:9000
       AWS_ACCESS_KEY_ID: ${MLFLOW_S3_ACCESS_KEY}
@@ -96,7 +96,7 @@ services:
       context: .
       dockerfile: docker/mock-judge.Dockerfile
     ports:
-      - "8088:8088"
+      - "127.0.0.1:8088:8088"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8088/docs')"]
       interval: 5s
