@@ -43,7 +43,7 @@ Each teammate's delegation prompt must include:
 - Its specific focus question (not a vague area)
 - Relevant context: file paths, existing code, constraints
 - The output format from AGENTS.md
-- "End your turn with your findings as your final message. Do not file Issues yourself."
+- "Report your findings by your final message (see CONTRIBUTING \"Messaging\"). Do not file Issues yourself."
 
 Researcher specialisations to consider based on the goal:
 

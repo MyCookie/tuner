@@ -68,7 +68,8 @@ Frontmatter fields the stack relies on:
 - `tools` is an allowlist. A lead lists the subagents it may spawn as `Agent(name, ...)`; a
   subagent that must not spawn lists `disallowedTools: Agent` or omits `Agent`. Messaging
   tools are granted the same way, by name in `tools:`: subagents get `SendMessage` only;
-  leads and the manager also get `ListAgents`.
+  leads and the manager also get `ListAgents`. `SubagentHandback` is never listed; the
+  harness injects it in async spawns ([CONTRIBUTING "Messaging"](CONTRIBUTING.md)).
 - `disallowedTools: Edit, Write, MultiEdit` is what makes a role read-only. It is a guard
   rail, not a wall: any agent with `Bash` can still write. `AGENTS.md` states the rule.
 - `isolation: worktree` gives the subagent its own checkout.

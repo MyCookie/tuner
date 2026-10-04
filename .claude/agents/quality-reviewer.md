@@ -33,7 +33,7 @@ Issue body must include (per AGENTS.md):
 - Convention violated: cite the specific rule, or state needs-discussion
 
 ## Completion
-When all findings are filed, the report is your final message.
+When all findings are filed:
 Report by your final message: call `SubagentHandback` if you have it, otherwise end your turn ([CONTRIBUTING "Messaging"](../../docs/CONTRIBUTING.md)).
 Include: total count
 filed and the highest-severity finding (issue number + one-line summary).
