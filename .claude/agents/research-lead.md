@@ -43,7 +43,7 @@ Each teammate's delegation prompt must include:
 - Its specific focus question (not a vague area)
 - Relevant context: file paths, existing code, constraints
 - The output format from AGENTS.md
-- "Report your findings back to me when done. Do not file Issues yourself."
+- "End your turn with your findings as your final message. Do not file Issues yourself."
 
 Researcher specialisations to consider based on the goal:
 
@@ -58,7 +58,7 @@ Researcher specialisations to consider based on the goal:
 
 ## Step 3 — Synthesise findings
 
-When all researchers report back:
+When all researchers report back (each by ending its turn; the final message arrives as an idle-notification result or a `[Subagent hand-back]`; do not poll):
 
 1. Reconcile any conflicting findings (note the conflict in the Issue).
 2. Group related findings into coherent tasks.

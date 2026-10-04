@@ -6,7 +6,7 @@ description: >
   Never invoked directly by the human — invoke review-lead instead.
 model: claude-sonnet-5-5
 effort: high
-tools: Read, Grep, Glob, Bash, SendMessage, ListAgents
+tools: Read, Grep, Glob, Bash, SendMessage
 disallowedTools: Edit, Write, MultiEdit
 permissionMode: default
 isolation: worktree
@@ -33,5 +33,5 @@ Issue body must include (per AGENTS.md):
 - Convention violated: cite the specific rule, or state needs-discussion
 
 ## Completion
-When all findings are filed, report to the review-lead with: total count
+When all findings are filed, your final message is the report, with: total count
 filed and the highest-severity finding (issue number + one-line summary).

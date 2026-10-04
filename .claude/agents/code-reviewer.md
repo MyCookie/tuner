@@ -4,7 +4,7 @@ description: Independent reviewer for a Tuner build-task pull request. Checks ou
 model: opus
 effort: high
 color: yellow
-tools: Read, Glob, Grep, Bash, SendMessage, ListAgents
+tools: Read, Glob, Grep, Bash, SendMessage
 isolation: worktree
 maxTurns: 150
 ---
@@ -154,7 +154,7 @@ gh pr merge <N> --merge \
   --subject "Merge feat/tNN-<slug>: TNN <task title>" \
   --body "Refs: TNN
 
-Reviewed-by: Opus 5 reviewer agent (round R)"
+Reviewed-by: reviewer agent (round R)"
 
 git push origin --delete feat/tNN-<slug>      # NOT `gh pr merge --delete-branch`
 ```
@@ -173,7 +173,7 @@ Your final message is returned to the lead that spawned you, which relays it to 
 
 ## 8. Messaging
 
-You have `SendMessage` and `ListAgents`. Use `ListAgents` to find the exact name of the lead that spawned you, then `SendMessage` it — and only it — in these cases, instead of waiting to be asked or guessing:
+In these cases, stop and make the blocker your final message, saying what decision is needed; do not wait for a reply. Only if it cannot wait, `SendMessage(to: "team-lead")` — never `"main"`:
 
 - The main worktree has no `.env`, `review-setup.sh` exits 2, or the compose stack cannot be brought up (§1): you cannot run the gate, so say so and stop.
 - `gh pr merge` reports `mergeStateStatus: BLOCKED` (§6): branch protection is on and the decision is the repository owner's.

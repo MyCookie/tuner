@@ -7,7 +7,7 @@ description: >
   directly — invoke research-lead with your goal instead.
 model: claude-sonnet-5-5
 effort: high
-tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, SendMessage, ListAgents
+tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, SendMessage
 disallowedTools: Edit, Write, MultiEdit, mcp__github
 permissionMode: default
 isolation: worktree
@@ -32,7 +32,7 @@ implement anything. You do not modify files. You do not file Issues.
 
 ## Output format (per AGENTS.md)
 
-Structure your report to research-lead as:
+Your final message is the report. Structure it as:
 
 For each finding:
 - **Finding**: what was discovered

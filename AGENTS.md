@@ -14,16 +14,16 @@
 - A task is **done** when: the defined output exists, tests pass (if
   applicable), and you have reported completion to your lead or @manager.
 - A task is **blocked** when: a dependency is unmet or you have discovered
-  a file-ownership conflict. Message your lead immediately; do not proceed.
+  a file-ownership conflict. Stop and make the blocker your final message; do not proceed.
 - A task is **in-progress** — claim it in the task list before starting.
   Never work on an unclaimed task.
 
 ## Communication rules
 - Keep messages terse and structured. Lead with status, follow with detail.
 - Do not send progress updates mid-task unless blocked.
-- Subagents have `SendMessage` and `ListAgents`. Use them to message your
-  lead, or to route out-of-scope work to the right session; use `ListAgents`
-  to find a session's exact name first.
+- A subagent's final message is its report; mid-task messages go only to
+  `SendMessage(to: "team-lead")`
+  ([CONTRIBUTING "Messaging"](docs/CONTRIBUTING.md)).
 - Escalate to the human (not just your lead) if: a file ownership conflict
   cannot be resolved, a critical security vulnerability is found, or any
   loop iteration produces more high-severity Issues than it resolves.
