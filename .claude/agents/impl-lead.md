@@ -52,6 +52,8 @@ Spawn one `implementer` per independent (non-blocked) unit, passing each:
 - Files it owns exclusively (explicit list)
 - Any dependency: "do not start until unit X's PR has merged"
 
+The call is `Agent(subagent_type: "implementer", name: "impl-<issue#>", description: …, prompt: …)`: a `name:`, no `isolation`. It is resumed by name, and works in the worktree you already created rather than a second one harness isolation would make.
+
 ## Sequencing dependent units
 
 Do not spawn a dependent unit until its dependency's PR has merged into
@@ -74,9 +76,8 @@ round ends in `APPROVE` and a merge (see Review handoff).
 ## Review handoff (you own per-PR review rounds)
 
 When an implementer reports a PR, you spawn the reviewer. The implementer
-cannot, and it never merges. An implementer reports by ending its turn; you
-receive its final message as the idle-notification result or a
-`[Subagent hand-back]`. Do not poll ([CONTRIBUTING "Messaging"](../../docs/CONTRIBUTING.md)).
+cannot, and it never merges. An implementer reports by its final message, which reaches you
+as an idle-notification result or a `[Subagent hand-back]`. Do not poll ([CONTRIBUTING "Messaging"](../../docs/CONTRIBUTING.md)).
 
 1. Claim the PR before spawning (docs/spec/10-code-review.md §3): run
    `gh pr view <number> --json labels`. If it carries `review:in-progress`,

@@ -32,7 +32,7 @@ implement anything. You do not modify files. You do not file Issues.
 
 ## Output format (per AGENTS.md)
 
-Your final message is the report ((call `SubagentHandback` if you have that tool; plain final text is not delivered). Structure it as:
+Report by your final message: call `SubagentHandback` if you have it, otherwise end your turn ([CONTRIBUTING "Messaging"](../../docs/CONTRIBUTING.md)). Structure it as:
 
 For each finding:
 - **Finding**: what was discovered
