@@ -52,6 +52,8 @@ Spawn one `implementer` per independent (non-blocked) unit, passing each:
 - Files it owns exclusively (explicit list)
 - Any dependency: "do not start until unit X's PR has merged"
 
+The call is `Agent(subagent_type: "implementer", name: "impl-<issue#>", description: …, prompt: …)`: a `name:`, no `isolation`. It is resumed by name, and works in the worktree you already created rather than a second one harness isolation would make.
+
 ## Sequencing dependent units
 
 Do not spawn a dependent unit until its dependency's PR has merged into

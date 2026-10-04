@@ -36,7 +36,7 @@ is in [spec/10 §3](spec/10-code-review.md).
 
 Messaging is by `@name` between the four sessions. A subagent, `code-reviewer` included,
 reports by its final message, escalations too (missing `.env`, branch protection, a disputed
-spec, a critical security finding); the verdict itself always goes on the PR. See
+spec); the one mid-task exception is in [code-reviewer §8](../.claude/agents/code-reviewer.md). The verdict itself always goes on the PR. See
 [CONTRIBUTING "Messaging"](CONTRIBUTING.md).
 
 ## 2. Prerequisites
