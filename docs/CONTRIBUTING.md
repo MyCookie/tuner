@@ -116,8 +116,7 @@ lead that spawns a reviewer sets `review:in-progress` while it holds the PR.
 
 **Models and permissions.** Each agent's frontmatter in `.claude/agents/` is the
 record of its model, effort, tools and what it may spawn;
-[05-agent-team-setup.md](05-agent-team-setup.md) §1 maps them. A subagent
-messages its lead with `SendMessage(to: "main")`, one-way.
+[05-agent-team-setup.md](05-agent-team-setup.md) §1 maps them.
 
 **Messaging.** Don't poll — use idle notifications when waiting on a phase.
 `crossSessionInbound: accept` is set project-wide in `.claude/settings.json`.

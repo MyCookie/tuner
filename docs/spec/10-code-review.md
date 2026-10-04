@@ -6,10 +6,10 @@ Every build task is implemented by one agent and merged by a different one, with
 
 ## 1. Roles
 
-| Role | Model | Context | Owns |
-| :--- | :--- | :--- | :--- |
-| **Implementer** | Sonnet 5 (high) | One build task per session | The code. Branch, implement, local gate, push, open the PR. |
-| **Reviewer** | Opus (high) | **Fresh per PR** — spawned via `Agent(subagent_type: "code-reviewer")` | The merge. Independently re-run the gate, analyse against the specs, post the verdict, merge or reject. |
+| Role | Context | Owns |
+| :--- | :--- | :--- |
+| **Implementer** | One build task per session | The code. Branch, implement, local gate, push, open the PR. |
+| **Reviewer** | **Fresh per PR** — spawned via `Agent(subagent_type: "code-reviewer")` | The merge. Independently re-run the gate, analyse against the specs, post the verdict, merge or reject. |
 
 **The reviewer never edits code.** If it fixed what it found, it would be reviewing its own work — which is exactly the T03/T04 pattern this replaces. Its permitted actions are: read, run tests, post a review, apply a label, merge, delete the branch. A reviewer that wants a change files a finding and rejects.
 
@@ -195,7 +195,7 @@ gh pr merge <N> --merge \
   --subject "Merge <type>/<issue#>-<slug>: #<issue#> <title>" \
   --body "Closes #<issue#>
 
-Reviewed-by: Opus 5 reviewer agent (round R)"
+Reviewed-by: reviewer agent (round R)"
 
 git push origin --delete <type>/<issue#>-<slug>      # NOT `gh pr merge --delete-branch`
 ```

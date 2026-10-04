@@ -34,10 +34,7 @@ lines are the only record, so a change is one line in one file. To see them all:
 merge. Which lead spawns it, and how a lead claims a PR so it never has two reviewers,
 is in [spec/10 §3](spec/10-code-review.md).
 
-Messaging is by `@name` between the four sessions. A subagent reaches the lead that
-spawned it with `SendMessage(to: "main")`, never by the lead's session name, and only
-one way: replies never reach a subagent. A lead answers by messaging the subagent by
-name, which resumes it. `code-reviewer` messages its lead only to escalate (missing
+Messaging is by `@name` between the four sessions. `code-reviewer` messages its lead only to escalate (missing
 `.env`, branch protection, a disputed spec, a critical security finding); the verdict
 itself always goes on the PR.
 
@@ -207,8 +204,7 @@ Run these in order. Each is cheap and each catches a distinct failure.
    show a plan table and wait for approval, `implementer` must work inside its worktree, and
    the PR must reach exactly one `code-reviewer`, spawned by a lead, that re-runs
    `./scripts/gate.sh` itself. The PR carries `review:in-progress` while the reviewer
-   runs and loses it when the verdict lands. To test messaging, first move `.env`
-   aside: the implementer must stop and its message must reach `impl-lead`.
+   runs and loses it when the verdict lands.
 
 Clean up after step 5: `git worktree list`, then `git worktree remove` for each leftover,
 delete the merged branch, delete the `worktree-agent-*` branches that `isolation: worktree`
@@ -225,10 +221,10 @@ drift between an agent file and the docs, record it here until it is fixed.
 ## 7. Changing the stack
 
 - Change a model: edit the `model:` line in the agent file. Effort is the `effort:`
-  line below it; every agent sets `high`.
+  line below it.
 - Add a subagent: create `.claude/agents/<name>.md`, then add `Agent(<name>)` to its
   lead's `tools:` line and to the lead's prompt. A lead cannot spawn what it does not list.
-  Give it `SendMessage` in its own `tools:` if it needs to reach its lead (`to: "main"`).
+  Give it `SendMessage` in its own `tools:` if it needs to reach its lead.
 - Add a lead: create its file, add it to the manager's phases and to the routing table in
   `CLAUDE.md`, and start a session for it.
 - After any edit to `.claude/agents/`, restart the affected sessions. A running session keeps

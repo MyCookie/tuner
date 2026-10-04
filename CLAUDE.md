@@ -58,13 +58,13 @@ When run by a team — a manager coordinating research, implementation, and revi
 
 **Models:** each agent's `model:` and `effort:` lines in `.claude/agents/` are the only record; don't restate them in docs.
 
-**Messaging:** address sessions by `@name`; a subagent reaches the lead that spawned it with `SendMessage(to: "main")` — one-way: replies never reach a subagent, so a lead answers by messaging the subagent by name, which resumes it; lead with status, then detail; don't poll — use idle notifications when waiting on a phase; `crossSessionInbound: accept` is set project-wide in `.claude/settings.json`.
+**Messaging:** address sessions by `@name`; the manager, the leads and every subagent have `SendMessage` and `ListAgents`; lead with status, then detail; don't poll — use idle notifications when waiting on a phase; `crossSessionInbound: accept` is set project-wide in `.claude/settings.json`.
 
 **Plugins:** `ponytail@ponytail` (the simplicity-reviewer engine) and `mattpocock-skills@mattpocock` (`/grilling` for stress-testing a goal at intake) are declared in `.claude/settings.json`; per-person defaults belong in `.claude/settings.local.json`.
 
 ## Tooling (fixed — do not churn)
 
-- Python 3.11+, **uv** for env/deps (`uv sync --extra dev` — the test toolchain is an extra, so a bare `uv sync` uninstalls ruff and pytest; then `uv run ...`), src-layout single package `tuner`.
+- Python 3.11+, **uv** for env/deps (`uv sync --extra dev --extra train` — the test toolchain is an extra, so a bare `uv sync` uninstalls ruff and pytest; then `uv run ...`), src-layout single package `tuner`.
 - **ruff** for lint + format (`uv run ruff check --fix . && uv run ruff format .`).
 - **pytest**; markers: default = unit, `-m integration` needs `docker compose up -d minio minio-init mlflow`, `-m e2e` is the full steel thread.
 - CLI framework: **click**, single `tuner` entrypoint.

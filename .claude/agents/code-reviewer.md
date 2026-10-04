@@ -25,7 +25,7 @@ You are running in your own git worktree. One command sets it up:
 ./scripts/review-setup.sh <branch-under-review>
 ```
 
-It fetches, checks out `origin/<branch>` detached — the branch is checked out in the implementer's tree, and reviewing origin's copy is what makes this a review of what was published — copies `.env` in from the main worktree, and runs `uv sync --extra dev`. It refuses to run in the main worktree. If a precondition is unmet it exits 2 and names the fix; if it tells you the main worktree has no `.env`, stop and report that rather than inventing credentials or skipping the integration tests.
+It fetches, checks out `origin/<branch>` detached — the branch is checked out in the implementer's tree, and reviewing origin's copy is what makes this a review of what was published — copies `.env` in from the main worktree, and runs `uv sync --extra dev --extra train`. It refuses to run in the main worktree. If a precondition is unmet it exits 2 and names the fix; if it tells you the main worktree has no `.env`, stop and report that rather than inventing credentials or skipping the integration tests.
 
 Then:
 
@@ -173,7 +173,7 @@ Your final message is returned to the lead that spawned you, which relays it to 
 
 ## 8. Messaging
 
-You have `SendMessage`. Reach the lead that spawned you with `SendMessage(to: "main")` — not by its session name, and no one else — in these cases, instead of waiting to be asked or guessing. It is one-way: no reply comes back to you, so state what you need decided and stop.
+You have `SendMessage` and `ListAgents`. Use `ListAgents` to find the exact name of the lead that spawned you, then `SendMessage` it — and only it — in these cases, instead of waiting to be asked or guessing:
 
 - The main worktree has no `.env`, `review-setup.sh` exits 2, or the compose stack cannot be brought up (§1): you cannot run the gate, so say so and stop.
 - `gh pr merge` reports `mergeStateStatus: BLOCKED` (§6): branch protection is on and the decision is the repository owner's.

@@ -28,8 +28,7 @@ scope.
    (`git worktree list` shows it first), then
    `uv sync --extra dev --extra train` (the gate's integration tests need
    both, as in `scripts/review-setup.sh`). If the
-   main worktree has no `.env`, STOP and message your lead with
-   `SendMessage(to: "main")`: never invent
+   main worktree has no `.env`, STOP and message @impl-lead: never invent
    credentials or copy `.env.example` as-is, because the gate would fail on
    placeholder values. The compose stack is shared; if it is down,
    `docker compose up -d minio minio-init mlflow`. Delete your `.env` copy when

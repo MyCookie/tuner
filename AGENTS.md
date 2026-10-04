@@ -21,10 +21,9 @@
 ## Communication rules
 - Keep messages terse and structured. Lead with status, follow with detail.
 - Do not send progress updates mid-task unless blocked.
-- A subagent messages the lead that spawned it with `SendMessage(to: "main")`,
-  never by the lead's session name. It is one-way: a reply never reaches a
-  subagent, so ask for nothing back and route out-of-scope work through your
-  lead. A lead answers by messaging the subagent by name, which resumes it.
+- Subagents have `SendMessage` and `ListAgents`. Use them to message your
+  lead, or to route out-of-scope work to the right session; use `ListAgents`
+  to find a session's exact name first.
 - Escalate to the human (not just your lead) if: a file ownership conflict
   cannot be resolved, a critical security vulnerability is found, or any
   loop iteration produces more high-severity Issues than it resolves.

@@ -5,7 +5,8 @@ description: >
   three modes: diff-review (default, loop context — focuses on recent PRs),
   full-audit (broad codebase audit, used when explicitly requested), or
   merge-review (one code-reviewer for a PR the implementation team did not open).
-  Spawns five specialist reviewer teammates, synthesises findings into
+  Spawns five specialist reviewer teammates (diff-review and full-audit modes
+  only; merge-review spawns just the one code-reviewer), synthesises findings into
   GitHub Issues, and reports back to @manager.
 model: claude-opus-5-5
 effort: high

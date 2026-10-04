@@ -71,7 +71,7 @@ fi
 for tool in ruff pytest; do
     if ! uv run --no-sync "$tool" --version >/dev/null 2>&1; then
         echo "gate: $tool is not installed in .venv — the test toolchain is an extra:" >&2
-        echo "      uv sync --extra dev" >&2
+        echo "      uv sync --extra dev --extra train" >&2
         exit 2
     fi
 done
