@@ -30,6 +30,6 @@ Spec under test: [mcp-server.md](../03-components/mcp-server.md), with contracts
 | :--- | :--- | :--- |
 | MCP-I-030 | Seeded manifests round-trip through both tools against real MinIO | `list_models` lists them newest first; `get_model` returns each as a valid `RegistryManifest` |
 | MCP-I-031 | The `tuner-mcp` credentials attempting a write to `tuner-registry` through the same `StorageClient` | Denied (the server's principal is read-only; complements `INF-I-003`) |
-| MCP-I-032 | **Stdio subprocess:** launch `tuner mcp` via `mcp.Client(StdioServerParameters(...))` with `TUNER_S3_*` set to the `tuner-mcp` pair; call `list_models` | The call succeeds, and nothing but JSON-RPC messages reached the server's stdout¹ |
+| MCP-I-032 | **Stdio subprocess:** launch `tuner mcp` via `mcp.Client(StdioServerParameters(...))` with `TUNER_S3_*` set to the `tuner-mcp` pair; call `list_models` | The call succeeds, and ANY non-JSON-RPC line on the server's stdout fails the test: stdout is observed through the client's `message_handler` or a raw read of the subprocess stdout, because SDK 2.3's stdio client tolerates junk lines and a plain successful call proves nothing¹ |
 
 ¹ **Explicit exception** to the README's "never subprocess" rule for exit-code assertions ([README Conventions](README.md)): the protocol wire is exactly what is under test. Coverage comes from the unit cases, not this one.

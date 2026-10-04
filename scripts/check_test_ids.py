@@ -51,11 +51,10 @@ DOCSTRING_ID_RE = re.compile(r"^(" + ID_RE.pattern + r"):")
 # check" discipline) rather than a blanket "skip every G/S case" rule, so a *future*
 # G/S case introduced within an already-built task still has to have a real test.
 #
-# T15 landed real tests for all three of the entries this dict used to carry
-# (TRN-G-020 in tests/integration/test_trainer.py; INF-S-020/021 in the new
-# tests/slow/ -- see TEST_DIRS above), so it's empty now. Left in place, not
-# deleted: it's the mechanism the *next* G/S case introduced within an
-# already-built task still needs.
+# It currently holds the #63 (MCP server) cases; each entry is removed in the
+# same commit that adds its test, and the dict goes back to empty once #63
+# lands. Kept in place: it's the mechanism the next case introduced ahead of
+# its test still needs.
 _DEFERRED: dict[str, str] = {
     "MCP-U-001": "#63 (MCP server)",
     "MCP-U-010": "#63 (MCP server)",
