@@ -118,8 +118,9 @@ lead that spawns a reviewer sets `review:in-progress` while it holds the PR.
 record of its model, effort, tools and what it may spawn;
 [05-agent-team-setup.md](05-agent-team-setup.md) §1 maps them.
 
-**Messaging.** A subagent reports by ending its turn: its final message is the report, and
-the lead always receives it. In a STOP case it stops and makes the blocker its final
+**Messaging.** A subagent reports with its final message, and the lead always receives it: it calls
+`SubagentHandback` when it has that tool (async spawns, where plain final text is not
+delivered), otherwise it ends its turn (teammates). In a STOP case it stops and makes the blocker its final
 message, saying what decision is needed, and does not wait for a reply. Any mid-task message
 goes only to `SendMessage(to: "team-lead")` — never `"main"` and never the lead's session
 name, because neither works in both spawn modes. A **teammate** (a named `Agent(...)` without
@@ -127,7 +128,7 @@ isolation) delivers its final message as the `result` of an idle notification, a
 `team-lead` message arrives as a `<teammate-message>` carrying its name. An **async**
 subagent (unnamed, or any `isolation: "worktree"` spawn) delivers its final message as a
 `[Subagent hand-back]`. Leads read reports there, answer with
-`SendMessage(to: "<subagent name>")` (which resumes it), and don't poll.
+`SendMessage(to: "<subagent name>")` (which resumes it), and don't poll: while waiting on a phase, use idle notifications.
 `crossSessionInbound: accept` is set project-wide in `.claude/settings.json`.
 
 ## When a unit is finished

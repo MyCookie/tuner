@@ -43,5 +43,5 @@ Issue body format (per AGENTS.md): location, what exists, why it appears
 unnecessary, and whether it has an existing `ponytail:` marker.
 
 ## Completion
-When all findings are filed, your final message is the report, with: total count and
+When all findings are filed, your final message is the report (call `SubagentHandback` if you have that tool; plain final text is not delivered), with: total count and
 whether any existing `ponytail:` debt markers were found (and how many).

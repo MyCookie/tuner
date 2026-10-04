@@ -210,7 +210,9 @@ Run these in order. Each is cheap and each catches a distinct failure.
 
 6. Subagent reporting. Have `impl-lead` spawn a named `implementer` probe told to
    `SendMessage(to: "team-lead")` once and then end. The message (attributed with the probe's
-   name) and the final report must both reach the lead. The probe must not touch `.env`.
+   name) and the final report must both reach the lead. Repeat with an `isolation: "worktree"` probe: it
+   must `SendMessage(to: "team-lead")` once (attributed) and end via `SubagentHandback`, which
+   arrives as a `[Subagent hand-back]`. Neither probe may touch `.env`.
 
 Clean up after steps 5-6: `git worktree list`, then `git worktree remove` for each leftover,
 delete the merged branch, delete the `worktree-agent-*` branches that `isolation: worktree`

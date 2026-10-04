@@ -21,7 +21,7 @@
 ## Communication rules
 - Keep messages terse and structured. Lead with status, follow with detail.
 - Do not send progress updates mid-task unless blocked.
-- A subagent's final message is its report; mid-task messages go only to
+- A subagent's final message is its report (via `SubagentHandback` when it has that tool); mid-task messages go only to
   `SendMessage(to: "team-lead")`
   ([CONTRIBUTING "Messaging"](docs/CONTRIBUTING.md)).
 - Escalate to the human (not just your lead) if: a file ownership conflict

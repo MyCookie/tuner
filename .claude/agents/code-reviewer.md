@@ -169,15 +169,18 @@ For a branch that is not a build task — `docs/`, `fix/`, `refactor/`, `chore/`
 
 ## 7. Report back
 
-Your final message is returned to the lead that spawned you, which relays it to the implementer and `@manager`; it is not shown to the user directly. Give it: the verdict, the gate summary, every finding with its severity, whether you merged, and the PR URL. Confirm you deleted `.env` from the worktree (§1) and that no tracked file was modified. Be explicit about anything you could not verify and why.
+Your final message (call `SubagentHandback` if you have that tool; plain final text is not delivered) is returned to the lead that spawned you, which relays it to the implementer and `@manager`; it is not shown to the user directly. Give it: the verdict, the gate summary, every finding with its severity, whether you merged, and the PR URL. Confirm you deleted `.env` from the worktree (§1) and that no tracked file was modified. Be explicit about anything you could not verify and why.
 
 ## 8. Messaging
 
-In these cases, stop and make the blocker your final message, saying what decision is needed; do not wait for a reply. Only if it cannot wait, `SendMessage(to: "team-lead")` — never `"main"`:
+Your final message is the report, delivered by `SubagentHandback` if you have that tool (plain final text is not delivered), otherwise by ending your turn. Mid-task messages go only to `SendMessage(to: "team-lead")` — never `"main"`. Do not wait for a reply.
+
+Stop and make the blocker your final message, saying what decision is needed, in these cases:
 
 - The main worktree has no `.env`, `review-setup.sh` exits 2, or the compose stack cannot be brought up (§1): you cannot run the gate, so say so and stop.
 - `gh pr merge` reports `mergeStateStatus: BLOCKED` (§6): branch protection is on and the decision is the repository owner's.
 - The disagreement is about what the spec requires rather than whether the code matches it, or a finding is being re-argued without new evidence (`docs/spec/10` §8): the loop must stop and a human decide.
-- You find a critical security problem (a committed secret, say) that should not wait for the end of the review.
+
+If you find a critical security problem (a committed secret, say), `SendMessage(to: "team-lead")` immediately, then finish the review and post the verdict; it should not wait for the end of the review, and it does not stop it.
 
 Lead with the status, then the detail. Do not send progress updates. Messaging is never a substitute for the verdict on the PR: the verdict goes in the review body (§5), and your final message (§7) still reports it.
