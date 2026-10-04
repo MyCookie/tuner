@@ -160,7 +160,7 @@ docker compose --profile e2e up -d minio minio-init mlflow mock-judge
 
 We ran exactly this against this repository's own stack: both volumes gone,
 stack back up, all three health checks returning `200`/`OK` again, all seven
-buckets present and empty, and the same eight MinIO principals (`ingestor`
+buckets present and empty, and the same nine MinIO principals (`ingestor`
 through `mlflow`) recreated with matching policies — `minio-init`'s bucket
 and IAM setup is idempotent from nothing, not just re-runnable against an
 existing store. See §5 for what this means for anything you actually wanted
@@ -322,6 +322,7 @@ row itself rather than presented as fact.
 | Symptom | Likely cause | What to do |
 | :--- | :--- | :--- |
 | `docker compose ps` shows a service without `(healthy)`, or it never turns healthy | The dependent service failed first — `mlflow` won't even start until `minio-init` exits `0` (`depends_on: condition: service_completed_successfully`) | `docker compose logs minio-init` first (it exits either way, so `ps` alone doesn't tell you if it failed); then `docker compose logs <service>` for whichever is stuck |
+| `minio-init` exits non-zero after pulling a change that adds a principal (e.g. the read-only `mcp` principal, #62 / `63a68dd`), and `docker compose logs minio-init` complains about a missing `MCP_S3_ACCESS_KEY`/`MCP_S3_SECRET_KEY` | Upgrade note: an existing `.env` predating that change lacks the new keypair, and `bootstrap_minio.py` needs one `<PRINCIPAL>_S3_ACCESS_KEY`/`<PRINCIPAL>_S3_SECRET_KEY` pair per `IAM_MATRIX` entry | Add `MCP_S3_ACCESS_KEY` and `MCP_S3_SECRET_KEY` to `.env`, shaped like the other `<PRINCIPAL>_S3_*` pairs in `.env.example` (your own values), then rerun `docker compose up -d minio-init` |
 | `docker compose up` fails with `Bind for 127.0.0.1:<port> failed: port is already allocated` | Something else on the host already owns 9000/9001/5000/8088 | Reproduced directly (another container held 9000): find and stop whatever's on that port (`docker ps`, or `lsof -i :<port>` outside Docker), or remap the port in a local compose override |
 | A service is `Up (healthy)` but `curl`/the browser can't reach its port; `docker compose ps`'s `PORTS` column is empty for it | The healthcheck runs inside the container and doesn't prove the host port bound — we saw this concretely after a port-conflict retry left the container "healthy" with no port mapping | `docker compose up -d --force-recreate <service>` — fixed it immediately in our test |
 | `docker compose down` (or `down -v`) leaves `mock-judge` running and prints `Network tuner_default Resource is still in use` | `mock-judge` is `profiles: ["e2e"]`; a plain `down` only manages default-profile services — verified directly | `docker compose --profile e2e down` (add `-v` too for a full reset) |
@@ -351,7 +352,7 @@ against this repository: `docker compose --profile e2e down -v` (both
 volumes confirmed gone via `docker volume ls`), then
 `docker compose --profile e2e up -d minio minio-init mlflow mock-judge`
 brought back all three health checks green, all seven buckets present and
-empty, and all eight MinIO principals (`ingestor` through `mlflow`)
+empty, and all nine MinIO principals (`ingestor` through `mlflow`)
 recreated with matching policies from `IAM_MATRIX` in
 `scripts/bootstrap_minio.py` — bootstrapping is idempotent from a truly
 empty store, not just safe to re-run against an existing one.
