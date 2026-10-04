@@ -119,6 +119,7 @@ EXPECTED_MATRIX: dict[str, dict[str, str]] = {
     "trainer": {"tuner-artifacts": "W", "tuner-registry": "W"},
     "smoke": {"tuner-gold": "R", "tuner-artifacts": "W"},
     "registry-ops": {"tuner-artifacts": "R", "tuner-registry": "W"},
+    "mcp": {"tuner-registry": "R"},
     "mlflow": {"tuner-mlflow": "W"},
 }
 

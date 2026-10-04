@@ -55,7 +55,7 @@ def test_env_example_completeness():
         "TUNER_JUDGE_API_KEY",
         "HF_TOKEN",
     )
-    for var in required:
+    for var in (*required, *_STAGE_KEYS):
         assert var in values, f"{var} missing from .env.example"
 
     for name, value in values.items():
