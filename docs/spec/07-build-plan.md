@@ -142,7 +142,7 @@ T01 ─> T02 ─> T03 ─┐
 **Files:** `scripts/bootstrap_minio.py` (`"mcp": {"tuner-registry": "R"}` in `IAM_MATRIX`), `docker-compose.yaml` (`MCP_S3_*` into `minio-init`), `.env.example`, `scripts/write_ci_env.sh`, `tests/integration/test_infra.py` (the `mcp` row of the matrix transcription).
 **Suite:** `INF-I-001..003`, `INF-U-006..007` ([08 infra.md](08-test-specs/infra.md)) — no new IDs.
 **Spec:** [05 §5](05-infrastructure.md), [01 §4.3](01-architecture.md).
-**Verify:** against a fresh `docker compose up -d minio minio-init`, user `tuner-mcp` exists with its policy; `INF-I-003` shows it can list/get on `tuner-registry` and nothing else.
+**Verify:** against a fresh `docker compose up -d minio minio-init`, the policy `tuner-mcp` exists and is attached to the user keyed by `MCP_S3_ACCESS_KEY`; `INF-I-003` shows it can list/get on `tuner-registry` and nothing else.
 
 #### M2 — MCP server (#63; depends on M1)
 **Files:** `src/tuner/mcp_server/`, `src/tuner/registry_ops/cli.py` (public manifest loader), `src/tuner/cli.py` (lazy `mcp`, per-command missing-extra message), `pyproject.toml` + `uv.lock` (extra `mcp`, `dev` includes it, `pydantic>=2.12`), `tests/unit/test_mcp_server.py`, `tests/integration/test_mcp_server.py`, `docs/components/mcp-server.md`, `docs/02-cli-reference.md`, `docs/README.md`; remove the `_DEFERRED` entries in `scripts/check_test_ids.py`.
