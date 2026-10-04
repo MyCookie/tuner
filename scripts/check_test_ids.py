@@ -56,7 +56,24 @@ DOCSTRING_ID_RE = re.compile(r"^(" + ID_RE.pattern + r"):")
 # tests/slow/ -- see TEST_DIRS above), so it's empty now. Left in place, not
 # deleted: it's the mechanism the *next* G/S case introduced within an
 # already-built task still needs.
-_DEFERRED: dict[str, str] = {}
+_DEFERRED: dict[str, str] = {
+    "MCP-U-001": "#63 (MCP server)",
+    "MCP-U-010": "#63 (MCP server)",
+    "MCP-U-011": "#63 (MCP server)",
+    "MCP-U-012": "#63 (MCP server)",
+    "MCP-U-013": "#63 (MCP server)",
+    "MCP-U-014": "#63 (MCP server)",
+    "MCP-U-020": "#63 (MCP server)",
+    "MCP-U-021": "#63 (MCP server)",
+    "MCP-U-022": "#63 (MCP server)",
+    "MCP-U-023": "#63 (MCP server)",
+    "MCP-U-030": "#63 (MCP server)",
+    "MCP-I-030": "#63 (MCP server)",
+    "MCP-I-031": "#63 (MCP server)",
+    "MCP-I-032": "#63 (MCP server)",
+    "CLI-U-007": "#63 (MCP server)",
+    "CLI-U-008": "#63 (MCP server)",
+}
 
 
 def _spec_ids() -> dict[str, list[str]]:
