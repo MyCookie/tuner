@@ -23,6 +23,7 @@ Commands:
   clean     Convert Bronze envelopes into scrubbed, filtered,...
   ingest    Convert configured sources into Bronze envelopes.
   judge     Score Silver records with an LLM and promote passing ones to...
+  mcp       Serve the model registry to MCP clients over stdio (read-only).
   registry  Model registry operations (docs/spec/03-components/registry.md).
   run       Run the full pipeline: ingest -> clean -> judge -> tokenize...
   smoke     Generate before/after transcripts proving the trained model
@@ -32,7 +33,7 @@ Commands:
             data.
 ```
 
-(`smoke` and `train` are commands whose module isn't imported just to list
+(`smoke`, `train` and `mcp` are commands whose module isn't imported just to list
 them — see the next section — so their listing text comes from a static
 string that skips click's usual summary truncation entirely, wrapping to a
 second line instead of being cut off with `...`. `registry`'s one-liner
@@ -292,3 +293,24 @@ and, by design, always exits `0` (per
 not die on one bad object"). `show`, `promote`, and `rollback` are specified
 in the same document but are explicitly out of MVP scope — not implemented
 in this CLI yet.
+
+## `tuner mcp`
+
+```
+Usage: tuner mcp [OPTIONS]
+
+  Serve the model registry to MCP clients over stdio (read-only).
+
+Options:
+  --help  Show this message and exit.
+```
+
+Serves two read-only [MCP](https://modelcontextprotocol.io) tools,
+`list_models` and `get_model`, over stdio until the client closes the
+stream. Takes neither `--run-id` nor `--config` (like `registry`, it spans
+every run). Needs the `mcp` extra: without it the command exits `1` with
+``'mcp' needs the `mcp` extra ... run `uv sync --extra dev --extra mcp` ``.
+Reads `tuner-registry` through the `TUNER_S3_*` variables (exit `2` if they
+are missing); give it the read-only `tuner-mcp` credentials, not the root
+ones. You normally don't run it by hand: an MCP client launches it. See
+[components/mcp-server.md](components/mcp-server.md).
