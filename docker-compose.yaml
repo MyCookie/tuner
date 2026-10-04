@@ -7,7 +7,7 @@ name: tuner
 services:
   minio:
     # pinned; verify the :9001 console still answers before bumping
-    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    image: ghcr.io/mycookie/minio:RELEASE.2025-04-22T22-12-26Z@sha256:cb9cd82620b03734ef13b983c2cb479a67babe9e090cfb55499da614d40a0b75
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
