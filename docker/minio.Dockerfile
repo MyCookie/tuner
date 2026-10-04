@@ -6,12 +6,13 @@
 FROM --platform=$BUILDPLATFORM golang:1.24-bookworm AS build
 ARG TARGETOS
 ARG TARGETARCH
-ARG VERSION=2025-04-22T22:12:26Z
-ARG COMMIT=0d7408fc9969caf07de6a8c3a84f9fbb10a6739e
+# VERSION and COMMIT come only from the workflow env (.github/workflows/minio-image.yml).
+ARG VERSION
+ARG COMMIT
 ENV GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH
 WORKDIR /src
 COPY . .
-RUN TAG=$(echo "$VERSION" | tr : -) && go build -tags kqueue -trimpath -o /minio -ldflags "-s -w \
+RUN test -n "$VERSION" && test -n "$COMMIT" && TAG=$(echo "$VERSION" | tr : -) && go build -tags kqueue -trimpath -o /minio -ldflags "-s -w \
  -X github.com/minio/minio/cmd.Version=${VERSION} \
  -X github.com/minio/minio/cmd.CopyrightYear=2025 \
  -X github.com/minio/minio/cmd.ReleaseTag=RELEASE.${TAG} \

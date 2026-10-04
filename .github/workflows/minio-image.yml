@@ -10,6 +10,9 @@ permissions:
 concurrency: minio-image
 
 env:
+  # Single source of the pin; INF-U-008 checks IMAGE's tag is RELEASE.<VERSION with : -> ->.
+  VERSION: "2025-04-22T22:12:26Z"
+  COMMIT: 0d7408fc9969caf07de6a8c3a84f9fbb10a6739e
   IMAGE: ghcr.io/mycookie/minio:RELEASE.2025-04-22T22-12-26Z
 
 jobs:
@@ -20,7 +23,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           repository: MyCookie/minio
-          ref: 0d7408fc9969caf07de6a8c3a84f9fbb10a6739e
+          ref: ${{ env.COMMIT }}
           path: minio-src
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
@@ -37,6 +40,9 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           provenance: false
+          build-args: |
+            VERSION=${{ env.VERSION }}
+            COMMIT=${{ env.COMMIT }}
           tags: ${{ env.IMAGE }}
       - name: Summary and multi-arch check
         run: |

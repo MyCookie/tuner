@@ -24,6 +24,7 @@ Integration cases read MinIO root credentials (`MINIO_ROOT_USER`/`MINIO_ROOT_PAS
 | :--- | :--- | :--- |
 | INF-U-006 | `.env.example` completeness | Contains every env var named in [01 §4.3](../01-architecture.md), placeholder values only (a regex asserts nothing token-shaped) |
 | INF-U-007 | Compose validity | `docker compose config -q` succeeds; services/ports/profiles match the [05 §1](../05-infrastructure.md) table; parsed from the YAML (short and long port syntax), every published port across all services is published on `127.0.0.1` only, and the set of (service, port) pairs is exactly minio 9000/9001, mlflow 5000, mock-judge 8088; no service defines a credential literal |
+| INF-U-008 | MinIO image pin | The compose `minio` image matches `ghcr.io/mycookie/minio:RELEASE.<tag>@sha256:<64 hex>` (GHCR, tag + index digest, never floating); its tag equals the tag of `env.IMAGE` in `.github/workflows/minio-image.yml`, and that tag is `RELEASE.` + `env.VERSION` with `:` replaced by `-`; the workflow's minio checkout `ref` is `${{ env.COMMIT }}` and `build-args` pass both `VERSION` and `COMMIT` (the workflow env is their single source: the Dockerfile has no defaults); the full image string appears verbatim in the [05 §1](../05-infrastructure.md) table and in `docs/04-operations.md`. Offline: the digest is not checked against GHCR (`pr.yml`'s integration `compose pull` catches a bad digest) |
 
 ## Hugging Face interaction
 

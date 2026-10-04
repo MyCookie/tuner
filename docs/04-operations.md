@@ -379,6 +379,49 @@ development, there's no such backing: the sqlite-on-a-volume MLflow backend
 and the MinIO volume are both single points of failure by design, acceptable
 for a dev/test MVP and explicitly not claimed to be anything more.
 
+## Rebuilding or bumping the MinIO image
+
+The `minio` service runs an image built from source by
+`.github/workflows/minio-image.yml` and pinned in `docker-compose.yaml` by tag
+and index digest ([spec 05 §1](spec/05-infrastructure.md)). Do this only to
+bump MinIO or after losing the GHCR image; it is a local-dev/CI image, never
+for production.
+
+1. **Edit the pin.** `VERSION` and `COMMIT` live only in the workflow's `env`
+   (they reach the Dockerfile as build-args; it has no defaults and fails
+   without them). Update them together with `IMAGE`, whose tag is
+   `RELEASE.` + `VERSION` with `:` written as `-` (e.g. `2025-04-22T22:12:26Z`
+   becomes `RELEASE.2025-04-22T22-12-26Z`).
+2. **Run the workflow by hand.** `workflow_dispatch` is human-only: it
+   overwrites the GHCR tag, so no agent or CI job triggers it. Actions →
+   `minio-image` → Run workflow.
+3. **Read the index digest** from the run's step summary ("Index digest:
+   `sha256:...`"). It covers the linux/amd64 and linux/arm64 index.
+4. **Paste the new `<tag>@sha256:<digest>` image string everywhere**, verbatim:
+   `docker-compose.yaml` (`minio.image`), the table in
+   [spec 05 §1](spec/05-infrastructure.md), and the sample `docker compose ps`
+   output above. The spec 05 §1 row also names the source commit; update that
+   too. Unit test `INF-U-008` fails if the compose image is not GHCR
+   tag+digest, if its tag disagrees with the workflow, or if either doc lacks
+   the exact string.
+5. **Make the package public.** A new GHCR package is private by default.
+   In GitHub → Packages → `minio` → Package settings, set visibility to
+   public, then check anonymously:
+   `docker logout ghcr.io && docker pull <image string from docker-compose.yaml>`.
+
+The digest is not checked against GHCR offline: `INF-U-008` only checks
+consistency. A wrong digest surfaces as a pull failure in the `pr.yml`
+integration job, whose `docker compose up` pulls the image.
+
+**`compose pull` fails with 401 or 404**
+
+- `401 unauthorized` / `denied`: the package is still private, or a stale
+  login is being sent. Run `docker logout ghcr.io`, retry; if it persists, a
+  maintainer must set the package public (step 5).
+- `404` / `manifest unknown`: the tag or digest does not exist in GHCR. The
+  workflow was never run for this tag, or the pasted digest is wrong. Re-run
+  step 2-3 and compare the digest with `docker buildx imagetools inspect <tag>`.
+
 ## Next steps
 
 This is the last page in the user guide. If something here didn't answer

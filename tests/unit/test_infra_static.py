@@ -116,6 +116,34 @@ def test_compose_defines_no_credential_literal():
         )
 
 
+_MINIO_IMAGE = re.compile(r"^ghcr\.io/mycookie/minio:(RELEASE\.[^@\s]+)@sha256:[0-9a-f]{64}$")
+
+
+def test_minio_image_pin_is_consistent():
+    """INF-U-008: compose minio image is GHCR tag+digest; tag matches the workflow's
+    env.IMAGE; the full string is verbatim in the 05 §1 table and the operations guide."""
+    compose = yaml.safe_load((REPO_ROOT / "docker-compose.yaml").read_text())
+    image = compose["services"]["minio"]["image"]
+    match = _MINIO_IMAGE.match(image)
+    assert match, (
+        f"minio image is not ghcr.io/mycookie/minio:RELEASE.<tag>@sha256:<digest>: {image}"
+    )
+
+    workflow = yaml.safe_load((REPO_ROOT / ".github/workflows/minio-image.yml").read_text())
+    env = workflow["env"]
+    assert env["IMAGE"] == f"ghcr.io/mycookie/minio:{match.group(1)}"
+    assert match.group(1) == "RELEASE." + env["VERSION"].replace(":", "-")
+    steps = workflow["jobs"]["publish"]["steps"]
+    (src,) = [s for s in steps if s.get("with", {}).get("repository") == "MyCookie/minio"]
+    assert src["with"]["ref"] == "${{ env.COMMIT }}"
+    (build,) = [s for s in steps if s.get("id") == "build"]
+    assert "VERSION=${{ env.VERSION }}" in build["with"]["build-args"]
+    assert "COMMIT=${{ env.COMMIT }}" in build["with"]["build-args"]
+
+    for doc in ("docs/spec/05-infrastructure.md", "docs/04-operations.md"):
+        assert image in (REPO_ROOT / doc).read_text(), f"{doc} lacks the compose minio image"
+
+
 # --- Hugging Face interaction (built at T09, once tuner.models exists) -------------
 
 
