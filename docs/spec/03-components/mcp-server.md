@@ -36,7 +36,20 @@ claude mcp add --scope local --transport stdio tuner-registry \
 
 The `--directory` flag selects the project; no `--env-file` is used. (Server name `tuner-registry` is a client-side label.)
 
-> **UNVERIFIED — pending the human's probe on #61.** Whether Claude Code expands `${VAR}` in the `env` block of a `.mcp.json` is not yet confirmed. Until it is, this section gives no `.mcp.json` form as supported. If confirmed, a `.mcp.json` `env` of `"TUNER_S3_ACCESS_KEY": "${MCP_S3_ACCESS_KEY}"` (and likewise the secret) would let a user keep the pair in their shell environment; if not, the `claude mcp add` form above is the only documented one.
+Alternative, `.mcp.json` form: Claude Code expands `${VAR}` from the launching shell's environment into a server's `env` block (**VERIFIED 2026-10-04**, Claude Code 2.1.285, human-run probe: [#61 comment](https://github.com/MyCookie/tuner/issues/61#issuecomment-5984964626)). The pair can therefore stay in the user's shell environment and out of the file:
+
+```json
+{"mcpServers": {"tuner-registry": {
+  "command": "uv", "args": ["run", "--directory", "/path/to/tuner", "tuner", "mcp"],
+  "env": {
+    "TUNER_S3_ENDPOINT": "http://localhost:9000",
+    "TUNER_S3_ACCESS_KEY": "${MCP_S3_ACCESS_KEY}",
+    "TUNER_S3_SECRET_KEY": "${MCP_S3_SECRET_KEY}"
+  }
+}}}
+```
+
+Only `${VAR}` inside `env` is verified; `${VAR:-default}` and expansion in `command`/`args`/`url`/`headers` are not.
 
 Committing a project-scope `.mcp.json` is **out of scope**: it would prompt every agent session in this repo.
 
