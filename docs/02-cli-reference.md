@@ -63,7 +63,7 @@ repository's own `.venv` before the extra was installed:
 
 ```
 $ uv run tuner train --help
-Error: 'train' needs the `train` extra (torch/transformers/peft/accelerate) -- run `uv sync --extra train` (05-infrastructure.md §3). Underlying import error: No module named 'accelerate'
+Error: 'train' needs the `train` extra (torch/transformers/peft/accelerate) -- run `uv sync --extra dev --extra train` (05-infrastructure.md §3). Underlying import error: No module named 'accelerate'
 ```
 
 (click prints this as one line — wrapped above only for this page's width.)

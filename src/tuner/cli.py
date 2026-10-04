@@ -69,7 +69,7 @@ class _LazyGroup(click.Group):
                 # PR #11 review round 1 nit).
                 raise click.ClickException(
                     f"'{name}' needs the `train` extra (torch/transformers/peft/"
-                    f"accelerate) -- run `uv sync --extra train` (05-infrastructure.md "
+                    f"accelerate) -- run `uv sync --extra dev --extra train` (05-infrastructure.md "
                     f"§3). Underlying import error: {exc}"
                 ) from exc
             return getattr(module, attr_name)

@@ -33,7 +33,7 @@ A real judge's LLM endpoint is not part of the compose topology: point `TUNER_JU
 
 ## 3. GPU access & host-venv fallback
 
-Trainer/smoke need the NVIDIA container toolkit. If Docker GPU passthrough is a blocker on the dev box, the sanctioned fallback is running **only those two stages** from a host uv venv (`uv sync --extra train`, then `tuner train ...` with the same env vars pointed at compose's MinIO/MLflow). The CLI contract makes this a zero-code-change substitution. Document actual choice in the run log; CI never uses GPUs ([06-testing.md §6](06-testing.md)).
+Trainer/smoke need the NVIDIA container toolkit. If Docker GPU passthrough is a blocker on the dev box, the sanctioned fallback is running **only those two stages** from a host uv venv (`uv sync --extra dev --extra train`, then `tuner train ...` with the same env vars pointed at compose's MinIO/MLflow). The CLI contract makes this a zero-code-change substitution. Document actual choice in the run log; CI never uses GPUs ([06-testing.md §6](06-testing.md)).
 
 ## 4. Cloud topology (Phase 3) — K8s + Kubeflow
 

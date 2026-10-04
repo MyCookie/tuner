@@ -45,7 +45,7 @@ CPU-only, fixture-scale dry run first, see
 [docs/00-getting-started.md](docs/00-getting-started.md) instead.
 
 GPU stages (`train`, `smoke`) ran via the host-`uv`-venv fallback for T15's own
-real-GPU verification (`uv sync --extra train`, then the same `tuner run` command
+real-GPU verification (`uv sync --extra dev --extra train`, then the same `tuner run` command
 above — no Docker GPU passthrough needed on this box). `docker compose`'s own
 `trainer`/`smoke` services (which request `nvidia` GPU passthrough) are spec'd but
 not yet run-verified end to end; either path uses the same commands and env vars
