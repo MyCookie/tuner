@@ -12,35 +12,31 @@ Four long-lived lead sessions and a pool of short-lived subagents. Leads talk to
 other by `@name` messages; leads spawn subagents; subagents report back to the lead that
 spawned them.
 
-| Session | Definition | Model | Spawns | Writes files? |
-| :--- | :--- | :--- | :--- | :--- |
-| `manager` | `.claude/agents/manager.md` | `claude-opus-5-5` | nothing | no |
-| `research-lead` | `.claude/agents/research-lead.md` | `claude-opus-5-5` | `researcher` | no |
-| `impl-lead` | `.claude/agents/impl-lead.md` | `claude-opus-5-5` | `implementer`, `code-reviewer` | no (runs `git worktree`) |
-| `review-lead` | `.claude/agents/review-lead.md` | `claude-opus-5-5` | five reviewers, `code-reviewer` | no |
+| Session | Definition | Spawns | Writes files? |
+| :--- | :--- | :--- | :--- |
+| `manager` | `.claude/agents/manager.md` | nothing | only `.manager-state.json` |
+| `research-lead` | `.claude/agents/research-lead.md` | `researcher` | no |
+| `impl-lead` | `.claude/agents/impl-lead.md` | `implementer`, `code-reviewer` | no (runs `git worktree`) |
+| `review-lead` | `.claude/agents/review-lead.md` | five reviewers, `code-reviewer` | no |
 
-| Subagent | Spawned by | Model | Isolation | Writes files? |
-| :--- | :--- | :--- | :--- | :--- |
-| `researcher` | `research-lead` | `claude-sonnet-5-5` | worktree | no |
-| `implementer` | `impl-lead` | `claude-sonnet-5-5` | the worktree `impl-lead` assigns | yes, only files it owns |
-| `architect-reviewer`, `security-reviewer`, `quality-reviewer`, `docs-reviewer`, `simplicity-reviewer` | `review-lead` | `claude-sonnet-5-5` | worktree | no |
-| `code-reviewer` | `impl-lead` (per PR); `review-lead` only when `@manager` asks | `opus` (effort `high`) | worktree | no (merges PRs) |
+| Subagent | Spawned by | Isolation | Writes files? |
+| :--- | :--- | :--- | :--- |
+| `researcher` | `research-lead` | worktree | no |
+| `implementer` | `impl-lead` | the worktree `impl-lead` assigns | yes, only files it owns |
+| `architect-reviewer`, `security-reviewer`, `quality-reviewer`, `docs-reviewer`, `simplicity-reviewer` | `review-lead` | worktree | no |
+| `code-reviewer` | `impl-lead`; `review-lead` in merge-review mode | worktree | no (merges PRs) |
 
-`code-reviewer` is spawned fresh for each review round of each PR and is the only actor
-allowed to merge ([spec/10](spec/10-code-review.md)). The implementer has no `Agent` tool, so
-in a team run a lead spawns it: both `impl-lead` and `review-lead` list it in their
-`Agent(...)` allowlist. `impl-lead` owns per-PR review
-rounds. `review-lead` spawns one only when `@manager` explicitly asks it to merge-review a
-PR. A PR never has two reviewers running at once.
+Models and effort are not listed here on purpose: each agent's `model:` and `effort:`
+lines are the only record, so a change is one line in one file. To see them all:
+`grep -H -E '^(model|effort):' .claude/agents/*.md`.
 
-The manager, the three leads and every subagent (`researcher`, `implementer`, the five specialist
-reviewers, `code-reviewer`) have `SendMessage` and `ListAgents` in their `tools:` line, so they can
-message each other and look up exact session names. `code-reviewer` uses them only to
-escalate to the lead that spawned it (missing `.env`, branch protection, a disputed spec, a
-critical security finding); the verdict itself always goes on the PR.
+`code-reviewer` is spawned fresh for each review round and is the only actor allowed to
+merge. Which lead spawns it, and how a lead claims a PR so it never has two reviewers,
+is in [spec/10 §3](spec/10-code-review.md).
 
-Model policy: leads and the manager on Opus 5.5, subagents on Sonnet 5.5, all at `effort: high`. The model is a
-single `model:` line in each agent's frontmatter, so a change is one line per file.
+Messaging is by `@name` between the four sessions. `code-reviewer` messages its lead only to escalate (missing
+`.env`, branch protection, a disputed spec, a critical security finding); the verdict
+itself always goes on the PR.
 
 ## 2. Prerequisites
 
@@ -48,7 +44,6 @@ single `model:` line in each agent's frontmatter, so a change is one line per fi
 | :--- | :--- | :--- |
 | Claude Code with agent teams and cross-session messaging | leads address each other by `@name` | `claude --version` |
 | `gh` authenticated with `repo` scope | every agent files Issues, opens PRs, or reads them | `gh auth status` |
-| A GitHub MCP server named `github` | reviewers, `implementer` and `research-lead` list `mcp__github` in `tools:` | `claude mcp list` |
 | `uv`, Docker, a filled-in `.env` | the merge gate runs the integration tests against MinIO and MLflow | `cp .env.example .env`, then see [00-getting-started.md](00-getting-started.md) |
 | Push access to the remote, branch protection on `main` | the reviewer merges; nobody else should | repo settings |
 
@@ -92,7 +87,7 @@ ls .claude/agents          # expect 12 files
 
 ```bash
 cp .env.example .env       # fill in HF_TOKEN and the judge endpoint
-uv sync --extra dev
+uv sync --extra dev --extra train   # the gate's integration tests need both extras
 docker compose up -d minio minio-init mlflow
 ./scripts/gate.sh          # must be green on a clean main before any agent runs
 ```
@@ -109,7 +104,7 @@ The Tuner repo already has them. For a new repo:
 for l in severity:high severity:medium severity:low \
          area:architecture area:security area:quality area:docs area:simplicity area:research \
          type:feature type:bug type:task \
-         needs-discussion review:approved review:changes-requested; do
+         needs-discussion review:approved review:changes-requested review:in-progress; do
   gh label create "$l" 2>/dev/null || true
 done
 ```
@@ -165,6 +160,11 @@ claude --agent review-lead   --name review-lead
 claude --agent manager       --name manager
 ```
 
+Start each lead fresh from the repo root. If one was started from the wrong directory,
+exit it and start it again: `claude --resume` restores the session's original working
+directory, so it cannot fix this, and from outside the repo `.claude/agents/` is not
+found and the lead cannot spawn its subagents.
+
 If your Claude Code version does not accept `--agent`, start `claude --name <name>` and
 tell the session "You are the <name> defined in `.claude/agents/<name>.md`; follow it."
 Run `claude --help` to see which applies. Subagents are never started by hand; their
@@ -181,6 +181,7 @@ In the `manager` session, state the goal in plain words. It routes per the table
 | a specific task with no Issue | research |
 | "fix #12, #15" | implementation |
 | "review what we built" | review |
+| "merge-review PR #40" (a PR the implementation team did not open) | review, merge-review mode |
 
 The manager stops for your approval at two points: the `impl-lead` unit plan (before any
 implementer is spawned), and each loop cycle when `human_checkpoint` is `every_cycle`.
@@ -190,23 +191,25 @@ implementer is spawned), and each loop cycle when `human_checkpoint` is `every_c
 Run these in order. Each is cheap and each catches a distinct failure.
 
 1. Agent definitions load. In any session, run `/agents`. All 12 names appear, with the
-   models from section 1.
+   models in their frontmatter.
 2. Leads can see each other. In `manager`, use `ListAgents`. The three leads are listed.
    If they are not, the sessions were started from different directories or the
    `crossSessionInbound` setting in `.claude/settings.json` is not `accept`.
-3. Read-only roles are read-only. Ask `manager` to create a file. It must refuse.
-   Also confirm a spawned subagent can call `ListAgents`; if it cannot, the lead was
-   started before the `tools:` edit and needs a restart.
+3. Read-only roles are read-only. Ask `manager` to edit a source file, such as
+   `CLAUDE.md`. It must refuse. (It does write `.manager-state.json`; that is its job.)
 4. Dry-run the review path. Tell `manager`: "Review what we built, diff-review mode, no PRs
    listed, stop after the report." A healthy run spawns five reviewers, files no duplicate
    Issues, and reports a count and highest severity.
 5. Dry-run the implementation path on a trivial Issue (a typo in a doc). `impl-lead` must
    show a plan table and wait for approval, `implementer` must work inside its worktree, and
    the PR must reach exactly one `code-reviewer`, spawned by a lead, that re-runs
-   `./scripts/gate.sh` itself.
+   `./scripts/gate.sh` itself. The PR carries `review:in-progress` while the reviewer
+   runs and loses it when the verdict lands.
 
 Clean up after step 5: `git worktree list`, then `git worktree remove` for each leftover,
-delete the merged branch, and confirm `origin/main` is still green.
+delete the merged branch, delete the `worktree-agent-*` branches that `isolation: worktree`
+subagents leave behind (`git branch --list 'worktree-agent-*'`), and confirm `origin/main`
+is still green.
 
 ## 6. Known drift
 
@@ -218,10 +221,10 @@ drift between an agent file and the docs, record it here until it is fixed.
 ## 7. Changing the stack
 
 - Change a model: edit the `model:` line in the agent file. Effort is the `effort:`
-  line below it; every agent sets `high`.
+  line below it.
 - Add a subagent: create `.claude/agents/<name>.md`, then add `Agent(<name>)` to its
   lead's `tools:` line and to the lead's prompt. A lead cannot spawn what it does not list.
-  Give it `SendMessage, ListAgents` in its own `tools:` if it needs to reach its lead.
+  Give it `SendMessage` in its own `tools:` if it needs to reach its lead.
 - Add a lead: create its file, add it to the manager's phases and to the routing table in
   `CLAUDE.md`, and start a session for it.
 - After any edit to `.claude/agents/`, restart the affected sessions. A running session keeps

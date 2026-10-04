@@ -25,7 +25,7 @@ You are running in your own git worktree. One command sets it up:
 ./scripts/review-setup.sh <branch-under-review>
 ```
 
-It fetches, checks out `origin/<branch>` detached — the branch is checked out in the implementer's tree, and reviewing origin's copy is what makes this a review of what was published — copies `.env` in from the main worktree, and runs `uv sync --extra dev`. It refuses to run in the main worktree. If a precondition is unmet it exits 2 and names the fix; if it tells you the main worktree has no `.env`, stop and report that rather than inventing credentials or skipping the integration tests.
+It fetches, checks out `origin/<branch>` detached — the branch is checked out in the implementer's tree, and reviewing origin's copy is what makes this a review of what was published — copies `.env` in from the main worktree, and runs `uv sync --extra dev --extra train`. It refuses to run in the main worktree. If a precondition is unmet it exits 2 and names the fix; if it tells you the main worktree has no `.env`, stop and report that rather than inventing credentials or skipping the integration tests.
 
 Then:
 

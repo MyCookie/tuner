@@ -36,7 +36,7 @@ When run by a team — a manager coordinating research, implementation, and revi
 - **Manager** — intake; routes each goal, governs handoffs and the review-implement loop.
 - **Research** — decomposes goals into well-defined Issues and files them; implements nothing.
 - **Implementation** — takes open Issues, one non-overlapping unit per worktree, opens a PR per unit.
-- **Review** — post-implementation, diff-review mode; reviews PRs and files new Issues for anything that needs fixing.
+- **Review** — post-implementation, diff-review mode; reviews PRs and files new Issues for anything that needs fixing. Merge-review mode handles a PR the implementation team did not open.
 
 **Manager routing:**
 
@@ -46,16 +46,17 @@ When run by a team — a manager coordinating research, implementation, and revi
 | Specific task with no existing Issue | Research |
 | Specific Issue number(s) / "fix #N" | Implementation |
 | "Review what we built" | Review |
+| A PR to review and merge that the implementation team did not open | Review (merge-review) |
 
 **Review & merge — two layers:**
-- *Per PR:* a fresh `code-reviewer` agent re-runs the gate, reviews against the specs, and merges on `APPROVE` (never self-merge; five-round cap). In a team run the `implementer` cannot spawn agents, so `impl-lead` spawns `code-reviewer` for each PR its implementers open and owns those rounds; `review-lead` may also spawn it, but only when `@manager` explicitly asks it to merge-review a specific PR, and a PR never has two reviewers running at once — see the Git & review section above and [docs/spec/10-code-review.md](docs/spec/10-code-review.md).
+- *Per PR:* a fresh `code-reviewer` agent re-runs the gate, reviews against the specs, and merges on `APPROVE` (never self-merge; five-round cap). In a team run a lead spawns it — which lead, and the one-reviewer-per-PR claim, are in [docs/spec/10-code-review.md](docs/spec/10-code-review.md) §3.
 - *Per cycle:* the review-lead diff-reviews the merged changes and files follow-up Issues; the manager governs the loop.
 
 **Loop bounds** (manager persists them in `.manager-state.json`; edit before starting): `max_iterations: 3` (hard ceiling) · `exit_severity_threshold: medium` (stop when no open Issue above it remains) · `human_checkpoint: every_cycle` · `max_open_issues_to_continue: 0` (stop only when clean).
 
-**Issues & labels:** `severity:high|medium|low`, `area:architecture|security|quality|docs|simplicity|research`, `type:feature|bug|task`, plus `needs-discussion` and the reviewer-set `review:approved` / `review:changes-requested`. Research Issues use `type:task`; review findings use their `area:` label. Every PR body carries `Closes #<n>` for each resolved Issue.
+**Issues & labels:** `severity:high|medium|low`, `area:architecture|security|quality|docs|simplicity|research`, `type:feature|bug|task`, plus `needs-discussion` and the reviewer-set `review:approved` / `review:changes-requested`, and `review:in-progress`, which the spawning lead sets while a reviewer holds a PR. Research Issues use `type:task`; review findings use their `area:` label. Every PR body carries `Closes #<n>` for each resolved Issue.
 
-**Models:** manager and the three leads run `claude-opus-5-5`; every subagent the leads spawn runs `claude-sonnet-5-5`; `code-reviewer` runs `opus`. Every agent sets `effort: high`.
+**Models:** each agent's `model:` and `effort:` lines in `.claude/agents/` are the only record; don't restate them in docs.
 
 **Messaging:** address sessions by `@name`; the manager, the leads and every subagent have `SendMessage` and `ListAgents`; lead with status, then detail; don't poll — use idle notifications when waiting on a phase; `crossSessionInbound: accept` is set project-wide in `.claude/settings.json`.
 
@@ -63,7 +64,7 @@ When run by a team — a manager coordinating research, implementation, and revi
 
 ## Tooling (fixed — do not churn)
 
-- Python 3.11+, **uv** for env/deps (`uv sync --extra dev` — the test toolchain is an extra, so a bare `uv sync` uninstalls ruff and pytest; then `uv run ...`), src-layout single package `tuner`.
+- Python 3.11+, **uv** for env/deps (`uv sync --extra dev --extra train` — the test toolchain is an extra, so a bare `uv sync` uninstalls ruff and pytest; then `uv run ...`), src-layout single package `tuner`.
 - **ruff** for lint + format (`uv run ruff check --fix . && uv run ruff format .`).
 - **pytest**; markers: default = unit, `-m integration` needs `docker compose up -d minio minio-init mlflow`, `-m e2e` is the full steel thread.
 - CLI framework: **click**, single `tuner` entrypoint.

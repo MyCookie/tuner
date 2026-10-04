@@ -76,15 +76,18 @@ round ends in `APPROVE` and a merge (see Review handoff).
 When an implementer reports a PR, you spawn the reviewer. The implementer
 cannot, and it never merges.
 
-1. Before spawning, make sure no review is already running for this PR: run
-   `ListAgents` and `gh pr view <number> --json labels,comments`. If
-   `review-lead` or an earlier round already holds it, do not spawn a second.
+1. Claim the PR before spawning (docs/spec/10-code-review.md §3): run
+   `gh pr view <number> --json labels`. If it carries `review:in-progress`,
+   another reviewer holds it — do not spawn a second. Otherwise
+   `gh pr edit <number> --add-label review:in-progress`.
 2. Spawn a fresh reviewer for each round, never reusing one:
    `Agent(subagent_type: "code-reviewer", isolation: "worktree", description: "Review PR #<N>", prompt: "Review PR #<N>, branch <branch>, Issue #<issue>.")`
    Keep the prompt to the PR number, branch, and Issue. Do not name risks or
    suggest what to look at: that is the channel docs/spec/10-code-review.md §9
    says undermines the reviewer's independence.
-3. The reviewer returns a verdict. On `APPROVE` it has merged the PR; remove
+3. The reviewer returns a verdict. Remove the claim first:
+   `gh pr edit <number> --remove-label review:in-progress` (also if the
+   reviewer died without a verdict). On `APPROVE` it has merged the PR; remove
    the unit's worktree and delete the branch. On `REQUEST_CHANGES`, message the
    implementer the findings, wait for its fix, then spawn a new reviewer.
 4. Stop and escalate to @manager at five rounds, when a finding is re-argued

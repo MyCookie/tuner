@@ -7,7 +7,7 @@ description: >
   human — invoke impl-lead instead.
 model: claude-sonnet-5-5
 effort: high
-tools: Read, Grep, Glob, Edit, Write, MultiEdit, Bash, mcp__github, SendMessage, ListAgents
+tools: Read, Grep, Glob, Edit, Write, MultiEdit, Bash, SendMessage, ListAgents
 disallowedTools: Agent
 permissionMode: default
 maxTurns: 150
@@ -25,7 +25,9 @@ scope.
 4. Re-read each assigned issue with `gh issue view <number>`
 5. The gate needs credentials and the dev toolchain, and a fresh worktree has
    neither (`.env` is gitignored). Copy `.env` from the main worktree
-   (`git worktree list` shows it first), then `uv sync --extra dev`. If the
+   (`git worktree list` shows it first), then
+   `uv sync --extra dev --extra train` (the gate's integration tests need
+   both, as in `scripts/review-setup.sh`). If the
    main worktree has no `.env`, STOP and message @impl-lead: never invent
    credentials or copy `.env.example` as-is, because the gate would fail on
    placeholder values. The compose stack is shared; if it is down,
@@ -68,8 +70,10 @@ scope.
 4. Publish with the script, not `gh pr create`. It pushes the branch and opens
    the PR, and refuses on a dirty tree, on `main`, or on an unmodified template:
    ```bash
-   ./scripts/open-pr.sh "<type>(<scope>): <description>" /tmp/pr-body-<issue-number>.md
+   ./scripts/open-pr.sh "<title>" /tmp/pr-body-<issue-number>.md
    ```
+   The title is `TNN — <task title>` for a build-plan task
+   (docs/spec/09-git-workflow.md §4), otherwise `<type>(<scope>): <description>`.
 5. Report to @impl-lead: PR URL, Issues closed, the gate result, any caveats.
    Then stop. You do not spawn a reviewer and you never merge: @impl-lead
    spawns a fresh `code-reviewer`, which re-runs the gate and merges on APPROVE.
