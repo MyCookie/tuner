@@ -59,8 +59,6 @@ _DEFERRED: dict[str, str] = {
     "MCP-I-030": "#63 (MCP server)",
     "MCP-I-031": "#63 (MCP server)",
     "MCP-I-032": "#63 (MCP server)",
-    "CLI-U-007": "#63 (MCP server)",
-    "CLI-U-008": "#63 (MCP server)",
 }
 
 

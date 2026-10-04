@@ -4,6 +4,8 @@
 `smoke` (T12), `run` and `registry` (T13) are all real -- every command in the
 architecture doc's CLI glossary is implemented as of this task.
 
+`mcp` (#63) is lazy for the same reason: it needs the `mcp` extra's SDK.
+
 `train` and `smoke` are lazily imported -- their modules pull in
 torch/transformers/peft/accelerate, the `train` extra (05-infrastructure.md §3), which
 CPU-only stages and their `dev`-extra-only environments never install. Importing them
@@ -47,11 +49,16 @@ STAGE_ORDER = ("ingest", "clean", "judge", "tokenize", "train", "smoke")
 _LAZY_COMMANDS = {
     "train": "tuner.trainer.cli:train_command",
     "smoke": "tuner.smoke.cli:smoke_command",
+    "mcp": "tuner.mcp_server.cli:mcp_command",
 }
 _LAZY_HELP = {
     "train": "Fine-tune the selected adapter's base model on tokenized Gold data.",
     "smoke": "Generate before/after transcripts proving the trained model changed behavior.",
+    "mcp": "Serve the model registry to MCP clients over stdio (read-only).",
 }
+# name -> (extra, what it brings, spec reference); anything absent needs the `train` extra.
+_TRAIN_NEEDS = ("train", "torch/transformers/peft/accelerate", "05-infrastructure.md §3")
+_LAZY_NEEDS = {"mcp": ("mcp", "the MCP SDK", "03-components/mcp-server.md")}
 
 
 class _LazyGroup(click.Group):
@@ -67,10 +74,11 @@ class _LazyGroup(click.Group):
                 # A raw ModuleNotFoundError here names some third-party package, not
                 # the actual fix -- point at the real one (05 §3's host-venv fallback,
                 # PR #11 review round 1 nit).
+                extra, what, ref = _LAZY_NEEDS.get(name, _TRAIN_NEEDS)
                 raise click.ClickException(
-                    f"'{name}' needs the `train` extra (torch/transformers/peft/"
-                    f"accelerate) -- run `uv sync --extra dev --extra train` (05-infrastructure.md "
-                    f"§3). Underlying import error: {exc}"
+                    f"'{name}' needs the `{extra}` extra ({what}) -- run "
+                    f"`uv sync --extra dev --extra {extra}` ({ref}). "
+                    f"Underlying import error: {exc}"
                 ) from exc
             return getattr(module, attr_name)
         return super().get_command(ctx, name)
