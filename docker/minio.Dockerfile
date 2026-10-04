@@ -6,19 +6,19 @@
 FROM --platform=$BUILDPLATFORM golang:1.24-bookworm AS build
 ARG TARGETOS
 ARG TARGETARCH
-ARG VERSION=2025-04-22T22-12-26Z
+ARG VERSION=2025-04-22T22:12:26Z
 ARG COMMIT=0d7408fc9969caf07de6a8c3a84f9fbb10a6739e
 ENV GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH
 WORKDIR /src
 COPY . .
-RUN go build -tags kqueue -trimpath -o /minio -ldflags "-s -w \
+RUN TAG=$(echo "$VERSION" | tr : -) && go build -tags kqueue -trimpath -o /minio -ldflags "-s -w \
  -X github.com/minio/minio/cmd.Version=${VERSION} \
  -X github.com/minio/minio/cmd.CopyrightYear=2025 \
- -X github.com/minio/minio/cmd.ReleaseTag=RELEASE.${VERSION} \
+ -X github.com/minio/minio/cmd.ReleaseTag=RELEASE.${TAG} \
  -X github.com/minio/minio/cmd.CommitID=${COMMIT} \
  -X github.com/minio/minio/cmd.ShortCommitID=${COMMIT%${COMMIT#????????????}}"
 
-FROM alpine:3.20
+FROM alpine:3.23
 LABEL org.opencontainers.image.source=https://github.com/MyCookie/tuner
 # curl: the compose healthcheck runs `curl -f http://localhost:9000/minio/health/live`
 RUN apk add --no-cache curl ca-certificates
