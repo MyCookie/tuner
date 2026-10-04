@@ -132,5 +132,20 @@ T01 ─> T02 ─> T03 ─┐
 ## Next slices (post-MVP — build plans to be written from the same specs)
 
 - **Slice 2 (Phase 2 completion):** registry `show`/`promote`/`rollback`; smoke regression scoring; trainer checkpoint resume; `SqlSource`/`PdfSource`.
+- **Slice 2′ (read-only MCP server, spec [mcp-server.md](03-components/mcp-server.md)):** tasks M1 and M2 below; both wait for #60 to land.
 - **Slice 3 (Phase 3):** KFP component wrappers + K8s manifests ([05 §4](05-infrastructure.md)); cloud store cutover; Inference Engine + canary ([inference.md](03-components/inference.md)).
 - **Slice 4 (Phase 4):** `tuner-assets` + multimodal ingestion/cleaning/eval; multimodal adapter fields ([04 §5](04-model-adapters.md)); multimodal fine-tune.
+
+### Slice 2′ tasks (MCP server)
+
+#### M1 — `mcp` IAM principal (#62)
+**Files:** `scripts/bootstrap_minio.py` (`"mcp": {"tuner-registry": "R"}` in `IAM_MATRIX`), `docker-compose.yaml` (`MCP_S3_*` into `minio-init`), `.env.example`, `scripts/write_ci_env.sh`, `tests/integration/test_infra.py` (the `mcp` row of the matrix transcription).
+**Suite:** `INF-I-001..003`, `INF-U-006..007` ([08 infra.md](08-test-specs/infra.md)) — no new IDs.
+**Spec:** [05 §5](05-infrastructure.md), [01 §4.3](01-architecture.md).
+**Verify:** against a fresh `docker compose up -d minio minio-init`, user `tuner-mcp` exists with its policy; `INF-I-003` shows it can list/get on `tuner-registry` and nothing else.
+
+#### M2 — MCP server (#63; depends on M1)
+**Files:** `src/tuner/mcp_server/`, `src/tuner/registry_ops/cli.py` (public manifest loader), `src/tuner/cli.py` (lazy `mcp`, per-command missing-extra message), `pyproject.toml` + `uv.lock` (extra `mcp`, `dev` includes it, `pydantic>=2.12`), `tests/unit/test_mcp_server.py`, `tests/integration/test_mcp_server.py`, `docs/components/mcp-server.md`, `docs/02-cli-reference.md`, `docs/README.md`; remove the `_DEFERRED` entries in `scripts/check_test_ids.py`.
+**Suite:** `MCP-U-001..030`, `MCP-I-030..032` ([08 mcp.md](08-test-specs/mcp.md)); `CLI-U-001`, `CLI-U-007..008` ([08 cli.md](08-test-specs/cli.md)).
+**Spec:** [mcp-server.md](03-components/mcp-server.md), [02 §5.2](02-data-contracts.md).
+**Verify:** (1) with compose MinIO up and a trained candidate present, the SDK's own stdio client (`MCP-I-032`) lists it through `list_models` — this proves the server. (2) Separately, a human-run check: `claude mcp add` per the user doc, then ask claude to list models and see the candidate (when this check runs relative to merge is decided by the human).

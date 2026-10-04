@@ -15,6 +15,7 @@ Executable-precision test specs for the MVP slice. [06-testing.md](../06-testing
 | Trainer | `TRN` | [trainer.md](trainer.md) | T11; `TRN-G-020` in T15 |
 | Smoke-test | `SMK` | [smoke.md](smoke.md) | T12 |
 | CLI, driver, registry list | `CLI` | [cli.md](cli.md) | T13 |
+| MCP server | `MCP` | [mcp.md](mcp.md) | #63 |
 | Infrastructure & tooling (MinIO/IAM, MLflow server, containers, HF) | `INF` | [infra.md](infra.md) | T04, T09, T14, T15 |
 | End-to-end steel thread | `E2E` | [e2e.md](e2e.md) | T14 |
 
@@ -26,7 +27,7 @@ Executable-precision test specs for the MVP slice. [06-testing.md](../06-testing
 - **Table-driven by default:** cases within one ID that differ only by data use `pytest.mark.parametrize`; the ID covers the whole table.
 - **Determinism:** no network except the in-process mock judge; no wall-clock assertions (inject/freeze time where a timestamp is asserted); integration tests create their own run IDs and clean their prefixes; tests never share state.
 - **Shared fixtures** (`tests/conftest.py`): `storage` (StorageClient against compose MinIO), `run_id` (fresh per test), `seed_tier(tier, records)` (writes records + valid manifest directly, for testing a stage in isolation), `mock_judge` (ASGI app + env pointing at it), `fixture_counts` (parsed `expected_counts.json`), `tiny_adapter` (the `tiny-test` adapter).
-- **Exit-code assertions** invoke stage CLIs in-process via `click.testing.CliRunner` and assert `result.exit_code` — never subprocess (keeps coverage measurable).
+- **Exit-code assertions** invoke stage CLIs in-process via `click.testing.CliRunner` and assert `result.exit_code` — never subprocess (keeps coverage measurable). The one exception is `MCP-I-032`, which launches `tuner mcp` as a real stdio subprocess because the protocol wire is what it tests ([mcp.md](mcp.md)).
 
 ¹ **Scope decision (T14, round 1 review on PR #14):** "duplicated ID" means two *spec-table rows* claiming the same ID — a real spec error the checker still fails on. It does **not** mean two test *functions* sharing one ID: "table-driven by default" (above) already sanctions splitting one case across several named functions rather than one `pytest.mark.parametrize`, and 8 such cases (`CORE-I-042/044/047`, `CORE-U-023/024/025`, `CLN-U-007`, `INF-U-007`) already existed, reviewed and merged, before this checker was built. A stricter first version flagging test-side duplicates as errors would have meant renumbering all 8 to satisfy a brand-new tool. The trade-off: a genuinely mis-copied duplicate ID on the test side (one that should have been incremented) is only caught if it also happens to duplicate a spec-table row — the spec-side check still fires there.
 

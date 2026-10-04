@@ -58,6 +58,7 @@ Legend — `R` = `s3:ListBucket` + `s3:GetObject`; `W` = `R` **plus** `s3:PutObj
 | trainer | — | — | —¹ | RW | W | — | — |
 | smoke | — | — | R² | RW | — | — | — |
 | registry-ops | — | — | — | R | RW | — | — |
+| mcp | — | — | — | — | R | — | — |
 | inference (P3) | — | — | — | R | R | — | — |
 | mlflow server | — | — | — | — | — | — | RW |
 

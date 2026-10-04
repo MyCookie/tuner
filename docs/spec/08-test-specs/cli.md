@@ -12,6 +12,10 @@ Specs under test: [01-architecture.md §2, §4.4](../01-architecture.md), [regis
 | CLI-U-004 | Default `--config` | Resolves to `configs/pipeline.yaml` |
 | CLI-U-005 | `_invoke_stage` (real subprocess wrapper) with `subprocess.run` monkeypatched | Builds `[sys.executable, "-m", "tuner", stage, "--run-id", ..., "--config", ...]`; returns the subprocess's exact returncode |
 | CLI-U-006 | `tuner run` (the click command) with `run_pipeline` monkeypatched | Exits with exactly `run_pipeline`'s return value |
+| CLI-U-007 | `tuner mcp` with the `mcp` SDK import made to fail | Non-zero exit; message names the `mcp` extra and `uv sync --extra mcp` (not the `train` extra: the missing-extra message is per-command, [mcp-server.md](../03-components/mcp-server.md)) |
+| CLI-U-008 | `tuner --help` in a process where importing the `mcp` SDK is made to fail | Exit 0; `mcp` is listed; the SDK was never imported (lazy registration) |
+
+**Note (#63):** `CLI-U-001`'s "exactly" list gains `mcp` in the same commit that registers the command ([01 §4.4](../01-architecture.md)); until then the row, like the code, lists the eight existing subcommands. `CLI-U-007..008` are deferred to #63 in `scripts/check_test_ids.py`.
 
 ## Driver (integration; stage entrypoints monkeypatched to recorders for speed)
 

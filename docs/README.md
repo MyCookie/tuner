@@ -42,7 +42,7 @@ Start at [spec/00-product-scope.md](spec/00-product-scope.md) and read in order:
 1. [00-product-scope.md](spec/00-product-scope.md) — product definition, delivery phases, SAS traceability
 2. [01-architecture.md](spec/01-architecture.md) — system design and the canonical glossary (buckets, env vars, config keys, run-ID format)
 3. [02-data-contracts.md](spec/02-data-contracts.md) — Bronze/Silver/Gold/Artifact schemas (normative — wins over code)
-4. [03-components/](spec/03-components/) — per-stage specs (ingestor, cleaner, judge, tokenizer, trainer, smoke-test, registry, inference)
+4. [03-components/](spec/03-components/) — per-stage specs (ingestor, cleaner, judge, tokenizer, trainer, smoke-test, registry, mcp-server, inference)
 5. [04-model-adapters.md](spec/04-model-adapters.md) — pluggable fine-tune target model layer
 6. [05-infrastructure.md](spec/05-infrastructure.md) — Docker Compose, MinIO, IAM matrix, container hardening
 7. [06-testing.md](spec/06-testing.md) — test strategy, fixtures, CI lanes
