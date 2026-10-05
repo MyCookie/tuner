@@ -24,7 +24,7 @@ train = [
   "torch>=2.3",
   "peft>=0.11",
   "bitsandbytes>=0.43",
-  "accelerate>=0.30",
+  "accelerate>=1.15",
 ]
 mcp = ["mcp>=2.3,<3"]
 dev = [
