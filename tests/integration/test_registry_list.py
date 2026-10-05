@@ -77,7 +77,7 @@ def test_two_seeded_manifests_shown_newest_first(storage, capsys):
 @pytest.mark.integration
 def test_empty_registry_shows_friendly_message(monkeypatch, storage, capsys):
     """CLI-I-021: empty registry bucket -- friendly "no models registered" message,
-    exit 0. Simulated by pointing _load_manifests at an empty sub-scope: monkeypatch
+    exit 0. Simulated by pointing load_manifests at an empty sub-scope: monkeypatch
     download_dir to a no-op, since the real bucket may hold other tests' manifests."""
     monkeypatch.setattr(storage, "download_dir", lambda *a, **k: None)
 

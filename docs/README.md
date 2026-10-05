@@ -29,6 +29,7 @@ wins over code, and over this guide, if the two ever disagree.
   - [Trainer](components/trainer.md)
   - [Smoke-test](components/smoke-test.md)
   - [Registry](components/registry.md)
+  - [MCP server](components/mcp-server.md) (read-only registry access for `claude` and other MCP clients)
   - [Inference](components/inference.md) (spec-only — not implemented in the MVP)
 - [Operations & troubleshooting](04-operations.md) (the running stack, IAM in
   practice, inspecting a run, common failure modes, disaster recovery)
