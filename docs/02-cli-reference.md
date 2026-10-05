@@ -309,7 +309,8 @@ Serves two read-only [MCP](https://modelcontextprotocol.io) tools,
 `list_models` and `get_model`, over stdio until the client closes the
 stream. Takes neither `--run-id` nor `--config` (like `registry`, it spans
 every run). Needs the `mcp` extra: without it the command exits `1` with
-``'mcp' needs the `mcp` extra ... run `uv sync --extra dev --extra mcp` ``.
+``'mcp' needs the `mcp` extra ... run `uv sync --extra dev --extra train` ``
+(`dev` includes `mcp`).
 Reads `tuner-registry` through the `TUNER_S3_*` variables (exit `2` if they
 are missing); give it the read-only `tuner-mcp` credentials, not the root
 ones. You normally don't run it by hand: an MCP client launches it. See

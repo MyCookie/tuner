@@ -57,8 +57,12 @@ _LAZY_HELP = {
     "mcp": "Serve the model registry to MCP clients over stdio (read-only).",
 }
 # name -> (extra, what it brings, spec reference); anything absent needs the `train` extra.
-_TRAIN_NEEDS = ("train", "torch/transformers/peft/accelerate", "05-infrastructure.md §3")
-_LAZY_NEEDS = {"mcp": ("mcp", "the MCP SDK", "03-components/mcp-server.md")}
+_TRAIN_NEEDS = ("train", "torch/transformers/peft/accelerate", "05-infrastructure.md §3", "train")
+# `dev` includes `mcp`, so the project-standard sync covers it; naming `--extra mcp`
+# there would uninstall `train`.
+_LAZY_NEEDS = {
+    "mcp": ("mcp", "the MCP SDK, included in `dev`", "03-components/mcp-server.md", "train")
+}
 
 
 class _LazyGroup(click.Group):
@@ -74,10 +78,10 @@ class _LazyGroup(click.Group):
                 # A raw ModuleNotFoundError here names some third-party package, not
                 # the actual fix -- point at the real one (05 §3's host-venv fallback,
                 # PR #11 review round 1 nit).
-                extra, what, ref = _LAZY_NEEDS.get(name, _TRAIN_NEEDS)
+                extra, what, ref, sync = _LAZY_NEEDS.get(name, _TRAIN_NEEDS)
                 raise click.ClickException(
                     f"'{name}' needs the `{extra}` extra ({what}) -- run "
-                    f"`uv sync --extra dev --extra {extra}` ({ref}). "
+                    f"`uv sync --extra dev --extra {sync}` ({ref}). "
                     f"Underlying import error: {exc}"
                 ) from exc
             return getattr(module, attr_name)

@@ -22,7 +22,7 @@ check that the weights exist (`tuner registry show` would need read access to
 ## Install and credentials
 
 ```bash
-uv sync --extra dev --extra mcp     # not bare `--extra mcp`: that uninstalls dev and train
+uv sync --extra dev --extra train   # `dev` includes the mcp extra; `--extra mcp` alone would uninstall train
 ```
 
 The server runs as the least-privilege `tuner-mcp` principal: read on
@@ -62,21 +62,6 @@ Alternatively, a `.mcp.json` that keeps the keys in your shell environment
 ```
 
 No project `.mcp.json` is committed to this repo, on purpose.
-
-## Inspect it (optional)
-
-The MCP Inspector can browse the tools interactively. It needs Node, and is not
-installed or exercised by this project's gate. It launches any stdio server, so
-give it the same command and the same `TUNER_S3_*` environment as above:
-
-```bash
-TUNER_S3_ENDPOINT=http://localhost:9000 \
-TUNER_S3_ACCESS_KEY="$MCP_S3_ACCESS_KEY" TUNER_S3_SECRET_KEY="$MCP_S3_SECRET_KEY" \
-  npx @modelcontextprotocol/inspector uv run --extra mcp --directory /path/to/tuner tuner mcp
-```
-
-(`uv run mcp dev <file>` from the SDK's `mcp[cli]` extra does the same for a server
-module, but this package has no standalone module to point it at.)
 
 ## stdout is the wire
 

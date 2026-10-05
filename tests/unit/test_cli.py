@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import subprocess
 import sys
 
@@ -110,24 +111,29 @@ def test_run_command_exits_with_run_pipelines_code(monkeypatch, tmp_path):
 
 
 def _block_mcp_sdk(monkeypatch):
-    """Make `import mcp` fail, and forget any already-imported SDK or tuner.mcp_server
-    modules (a cached `mcp.server` would satisfy `from mcp.server import ...`)."""
+    """Make `import mcp` fail; forget any already-imported SDK or tuner.mcp_server
+    modules (a cached `mcp.server` would satisfy `from mcp.server import ...`); and drop
+    `tuner.cli`, so the next import re-executes its top-level code (an eager
+    `import tuner.mcp_server...` there must then fail)."""
     monkeypatch.setitem(sys.modules, "mcp", None)
     for name in [n for n in sys.modules if n.startswith(("mcp.", "tuner.mcp_server"))]:
         monkeypatch.delitem(sys.modules, name)
+    monkeypatch.setattr(sys.modules["tuner"], "cli", sys.modules["tuner.cli"])  # restored after
+    monkeypatch.delitem(sys.modules, "tuner.cli")
 
 
 def test_mcp_without_extra_names_the_mcp_extra(monkeypatch):
     """CLI-U-007: `tuner mcp` with the SDK import failing exits 1, and the message
-    names the `mcp` extra and `uv sync --extra dev --extra mcp`, not the `train` extra."""
+    names the `mcp` extra and prescribes `uv sync --extra dev --extra train` (never
+    `--extra mcp`, which would uninstall `train`)."""
     _block_mcp_sdk(monkeypatch)
 
     result = CliRunner().invoke(cli, ["mcp"])
 
     assert result.exit_code == 1
     assert "needs the `mcp` extra" in result.output
-    assert "uv sync --extra dev --extra mcp" in result.output
-    assert "`train`" not in result.output
+    assert "uv sync --extra dev --extra train" in result.output
+    assert "--extra mcp" not in result.output
 
 
 def test_help_does_not_import_the_mcp_sdk(monkeypatch):
@@ -135,7 +141,9 @@ def test_help_does_not_import_the_mcp_sdk(monkeypatch):
     `mcp` (lazy registration: the SDK is never imported)."""
     _block_mcp_sdk(monkeypatch)
 
-    result = CliRunner().invoke(cli, ["--help"])
+    fresh_cli = importlib.import_module("tuner.cli").cli
+
+    result = CliRunner().invoke(fresh_cli, ["--help"])
 
     assert result.exit_code == 0
     assert "mcp" in result.output
