@@ -128,7 +128,7 @@ Secrets and endpoints only — everything else lives in the config file (§6).
 | `TUNER_S3_ENDPOINT` | all stages | object-store endpoint URL (MinIO locally; unset ⇒ AWS default) |
 | `TUNER_S3_ACCESS_KEY` / `TUNER_S3_SECRET_KEY` | all stages | per-stage scoped credentials |
 | `TUNER_S3_REGION` | all stages | region (default `us-east-1`) |
-| `MCP_S3_ACCESS_KEY` / `MCP_S3_SECRET_KEY` | `minio-init`, MCP client config | provisioning keypair of the read-only `mcp` principal (MinIO user `tuner-mcp`), per the `<PRINCIPAL>_S3_*` pattern; the client config maps it onto `TUNER_S3_*` for `tuner mcp` ([mcp-server.md](03-components/mcp-server.md)) |
+| `MCP_S3_ACCESS_KEY` / `MCP_S3_SECRET_KEY` | `minio-init`, MCP client config | provisioning keypair of the read-only `mcp` principal (MinIO policy `tuner-mcp`, attached to the user keyed by `MCP_S3_ACCESS_KEY`), per the `<PRINCIPAL>_S3_*` pattern; the client config maps it onto `TUNER_S3_*` for `tuner mcp` ([mcp-server.md](03-components/mcp-server.md)) |
 | `MLFLOW_TRACKING_URI` | judge, trainer, smoke | MLflow server URL |
 | `TUNER_JUDGE_BASE_URL` | judge | OpenAI-compatible endpoint base URL |
 | `TUNER_JUDGE_API_KEY` | judge | key for that endpoint (dummy value ok for local servers) |
