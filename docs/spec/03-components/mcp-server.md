@@ -36,7 +36,7 @@ claude mcp add --scope local --transport stdio tuner-registry \
 
 `--extra mcp` makes `uv run` install the SDK if absent without removing other installed extras (`uv run` syncs inexactly; checked 2026-10-04); the `--directory` flag selects the project; no `--env-file` is used. (Server name `tuner-registry` is a client-side label.)
 
-Alternative, `.mcp.json` form: Claude Code expands `${VAR}` from the launching shell's environment into a server's `env` block (**VERIFIED 2026-10-04**, Claude Code 2.1.285, human-run probe: [#61 comment](https://github.com/MyCookie/tuner/issues/61#issuecomment-5984964626)). The pair can therefore stay in the user's shell environment and out of the file:
+Alternative, `.mcp.json` form: Claude Code expands `${VAR}` from the launching shell's environment into a server's `env` block (**VERIFIED 2026-10-04**, Claude Code 2.1.285, human-run probe: [#61 comment](https://github.com/MyCookie/tuner/issues/61#issuecomment-5984964626)). The pair can therefore stay in the user's shell environment and out of the file. The file lives at the project root, untracked, and is kept out of git with a `.mcp.json` line in `.git/info/exclude` (per clone, no repo change); otherwise prefer `claude mcp add --scope local`:
 
 ```json
 {"mcpServers": {"tuner-registry": {

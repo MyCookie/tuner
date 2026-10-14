@@ -25,7 +25,7 @@ check that the weights exist (`tuner registry show` would need read access to
 uv sync --extra dev --extra train   # `dev` includes the mcp extra; `--extra mcp` alone would uninstall train
 ```
 
-The server runs as the least-privilege `tuner-mcp` principal: read on
+The server runs as the least-privilege `mcp` principal (policy `tuner-mcp`): read on
 `tuner-registry` only. Its keypair is `MCP_S3_ACCESS_KEY` / `MCP_S3_SECRET_KEY` in
 your `.env`; the client config maps it onto the `TUNER_S3_*` variables the server
 reads. **Don't** use `uv run --env-file .env`: `.env` holds the root credentials
@@ -48,7 +48,9 @@ Local scope keeps the config, secrets included, in your uncommitted
 
 Alternatively, a `.mcp.json` that keeps the keys in your shell environment
 (Claude Code expands `${VAR}` inside `env`; export `MCP_S3_ACCESS_KEY` and
-`MCP_S3_SECRET_KEY` before launching `claude`):
+`MCP_S3_SECRET_KEY` before launching `claude`). Put the file at the project root, untracked, and keep it out of git with a
+`.mcp.json` line in `.git/info/exclude` (per clone, no repo change); otherwise prefer
+`claude mcp add --scope local`:
 
 ```json
 {"mcpServers": {"tuner-registry": {
