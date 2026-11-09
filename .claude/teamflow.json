@@ -1,0 +1,8 @@
+{
+  "forge": "github",
+  "remote": "origin",
+  "base": "main",
+  "tdd": "required",
+  "teamflow_auto_approve": "low",
+  "loop": {"exit_severity_threshold": "medium", "max_open_issues_to_continue": 0}
+}
