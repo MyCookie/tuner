@@ -16,6 +16,17 @@ Cases implemented, per the task's **Suite** line in `docs/spec/08-test-specs/`:
 
 Every case is docstring-tagged with its ID. None skipped, none invented.
 
+## Red/green
+
+`tdd: required` (`.claude/teamflow.json`). One row per new test: name, the command
+you ran, the failing output from before the change (the red), and that it now
+passes. A change that cannot be tested (prose, configuration) says
+"not testable: <why>" instead.
+
+| test | command | red output | now green |
+| :--- | :--- | :--- | :--- |
+| | | | |
+
 ## Gate
 
 Output of `./scripts/gate.sh`:
@@ -46,3 +57,4 @@ test coverage.>
 ---
 
 Refs: TNN
+Closes #<n>   <!-- one line per resolved Issue -->

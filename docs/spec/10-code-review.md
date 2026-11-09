@@ -57,7 +57,7 @@ EOF_BODY
 
 `tf pr create` refuses a dirty tree, the base branch, a detached HEAD and an unedited template, and pushes the branch first. A human outside a teamflow session can use `./scripts/open-pr.sh "TNN — <task title>" <body-file>` instead: same refusals, same result.
 
-The PR body follows [.github/pull_request_template.md](../../.github/pull_request_template.md): which task, which suite cases, the gate transcript, any spec decision made along the way, and the areas the implementer most wants scrutinised. It carries `Closes #<n>` for each resolved Issue. Claims in the PR body are *hints* for the reviewers, never evidence — they re-derive everything.
+The PR body follows [.github/pull_request_template.md](../../.github/pull_request_template.md): which task, which suite cases, the red/green record, the gate transcript, any spec decision made along the way, and the areas the implementer most wants scrutinised. It carries `Closes #<n>` for each resolved Issue. Claims in the PR body are *hints* for the reviewers, never evidence — they re-derive everything.
 
 **Red/green.** `.claude/teamflow.json` sets `tdd: required`: for a testable change the implementer writes the test first, keeps the failing output, then makes it pass, and the PR body records per test its name, the command, the red output and that it now passes. A change that cannot be tested (prose, configuration) says so and why. Missing red/green evidence on a testable change is a `major` (§6).
 
