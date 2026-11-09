@@ -20,7 +20,8 @@
 ## Communication rules
 - Keep messages terse and structured. Lead with status, follow with detail.
 - Do not send progress updates mid-task unless blocked.
-- How subagents report and send mid-task messages is defined once in
+- How subagents report and send mid-task messages is defined by the plugin's
+  `teamflow:workflow` skill ("Messaging"), summarised in
   [CONTRIBUTING "Messaging"](docs/CONTRIBUTING.md).
 - Escalate to the human (not just your lead) if: a file ownership conflict
   cannot be resolved, a critical security vulnerability is found, or any

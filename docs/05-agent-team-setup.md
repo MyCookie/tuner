@@ -41,7 +41,7 @@ copy of a teamflow agent would bypass the plugin's spawn hook, which only police
 | :--- | :--- | :--- |
 | Claude Code 2.1.304 or later | teamflow's documented minimum | `claude --version` |
 | `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` at 2 or more (3 is the default from v2.1.219) | manager, lead, worker is three layers; the manager stops at startup if it reads `1` | `echo $CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` |
-| `CLAUDE_CODE_FORK_SUBAGENT` not set to `0` | leads return after their workers only with fork mode on | `echo $CLAUDE_CODE_FORK_SUBAGENT` |
+| `CLAUDE_CODE_FORK_SUBAGENT` not set to `0` | headless (`-p`/SDK) runs need fork mode on for leads to wait for their workers; teamflow does not support `-p` with it off (interactive sessions don't depend on it) | `echo $CLAUDE_CODE_FORK_SUBAGENT` |
 | `gh` authenticated with `repo` scope | `tf` (forge `github`) reaches every Issue and PR through it; with no login, `tf` stops with exit 2 and never falls back | `gh auth status` |
 | `uv`, Docker, a filled-in `.env` | the gate runs the integration tests against MinIO and MLflow | `cp .env.example .env`, then see [00-getting-started.md](00-getting-started.md) |
 | The main worktree on `main` | `tf` and `teamflow-config` read `.claude/teamflow.json` from the main worktree and stop (exit 2) on any other branch; all work happens in separate worktrees | `git worktree list` |
@@ -122,14 +122,17 @@ no bypass actors. It is a dry run unless given `--apply`, never overwrites a fil
 commits. Run it from a separate worktree on a setup branch, not from the main worktree:
 
 ```bash
-git worktree add ../tuner-setup -b chore/teamflow-setup
+git worktree add ../tuner-setup -b chore/103-teamflow-setup
 cd ../tuner-setup
 tf setup --forge github               # dry run: read what it would change
 tf setup --forge github --apply       # only after confirming the ruleset with the repository owner
 ```
 
-The ruleset makes merges unforgeable by anything short of an owner-side change, so applying
-it is the owner's decision, not an agent's. This step is tracked in Issue #103; until it is
+The ruleset makes GitHub refuse a merge without a green `gate` check and a success
+`teamflow/code-review` status on the current head. It does not tell reviewer from author: every
+agent shares the owner's `gh` login and could set that status or edit the ruleset, so it is a
+process guard, not an access control ([spec/10 §9](spec/10-code-review.md)). Applying it is
+the owner's decision, not an agent's. This step is tracked in Issue #103; until it is
 done, `tf` checks the `gate` check and the verdict itself before merging, and nothing on
 GitHub enforces them ([spec/10 §9](spec/10-code-review.md)).
 

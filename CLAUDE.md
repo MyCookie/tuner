@@ -26,6 +26,7 @@ You are building the Enterprise Fine-Tuning Pipeline from the specs in `docs/spe
 - Never commit to `main`. One branch per unit of work, named `<type>/<issue#>-<slug>` (`feat/`, `fix/`, `docs/`, `refactor/`…), branched from up-to-date `main`. Every branch ties to an Issue — build-plan tasks get an Issue too.
 - Atomic commits, Conventional Commits format (`feat(cleaner): ...`), code + its tests in the same commit, unit tests passing at every commit.
 - The gate is one command: `./scripts/gate.sh` (ruff, pickle ban, unit, integration, coverage). Red and unfixable this session ⇒ leave the branch, report honestly. Never merge-then-fix, never force-push shared branches.
+- **Review checklist.** Reviewers (`review-lead` and the five specialists) apply [docs/spec/10 §5](docs/spec/10-code-review.md) (items T-a to T-g) in addition to the plugin's own checks, naming coverage (T-d) and data contracts (T-e), which the plugin's split has no counterpart for. The plugin does not read that page, so this pointer is the only thing that reaches them; whether a specialist follows it is not mechanically enforced.
 - **Green is not done.** Push the branch, open a PR with `tf pr create`, and stop. The review team (`review-lead` and five specialist reviewers, from the teamflow plugin) claims the PR, checks CI's `gate` on the head, reviews against the specs, and arms or runs the merge on `APPROVE`. **You never merge your own PR**, and you never report a review as approval it did not give. Keep iterating while each round finds new defects; the manager stops and reports when a finding is re-argued, when the spec itself is disputed, or at five rounds ([docs/spec/10 §8](docs/spec/10-code-review.md)).
 
 ## Multi-agent orchestration
@@ -58,7 +59,7 @@ The agents come from the [teamflow](https://github.com/Ribhu-Labs/teamflow) plug
 
 **Models:** the plugin defines each agent's model, effort and tools; don't restate them in docs.
 
-**Messaging:** address sessions by `@name`; how subagents report and send mid-task messages is defined once in [CONTRIBUTING "Messaging"](docs/CONTRIBUTING.md); lead with status, then detail; don't poll — use idle notifications when waiting on a phase; `crossSessionInbound: accept` is set project-wide in `.claude/settings.json`.
+**Messaging:** agents report by their final message; the rule is the plugin's (`teamflow:workflow`, "Messaging"), summarised for this repo in [CONTRIBUTING "Messaging"](docs/CONTRIBUTING.md); lead with status, then detail; don't poll — use idle notifications when waiting on a phase.
 
 **Plugins:** `teamflow@teamflow` (the agent team), `ponytail@ponytail` (the simplicity-reviewer engine) and `mattpocock-skills@mattpocock` (`/grilling` for stress-testing a goal at intake) are declared in `.claude/settings.json`; per-person defaults belong in `.claude/settings.local.json`.
 

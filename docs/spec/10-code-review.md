@@ -2,7 +2,7 @@
 
 How work reaches `main` from T05 on. The core invariant of [09-git-workflow.md](09-git-workflow.md) — **`main` is always green** — is unchanged; this document adds the second invariant: **nothing merges on its author's own say-so.**
 
-Review and merge are run by the [teamflow](https://github.com/Ribhu-Labs/teamflow) plugin (`teamflow@teamflow`, installed in `.claude/settings.json`, configured in `.claude/teamflow.json`). teamflow's own rules — roles, handoffs, `tf` exit codes, the claim/gate/verdict/merge steps — are the `teamflow:workflow` skill (`skills/workflow/SKILL.md` upstream) and are **not restated here**; this page says what is specific to Tuner: what the gate is, what reviewers check against, and how findings are graded. Where the two differ on mechanics, the skill wins; where they differ on what is checked, this page and the specs win. How to start the team: [05-agent-team-setup.md](../05-agent-team-setup.md).
+Review and merge are run by the [teamflow](https://github.com/Ribhu-Labs/teamflow) plugin (`teamflow@teamflow`, installed in `.claude/settings.json`, configured in `.claude/teamflow.json`). teamflow's own rules — roles, handoffs, `tf` exit codes, the claim/gate/verdict/merge steps — are the `teamflow:workflow` skill (`skills/workflow/SKILL.md` upstream) and are **not restated here**; this page says what is specific to Tuner: what the gate is, what reviewers check against, and how findings are graded. Where the two differ on mechanics, the skill wins; where they differ on what is checked, this page and the specs win — but see §5 for how little of that the plugin enforces. How to start the team: [05-agent-team-setup.md](../05-agent-team-setup.md).
 
 Every build task is implemented by one agent and merged by a different one, with fresh context, that re-derives the verdict from the pushed head and the specs rather than from the implementer's report.
 
@@ -91,15 +91,17 @@ The compose stack is a **single shared instance** on fixed ports (`9000`/`9001`/
 
 ## 5. Semantic analysis
 
-The gate proves the tests pass. The review exists for what a green gate cannot show. The five specialists review the PR against the Issue and the repository's documents — they are not briefed with a list (§9) — and review-lead does not record a verdict until all seven items below are covered by someone. The lettering below is normative.
+The gate proves the tests pass. The review exists for what a green gate cannot show. This is Tuner's checklist, items **T-a to T-g** (prefixed so they cannot be confused with teamflow's own a to f).
 
-**a. Hard rules ([CLAUDE.md](../../CLAUDE.md)).** `import boto3` only inside `src/tuner/core/storage.py` (`CORE-U-046`); no `pickle`, no `torch.save`/`torch.load`, no `.bin` weights; secrets only via the `TUNER_*`/`MLFLOW_*`/`HF_TOKEN` env vars — never in configs, code, logs, or compose; stages stateless and idempotent (delete own output prefix → rewrite → manifest written **last**); exit codes 0 ok / 1 error / 2 config-or-validation / 3 zero-records; no stage branching on a model adapter's name.
+**What is and is not enforced.** teamflow's review-lead records a verdict only once its *own* split of checks has been reported (upstream `agents/review-lead.md`, step 6): a hard rules (architect), b the Issue's acceptance criteria, c test integrity, d commits and red/green (quality), e decisions documented (docs), f changes to a checker (security), plus the gate. Nothing in the plugin reads this page, so nothing makes review-lead withhold a verdict for a missing T-item; coverage (T-d) and data contracts (T-e) have no counterpart in that split at all. This checklist reaches the reviewers only through what they read: `CLAUDE.md`, which every agent loads, tells reviewers to apply it. Whether a specialist follows that pointer is **not verified and not mechanically enforced**; a human or the manager reading a verdict should look for these items by their T-letters. A verdict's "item d" means teamflow's d (commits, red/green) unless written "T-d".
 
-**b. Spec conformance.** Read the task's **Spec** sections yourself. Every claim on its **Accept** line must trace to a real assertion, not a plausible-looking one. Canonical names — buckets, env vars, config keys, run-ID format ([01 §4](01-architecture.md)) — must be used verbatim, with no invented variants.
+**T-a. Hard rules ([CLAUDE.md](../../CLAUDE.md)).** `import boto3` only inside `src/tuner/core/storage.py` (`CORE-U-046`); no `pickle`, no `torch.save`/`torch.load`, no `.bin` weights; secrets only via the `TUNER_*`/`MLFLOW_*`/`HF_TOKEN` env vars — never in configs, code, logs, or compose; stages stateless and idempotent (delete own output prefix → rewrite → manifest written **last**); exit codes 0 ok / 1 error / 2 config-or-validation / 3 zero-records; no stage branching on a model adapter's name.
+
+**T-b. Spec conformance.** Read the task's **Spec** sections yourself. Every claim on its **Accept** line must trace to a real assertion, not a plausible-looking one. Canonical names — buckets, env vars, config keys, run-ID format ([01 §4](01-architecture.md)) — must be used verbatim, with no invented variants.
 
 *When the PR is not a build task* — a `docs/`, `fix/`, `refactor/` or `chore/` branch, which §10 also brings under this gate — there is no build-plan entry, no **Suite** line and no **Accept** line. Every other item still applies verbatim; this one becomes: **does the change do what its PR body and Issue claim, and does anything it asserts as fact actually hold?** Verify factual claims in prose exactly as you would an assertion in code — run the command, read the spec, check the API response. A document that confidently states something false is this repo's equivalent of wrong behavior, because the docs are what the next agent executes from.
 
-**c. Test integrity.** Every case ID on the task's **Suite** line is present, docstring-tagged as the first line ([08 README](08-test-specs/README.md)), and genuinely asserts the specified expectation. No case silently skipped; no case invented outside the spec. Then:
+**T-c. Test integrity.** Every case ID on the task's **Suite** line is present, docstring-tagged as the first line ([08 README](08-test-specs/README.md)), and genuinely asserts the specified expectation. No case silently skipped; no case invented outside the spec. Then:
 
 ```bash
 git diff origin/main...HEAD -- tests/
@@ -107,13 +109,13 @@ git diff origin/main...HEAD -- tests/
 
 Edits to **pre-existing** tests are the strongest signal that a test was bent to fit the code. Every such edit needs a justification in the PR body, and the honest resolution of a wrong-looking test is a spec question, not an edit. Red/green evidence for new tests is checked here too (§3).
 
-**d. Coverage.** ≥90 % branch globally; 100 % on the modules listed in [08 README](08-test-specs/README.md). Every `# pragma: no cover` carries a same-line justification naming the T15 manual check that covers it.
+**T-d. Coverage.** ≥90 % branch globally; 100 % on the modules listed in [08 README](08-test-specs/README.md). Every `# pragma: no cover` carries a same-line justification naming the T15 manual check that covers it.
 
-**e. Data contracts.** Anything touching a record, manifest, or schema is checked against [02-data-contracts.md](02-data-contracts.md), which wins over code.
+**T-e. Data contracts.** Anything touching a record, manifest, or schema is checked against [02-data-contracts.md](02-data-contracts.md), which wins over code.
 
-**f. Commits.** Atomic and Conventional ([09 §2–§3](09-git-workflow.md)); code and its tests in the same commit; nothing committed that `.gitignore` should have caught.
+**T-f. Commits.** Atomic and Conventional ([09 §2–§3](09-git-workflow.md)); code and its tests in the same commit; nothing committed that `.gitignore` should have caught.
 
-**g. Documentation of decisions.** A spec ambiguity resolved during implementation belongs **in the docs**, not in a code comment or a commit message. The precedent is T04's `INF-I-005` footnote in [08 infra.md](08-test-specs/infra.md): the decision, its reasoning, and the task that owns the follow-up.
+**T-g. Documentation of decisions.** A spec ambiguity resolved during implementation belongs **in the docs**, not in a code comment or a commit message. The precedent is T04's `INF-I-005` footnote in [08 infra.md](08-test-specs/infra.md): the decision, its reasoning, and the task that owns the follow-up.
 
 ### Reviewing a checker
 
@@ -138,11 +140,13 @@ On GitHub this posts the verdict as a PR comment and sets the `teamflow/code-rev
 Each finding:
 
 ```
-#### N. [blocker] <one-line claim>
+**N. [blocker] <one-line claim>**
 **Where:** path/to/file.py:123
 **Why required:** <which rule or spec section this breaks, and the consequence>
 **Suggested fix:** <concrete — not "consider refactoring">; say so if you have not tested it
 ```
+
+The body starts with exactly `**Verdict: APPROVE**` or `**Verdict: REQUEST_CHANGES**`, and no body line starts with `#` (teamflow's review-lead is told to use bold headings).
 
 | Severity | Meaning | Blocks merge |
 | :--- | :--- | :--- |
@@ -167,7 +171,7 @@ Only review-lead, only after recording `APPROVE`, and what is left to do depends
 - **Without the ruleset**, `tf pr review` arms nothing and review-lead runs `tf pr merge <N>`, which itself checks the CI `gate` check and the verdict before merging.
 - Exit 4 (verdict recorded, auto-merge not armed) is the one non-zero exit that is not a STOP: run `tf pr merge <N>` once. A stacked PR (one that targets another branch than `main`) is not merged until it targets `main`.
 
-The merge is a merge commit (`--merge`), preserving the feature boundary in history, and the branch is deleted by the repository setting `tf setup` applies — not by a `git push --delete` step. Afterwards anyone with a checkout updates with `git switch main && git pull --ff-only`; if that pull is not a fast-forward, something wrote to `main` outside this workflow — stop and report rather than reconciling.
+The merge is a merge commit (`--merge`), preserving the feature boundary in history, and `tf pr merge` does not delete the branch. `tf setup --apply` turns on the repository's delete-branch-on-merge setting, so once it has run (§9, Issue #103) GitHub deletes merged branches; **until then** the setting is off and a merged branch stays on the remote, so delete it by hand (`git push origin --delete <branch>`). Afterwards anyone with a checkout updates with `git switch main && git pull --ff-only`; if that pull is not a fast-forward, something wrote to `main` outside this workflow — stop and report rather than reconciling.
 
 **Never `--admin`, a direct `git push` to `main`, or a self-approval** to get past a blocked merge: `mergeStateStatus: BLOCKED` means the ruleset is doing its job, or was changed; that decision belongs to the repository owner, not to a reviewer. Stop and report.
 
