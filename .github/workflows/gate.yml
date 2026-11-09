@@ -1,15 +1,12 @@
 name: gate
 
 # The single required PR check: the teamflow ruleset requires the context `gate`, which
-# comes from this job's id (so the job must not get a different `name:`). It runs
-# everything 06-testing.md §6 lists per PR: lint, the pickle ban, the secret and docs
-# checks, then the unit + integration tests with MinIO/MLflow/mock-judge as service
-# containers, INF-I-012 proving offline HF mode against its own pre-seeded tiny-model
-# cache, and the per-module coverage gate. The cheap static checks come first so the
-# job fails fast. GH Actions' native `services:` key needs a pre-built registry image,
-# which this repo doesn't publish -- `docker compose up` as a regular step instead,
-# the same command a human runs locally (docs/spec/09-git-workflow.md §4 and
-# 10-code-review.md's "one script, can't drift").
+# comes from this job's id (so the job must not get a different `name:`). The job only
+# stands up the environment (toolchain, a throwaway .env, the compose stack) and runs
+# ./scripts/gate.sh, the one definition of green (docs/spec/10-code-review.md §4); every
+# check lives there. GH Actions' native `services:` key needs a pre-built registry
+# image, which this repo doesn't publish -- `docker compose up` as a regular step
+# instead, the same stack a human starts locally (docs/spec/09-git-workflow.md §4).
 on:
   pull_request:
 
@@ -20,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0 # full history: check_secrets.py's branch-history scan needs it
+          fetch-depth: 0 # full history: gate.sh's branch-history secret scan refuses a shallow clone
 
       - uses: astral-sh/setup-uv@v7
         with:
@@ -29,39 +26,6 @@ jobs:
 
       - name: Install toolchain
         run: uv sync --extra dev --extra train
-
-      - name: ruff check
-        run: uv run ruff check .
-
-      - name: ruff format --check
-        run: uv run ruff format --check .
-
-      - name: pickle ban (CLAUDE.md hard rule 2)
-        run: ./scripts/check_pickle_ban.sh
-
-      - name: shell scripts parse
-        run: |
-          for f in scripts/*; do
-            [ -f "$f" ] || continue
-            case "$(head -1 "$f")" in
-              '#!'*sh*) bash -n "$f" ;;
-            esac
-          done
-
-      - name: secret scan, working tree (docs/spec/08-test-specs/README.md "Secret scanning")
-        run: uv run python scripts/check_secrets.py
-
-      - name: secret scan, branch history
-        # "over the full history of the branch being merged" (08 README). `git fetch`
-        # (not just fetch-depth: 0) guarantees origin/main exists even if the
-        # checkout action's own ref expansion didn't pull it.
-        run: |
-          git fetch origin main --quiet
-          base=$(git merge-base origin/main HEAD)
-          uv run python scripts/check_secrets.py --since-merge-base "$base"
-
-      - name: docs links & spec<->test traceability
-        run: uv run python scripts/check_docs.py
 
       - name: Write .env
         run: ./scripts/write_ci_env.sh
@@ -80,27 +44,8 @@ jobs:
             [ "$status" = "healthy" ] || { echo "::error::$svc never became healthy"; docker compose logs "$svc"; exit 1; }
           done
 
-      - name: Seed the tiny-test HF cache
-        run: uv run python scripts/seed_hf_cache.py
-
-      - name: Unit + integration tests (coverage)
-        # No blanket HF_HUB_OFFLINE=1 here: huggingface_hub resolves it at
-        # process start (docs/spec/03-components' HF_HOME gotcha applies equally to
-        # this var), so a step-level env would also gate INF-I-012's own
-        # seed() call, which needs real network to build its isolated cold
-        # cache before it proves offline mode -- via a *subprocess* env
-        # override -- against that cache. INF-I-012 already scopes
-        # HF_HUB_OFFLINE=1 correctly; nothing else in this step needs it.
-        run: |
-          set -a; . ./.env; set +a
-          # No --cov-report=json here: check_coverage.py generates its own from the
-          # .coverage data file this step writes (`coverage json -o -`), so a
-          # separate JSON report on disk would just be an unused artifact.
-          uv run pytest -m 'not e2e and not gpu and not slow' \
-            --cov=src/tuner --cov-report=term-missing
-
-      - name: Per-module coverage gate
-        run: uv run python scripts/check_coverage.py
+      - name: Gate
+        run: ./scripts/gate.sh
 
       - name: Compose logs (on failure)
         if: failure()

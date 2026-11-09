@@ -62,8 +62,8 @@ Everything is checked in except per-person settings and the manager's state.
 | `.claude/settings.local.json` | per-person overrides; gitignored |
 | `CLAUDE.md` | conventions, hard rules, routing table; loaded by every agent |
 | `AGENTS.md` | behavioural rules, Issue filing format, research output format; loaded by every agent |
-| `scripts/gate.sh` | the merge gate; the implementer runs it locally. CI does not run it; see [spec/10 §4](spec/10-code-review.md) |
-| `.github/workflows/gate.yml` | CI: the job `gate`, the required check |
+| `scripts/gate.sh` | the merge gate, the single definition of green; the implementer runs it locally and CI runs it ([spec/10 §4](spec/10-code-review.md)) |
+| `.github/workflows/gate.yml` | CI: the job `gate` (the required check) sets up the environment, then runs `scripts/gate.sh` |
 | `.github/pull_request_template.md` | the PR body `tf pr create` requires filled in |
 | `scripts/review-setup.sh`, `scripts/open-pr.sh` | a reviewer worktree with `.env` and the toolchain; a PR opener for use outside teamflow |
 | `.manager-state.json` | the manager's loop state; created on first run; gitignored |

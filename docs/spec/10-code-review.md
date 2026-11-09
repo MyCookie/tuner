@@ -46,7 +46,7 @@ git switch -c <type>/<issue#>-<slug>
 
 # 2. implement the task per 07-build-plan.md; atomic Conventional commits (09 §2–§3)
 
-# 3. the gate — the checks CI's `gate` job repeats
+# 3. the gate (§4)
 ./scripts/gate.sh
 
 # 4. publish — pushes the branch and opens the PR
@@ -65,22 +65,9 @@ The PR body follows [.github/pull_request_template.md](../../.github/pull_reques
 
 ## 4. The gate at review, and running things locally
 
-**The gate is `./scripts/gate.sh`** (ruff, the pickle ban, unit, integration, coverage, the docs and test-ID checks). It stays the single definition of green: the implementer runs it before opening a PR. CI does **not** run `gate.sh`; `.github/workflows/gate.yml` runs its own steps as the job `gate` on every `pull_request`. The job id is the check name, and the teamflow ruleset requires that context (§9). In order, the steps of `gate.yml` are:
+**The gate is `./scripts/gate.sh`**, and it is the single definition of green: ruff, the pickle ban, the shell-syntax check, the two secret scans (working tree and branch history), the HF-cache seed, unit and integration tests, coverage, and the docs, test-ID and per-module coverage checks. Read the script for the list; it is not repeated here. The implementer runs it before opening a PR. CI runs the same script: `.github/workflows/gate.yml` runs the job `gate` on every `pull_request`, which installs the toolchain, writes a throwaway `.env` (`scripts/write_ci_env.sh`), starts the compose stack and then runs `./scripts/gate.sh`. The job id is the check name, and the teamflow ruleset requires that context (§9). The only things that differ between the two runs are the environment: CI also starts `mock-judge` and uses the disposable `.env`.
 
-- `uv sync --extra dev --extra train`;
-- `uv run ruff check .` and `uv run ruff format --check .`;
-- `./scripts/check_pickle_ban.sh`;
-- a shell syntax check (`bash -n`) of every file in `scripts/` whose first line is a `#!` shell shebang;
-- `scripts/check_secrets.py`, over the working tree and then over the branch history since the merge base with `origin/main`;
-- `scripts/check_docs.py` (docs links and spec-to-test traceability);
-- `./scripts/write_ci_env.sh`, then `docker compose --profile e2e up -d minio minio-init mlflow mock-judge` and a health wait on `minio`, `mlflow` and `mock-judge`;
-- `scripts/seed_hf_cache.py`;
-- `uv run pytest -m 'not e2e and not gpu and not slow' --cov=src/tuner --cov-report=term-missing`, with `.env` loaded (one run, unit and integration together);
-- `scripts/check_coverage.py`.
-
-The workflow also runs `docker compose logs` on failure and `docker compose --profile e2e down -v` at the end. Compared with `gate.sh`, it adds the two secret scans, `write_ci_env.sh`, the `mock-judge` service and `seed_hf_cache.py`, none of which `gate.sh` runs, and has no separate unit-only step. This list is read from `gate.yml` at the time of writing; when they differ, `gate.yml` is right.
-
-The local run is mandatory before opening a PR because teamflow's implementer rule requires it and it surfaces a red gate before a review round is spent. It covers no tests that CI skips: the `-m` expression above excludes `gpu` and `slow` tests, and so does the one `gate.sh` passes for its integration step, so no PR-time run covers `gpu` tests (run manually in T15, per the marker in `pyproject.toml`) or `slow` tests (run by the nightly workflow).
+The local run is mandatory before opening a PR because teamflow's implementer rule requires it and it surfaces a red gate before a review round is spent. Neither run covers `gpu` tests (run manually in T15, per the marker in `pyproject.toml`) or `slow` tests (run by the nightly workflow): `gate.sh` excludes both with its `-m` expression.
 
 **At review**, review-lead runs `tf pr checkout <N>` in its own worktree, then `tf pr gate <N>`. On GitHub that waits for CI's required checks on the exact head and does not run the script a second time. Red is a `blocker`; the round continues so the implementer gets the whole picture. A gate that could not run, or whose result is unreadable, is a STOP: no verdict is recorded on an unverified gate. `tf` exit codes are in the workflow skill.
 
@@ -102,7 +89,7 @@ This is a script rather than a list of commands for a reason worth keeping: **no
 
 The compose stack is a **single shared instance** on fixed ports (`9000`/`9001`/`5000`). `docker-compose.yaml` pins `name: tuner`, so commands issued from a worktree address that same project rather than starting a second, port-colliding stack. If the stack is down, bring it up with `docker compose up -d minio minio-init mlflow` — from any directory.
 
-`tf` reads `.claude/teamflow.json` from the **main worktree**, which must stay on `main`; every `tf` command except `tf setup` stops (exit 2) otherwise. All work happens in separate worktrees. A PR that edits `.claude/teamflow.json` changes the rules its own review runs under only after it merges, because `tf` reads it from `main`. A PR that edits `.github/workflows/gate.yml` or anything it invokes is different: a `pull_request` workflow runs from the PR's own copy and checkout (PR #105's head got a `gate` check while `main` still had the old workflow), so the green `gate` on such a PR was produced by the gate it modified and proves nothing about that change. What `gate.yml` invokes, as listed above: the workflow file itself; the scripts it names (`check_pickle_ban.sh`, `check_secrets.py`, `check_docs.py`, `write_ci_env.sh`, `seed_hf_cache.py`, `check_coverage.py`) and the `scripts/` files its syntax-check loop reads; `docker compose`, which reads the compose file; and `pytest` and `--cov`, which read the pytest and coverage settings in `pyproject.toml` and run the tests under `tests/`. The reviewer must read that change itself, as a checker change under §5, and not rely on the green result. A change to `scripts/gate.sh` is not in that set: CI does not run it, so it affects only the local run. Review it by checking it against `gate.yml` for drift.
+`tf` reads `.claude/teamflow.json` from the **main worktree**, which must stay on `main`; every `tf` command except `tf setup` stops (exit 2) otherwise. All work happens in separate worktrees. A PR that edits `.claude/teamflow.json` changes the rules its own review runs under only after it merges, because `tf` reads it from `main`. A PR that edits `.github/workflows/gate.yml` or anything it invokes is different: a `pull_request` workflow runs from the PR's own copy and checkout (PR #105's head got a `gate` check while `main` still had the old workflow), so the green `gate` on such a PR was produced by the gate it modified and proves nothing about that change. What `gate.yml` invokes: the workflow file itself; `scripts/write_ci_env.sh`; `docker compose`, which reads the compose file; and `scripts/gate.sh` with everything it runs (the scripts it names, `pytest` and `--cov` reading `pyproject.toml`, the tests under `tests/`). The reviewer must read that change itself, as a checker change under §5, and not rely on the green result.
 
 ## 5. Semantic analysis
 

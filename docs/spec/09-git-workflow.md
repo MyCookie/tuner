@@ -43,11 +43,11 @@ From the feature branch, after rebasing onto latest `main` (`git fetch && git re
 ./scripts/gate.sh
 ```
 
-It reads `.env` itself — there is no export step — and runs ruff check + format, the pickle ban, unit tests, then unit + integration with the ≥ 90 % branch coverage gate, and — from T14 on — `check_test_ids.py`, `check_coverage.py`, `check_docs.py`. Every step runs even after an earlier one fails, so one round surfaces the whole picture, and it prints a summary table to paste into the PR. Anything red ⇒ fix on the branch; never merge-then-fix.
+It reads `.env` itself — there is no export step — and runs every check the merge needs (the script is the list; [10 §4](10-code-review.md)). Every step runs even after an earlier one fails, so one round surfaces the whole picture, and it prints a summary table to paste into the PR. Anything red ⇒ fix on the branch; never merge-then-fix.
 
 **A green gate is necessary but no longer sufficient.** From T05 on, `main` advances only through a reviewed pull request: push the branch, open the PR, and the review team — `review-lead` and five specialist reviewers, run by the teamflow plugin — checks the gate on the exact head, analyses the change against the specs, and arms or runs the merge; [10-code-review.md](10-code-review.md) is normative. **The author never merges their own work.** The merge happens on GitHub as a merge commit (`--merge`), which is the same shape `--no-ff` produced; local `main` then fast-forwards with `git pull --ff-only`.
 
-CI runs its own gate on every PR as the job `gate` ([10 §4](10-code-review.md) lists its steps and how it differs from `gate.sh`), and the teamflow branch ruleset requires that check plus an approving `teamflow/code-review` status on the head. Whether the ruleset is applied yet is stated in [10 §9](10-code-review.md); until it is, `tf` refuses to merge without both, and the gate is enforced by the tool and by discipline rather than by the server. The local gate stays mandatory regardless; why is in [10 §4](10-code-review.md).
+CI runs this same script on every PR as the job `gate` ([10 §4](10-code-review.md)), and the teamflow branch ruleset requires that check plus an approving `teamflow/code-review` status on the head. Whether the ruleset is applied yet is stated in [10 §9](10-code-review.md); until it is, `tf` refuses to merge without both, and the gate is enforced by the tool and by discipline rather than by the server. The local gate stays mandatory regardless; why is in [10 §4](10-code-review.md).
 
 ## 5. Releases
 

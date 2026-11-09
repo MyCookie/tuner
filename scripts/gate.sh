@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# The merge gate (09-git-workflow.md §4). One script so that what the implementer
-# ran and what the reviewer ran cannot drift (10-code-review.md §3, §4).
+# The merge gate (09-git-workflow.md §4) and the single definition of green: the
+# implementer runs it locally, and CI's `gate` job (.github/workflows/gate.yml)
+# runs this same script after standing up the compose stack (10-code-review.md §4).
 #
 # Every step runs even after an earlier one fails — a reviewer wants the whole
 # picture, not the first thing that broke. Exits non-zero if any step failed.
@@ -81,13 +82,11 @@ done
 step "ruff check" uv run ruff check .
 step "ruff format --check" uv run ruff format --check .
 
-# -- the pickle ban (05 §6, 06 §6) — CI greps for this; so does pre-commit --
-# (T14: extracted to its own script, scripts/check_pickle_ban.sh, so gate.yml's CI
-# job runs the identical check without duplicating the regex.)
+# -- the pickle ban (05 §6, 06 §6); the regex lives in scripts/check_pickle_ban.sh --
 step "pickle ban" scripts/check_pickle_ban.sh
 
-# The runbook lives in scripts/ now (10-code-review.md §3, §4), so a broken one is
-# a broken process. Cheapest possible guard: it must parse.
+# The gate itself lives in scripts/ (10-code-review.md §4), so a broken one is a
+# broken process. Cheapest possible guard: it must parse.
 shell_syntax() {
     local rc=0 f
     for f in scripts/*; do
@@ -102,7 +101,40 @@ shell_syntax() {
 }
 step "shell scripts parse" shell_syntax
 
+# -- secret scans (08-test-specs/README.md "Secret scanning") --------------
+
+step "secret scan, working tree" uv run python scripts/check_secrets.py
+
+# "Over the full history of the branch being merged": every commit since the merge
+# base with origin/main. CI checkouts and fresh worktrees may lack origin/main or
+# be shallow, and a wrong base would silently scan too little, so both fail
+# loudly here instead of being assumed away.
+secret_history() {
+    if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
+        echo "gate: shallow clone, so the merge base is unreliable: git fetch --unshallow" >&2
+        return 1
+    fi
+    if ! git rev-parse --verify --quiet refs/remotes/origin/main >/dev/null &&
+        ! git fetch origin main --quiet; then
+        echo "gate: no origin/main to scan history against, and fetching it failed" >&2
+        return 1
+    fi
+    local base
+    base=$(git merge-base origin/main HEAD) || {
+        echo "gate: no merge base between origin/main and HEAD" >&2
+        return 1
+    }
+    uv run python scripts/check_secrets.py --since-merge-base "$base"
+}
+step "secret scan, branch history" secret_history
+
 # -- tests: unit first (fast, no services), then unit+integration with coverage --
+
+# Needs real network, so it runs here and not in the pytest run: INF-I-012 proves
+# offline HF mode itself, with HF_HUB_OFFLINE=1 in a subprocess env. Do not export
+# HF_HUB_OFFLINE for the whole gate: huggingface_hub reads it at process start and
+# it would break that case's own cold-cache seed.
+step "seed tiny-test HF cache" uv run python scripts/seed_hf_cache.py
 
 step "unit tests" uv run pytest
 step "unit + integration, coverage" \
