@@ -82,7 +82,7 @@ step "ruff check" uv run ruff check .
 step "ruff format --check" uv run ruff format --check .
 
 # -- the pickle ban (05 §6, 06 §6) — CI greps for this; so does pre-commit --
-# (T14: extracted to its own script, scripts/check_pickle_ban.sh, so push.yml's CI
+# (T14: extracted to its own script, scripts/check_pickle_ban.sh, so gate.yml's CI
 # job runs the identical check without duplicating the regex.)
 step "pickle ban" scripts/check_pickle_ban.sh
 
