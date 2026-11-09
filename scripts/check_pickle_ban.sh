@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # The pickle ban (CLAUDE.md hard rule 2, 05-infrastructure.md §6, 06-testing.md §6).
-# Extracted from scripts/gate.sh (T14) so its own "every push" CI job can run the
+# Extracted from scripts/gate.sh (T14) so the CI `gate` job can run the
 # identical check without duplicating the regex -- one script, so what gate.sh runs
-# locally and what CI runs on every push can't drift (mirrors gate.sh's own reason
+# locally and what CI runs on every PR can't drift (mirrors gate.sh's own reason
 # for existing, 09-git-workflow.md §4/10-code-review.md §3-4).
 set -uo pipefail
 

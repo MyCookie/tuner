@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Writes a working .env for CI's own disposable, single-run MinIO/MLflow/mock-judge
-# stack (pr.yml and nightly.yml both call this, so the two workflows can't drift on
+# stack (gate.yml and nightly.yml both call this, so the two workflows can't drift on
 # what a working CI .env actually needs -- T14's own "one script" philosophy,
 # extended to CI setup after the first version of this hardcoded the same throwaway
 # values twice and only one copy got fixed).

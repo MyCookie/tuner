@@ -411,8 +411,8 @@ for production.
    `docker logout ghcr.io && docker pull <image string from docker-compose.yaml>`.
 
 The digest is not checked against GHCR offline: `INF-U-008` only checks
-consistency. A wrong digest surfaces as a pull failure in the `pr.yml`
-integration job, whose `docker compose up` pulls the image.
+consistency. A wrong digest surfaces as a pull failure in the `gate.yml`
+`gate` job, whose `docker compose up` pulls the image.
 
 **`compose pull` fails with 401 or 404**
 
