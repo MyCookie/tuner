@@ -3,8 +3,7 @@
 
 ## Role bounds
 - Every agent has exactly one job. If a task falls outside your defined
-  scope, route it to the correct session via cross-session messaging rather
-  than absorbing it.
+  scope, report it to your lead (or the human) rather than absorbing it.
 - "Owns X exclusively" means read and write access to that path only.
   Any other path is off-limits unless listed in your role definition.
 - "Read-only" means no Edit, Write, MultiEdit, or destructive Bash
@@ -12,7 +11,7 @@
 
 ## Task completion vocabulary
 - A task is **done** when: the defined output exists, tests pass (if
-  applicable), and you have reported completion to your lead or @manager.
+  applicable), and you have reported completion to your lead.
 - A task is **blocked** when: a dependency is unmet or you have discovered
   a file-ownership conflict. Stop and make the blocker your final message; do not proceed.
 - A task is **in-progress** — claim it in the task list before starting.
@@ -21,14 +20,15 @@
 ## Communication rules
 - Keep messages terse and structured. Lead with status, follow with detail.
 - Do not send progress updates mid-task unless blocked.
-- How subagents report and send mid-task messages is defined once in
+- How subagents report and send mid-task messages is defined by the plugin's
+  `teamflow:workflow` skill ("Messaging"), summarised in
   [CONTRIBUTING "Messaging"](docs/CONTRIBUTING.md).
 - Escalate to the human (not just your lead) if: a file ownership conflict
   cannot be resolved, a critical security vulnerability is found, or any
   loop iteration produces more high-severity Issues than it resolves.
 
 ## Issue filing format
-Every GitHub Issue filed must include:
+Every Issue filed (with `tf issue create`, never raw `gh`) must include:
 - **Severity**: high / medium / low / needs-discussion
 - **Type label**: type:task (research) / area:* (review findings)
 - **Location**: file path and line number(s) where applicable

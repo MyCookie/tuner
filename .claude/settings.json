@@ -3,6 +3,11 @@
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
+  "permissions": {
+    "allow": [
+      "Bash(tf *)"
+    ]
+  },
   "extraKnownMarketplaces": {
     "mattpocock": {
       "source": {
@@ -15,10 +20,17 @@
         "source": "github",
         "repo": "DietrichGebert/ponytail"
       }
+    },
+    "teamflow": {
+      "source": {
+        "source": "github",
+        "repo": "Ribhu-Labs/teamflow"
+      }
     }
   },
   "enabledPlugins": {
     "mattpocock-skills@mattpocock": true,
-    "ponytail@ponytail": true
+    "ponytail@ponytail": true,
+    "teamflow@teamflow": true
   }
 }

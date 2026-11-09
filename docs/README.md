@@ -33,8 +33,8 @@ wins over code, and over this guide, if the two ever disagree.
   - [Inference](components/inference.md) (spec-only — not implemented in the MVP)
 - [Operations & troubleshooting](04-operations.md) (the running stack, IAM in
   practice, inspecting a run, common failure modes, disaster recovery)
-- [Agent team setup](05-agent-team-setup.md) (standing up the manager, leads, and
-  subagents; verifying them; known drift)
+- [Agent team setup](05-agent-team-setup.md) (standing up the teamflow manager, leads, and
+  subagents; verifying them; changing the stack)
 
 ## Engineering specification
 
@@ -50,6 +50,6 @@ Start at [spec/00-product-scope.md](spec/00-product-scope.md) and read in order:
 8. [07-build-plan.md](spec/07-build-plan.md) — ordered, one-task-per-session implementation plan
 9. [08-test-specs/](spec/08-test-specs/README.md) — normative test cases, tagged by ID and traced to build tasks
 10. [09-git-workflow.md](spec/09-git-workflow.md) — branching, commit, and merge-gate rules
-11. [10-code-review.md](spec/10-code-review.md) — the independent-review merge gate
+11. [10-code-review.md](spec/10-code-review.md) — per-PR review and merge by the teamflow review team
 
 The original architecture spec this doc set derives from is [SAS.md](../SAS.md).
