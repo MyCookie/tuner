@@ -2,78 +2,77 @@
 
 This page is the runbook for bringing up the Tuner agent team on a fresh machine or
 a fresh repo: what the stack is, what it needs, how to start it, and how to check
-that it works. The day-to-day rules (file ownership, handoffs, the review gate) are
-in [CONTRIBUTING.md](CONTRIBUTING.md) and [CLAUDE.md](../CLAUDE.md); this page does
-not repeat them.
+that it works. The agents come from the [teamflow](https://github.com/Ribhu-Labs/teamflow)
+plugin (`teamflow@teamflow`); teamflow's own install and run docs are linked rather than
+repeated here: [docs/setup.md](https://github.com/Ribhu-Labs/teamflow/blob/main/docs/setup.md)
+and [docs/running.md](https://github.com/Ribhu-Labs/teamflow/blob/main/docs/running.md).
+The day-to-day rules (file ownership, handoffs, the review gate) are in
+[CONTRIBUTING.md](CONTRIBUTING.md), [CLAUDE.md](../CLAUDE.md) and
+[spec/10-code-review.md](spec/10-code-review.md); this page does not repeat them.
 
 ## 1. What the stack is
 
-Four long-lived lead sessions and a pool of short-lived subagents. Leads talk to each
-other by `@name` messages; leads spawn subagents; subagents report back to the lead that
-spawned them.
+One session, started as the manager. The manager spawns three leads as subagents, the
+research and implementation leads spawn their workers, and the review lead spawns five
+specialist reviewers. Every handoff runs through the manager, including each PR's review
+rounds.
 
-| Session | Definition | Spawns | Writes files? |
+| Agent | Spawned by | Spawns | Job |
 | :--- | :--- | :--- | :--- |
-| `manager` | `.claude/agents/manager.md` | nothing | only `.manager-state.json` |
-| `research-lead` | `.claude/agents/research-lead.md` | `researcher` | no |
-| `impl-lead` | `.claude/agents/impl-lead.md` | `implementer`, `code-reviewer` | no (runs `git worktree`) |
-| `review-lead` | `.claude/agents/review-lead.md` | five reviewers, `code-reviewer` | no |
+| `teamflow:manager` | you (`claude --agent teamflow:manager`) | the three leads | routes goals, runs every handoff, counts each PR's rounds |
+| `teamflow:research-lead` | manager | `teamflow:researcher` | decomposes goals into Issues; implements nothing |
+| `teamflow:impl-lead` | manager | `teamflow:implementer` | one worktree and PR per non-overlapping unit; reworks on review findings |
+| `teamflow:review-lead` | manager, fresh per PR per round | the five specialists | claims the PR, checks the gate, records one verdict, arms or runs the merge; the only actor that merges |
+| `teamflow:architect-reviewer`, `security-reviewer`, `quality-reviewer`, `docs-reviewer`, `simplicity-reviewer` | review-lead | nothing | review one PR head each round and report graded findings |
 
-| Subagent | Spawned by | Isolation | Writes files? |
-| :--- | :--- | :--- | :--- |
-| `researcher` | `research-lead` | worktree | no |
-| `implementer` | `impl-lead` | the worktree `impl-lead` assigns | yes, only files it owns |
-| `architect-reviewer`, `security-reviewer`, `quality-reviewer`, `docs-reviewer`, `simplicity-reviewer` | `review-lead` | worktree | no |
-| `code-reviewer` | `impl-lead`; `review-lead` in merge-review mode | worktree | no (merges PRs) |
+Models, effort, tools and spawn limits are defined by the plugin, not by this repo, so they
+are not listed here. A lead can also be started alone (`claude --agent teamflow:impl-lead`)
+and then reports to you; a lone impl-lead has no manager to hand its PRs to, so it reports
+them open and unreviewed. The review and merge steps are in
+[spec/10-code-review.md](spec/10-code-review.md) and the plugin's `teamflow:workflow` skill.
 
-Models and effort are not listed here on purpose: each agent's `model:` and `effort:`
-lines are the only record, so a change is one line in one file. To see them all:
-`grep -H -E '^(model|effort):' .claude/agents/*.md`.
-
-`code-reviewer` is spawned fresh for each review round and is the only actor allowed to
-merge. Which lead spawns it, and how a lead claims a PR so it never has two reviewers,
-is in [spec/10 §3](spec/10-code-review.md).
-
-Messaging is by `@name` between the four sessions. A subagent, `code-reviewer` included,
-reports by its final message, escalations too (missing `.env`, branch protection, a disputed
-spec); the one mid-task exception is in [code-reviewer §8](../.claude/agents/code-reviewer.md). The verdict itself always goes on the PR. See
-[CONTRIBUTING "Messaging"](CONTRIBUTING.md).
+There are no local agent definitions: `.claude/agents/` does not exist. A local unprefixed
+copy of a teamflow agent would bypass the plugin's spawn hook, which only polices
+`teamflow:`-prefixed callers.
 
 ## 2. Prerequisites
 
 | Need | Why | Check |
 | :--- | :--- | :--- |
-| Claude Code with agent teams and cross-session messaging | leads address each other by `@name` | `claude --version` |
-| `gh` authenticated with `repo` scope | every agent files Issues, opens PRs, or reads them | `gh auth status` |
-| `uv`, Docker, a filled-in `.env` | the merge gate runs the integration tests against MinIO and MLflow | `cp .env.example .env`, then see [00-getting-started.md](00-getting-started.md) |
-| Push access to the remote, branch protection on `main` | the reviewer merges; nobody else should | repo settings |
+| Claude Code 2.1.304 or later | teamflow's documented minimum | `claude --version` |
+| `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` at 2 or more (3 is the default from v2.1.219) | manager, lead, worker is three layers; the manager stops at startup if it reads `1` | `echo $CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` |
+| `CLAUDE_CODE_FORK_SUBAGENT` not set to `0` | leads return after their workers only with fork mode on | `echo $CLAUDE_CODE_FORK_SUBAGENT` |
+| `gh` authenticated with `repo` scope | `tf` (forge `github`) reaches every Issue and PR through it; with no login, `tf` stops with exit 2 and never falls back | `gh auth status` |
+| `uv`, Docker, a filled-in `.env` | the gate runs the integration tests against MinIO and MLflow | `cp .env.example .env`, then see [00-getting-started.md](00-getting-started.md) |
+| The main worktree on `main` | `tf` and `teamflow-config` read `.claude/teamflow.json` from the main worktree and stop (exit 2) on any other branch; all work happens in separate worktrees | `git worktree list` |
+| Push access to the remote; the branch ruleset applied (step 4) | review-lead's merge is enforced server-side only with the ruleset | repo settings |
+
+`.claude/settings.json` also sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. teamflow's docs
+do not recommend that setting and have not tested it with teamflow: if the leads behave
+oddly, set it to `0`.
 
 ## 3. Files that define the stack
 
-Everything is checked in except per-person settings.
+Everything is checked in except per-person settings and the manager's state.
 
 | Path | Role |
 | :--- | :--- |
-| `.claude/agents/*.md` | one file per agent: frontmatter (model, tools, limits, isolation) plus the system prompt |
-| `.claude/settings.json` | sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` and `crossSessionInbound: accept` (lets sessions deliver each other's messages); declares the `ponytail` and `mattpocock` plugin marketplaces and enables both plugins |
+| `.claude/settings.json` | declares the `ponytail`, `mattpocock` and `teamflow` plugin marketplaces and enables all three plugins; allows `Bash(tf *)` (without it auto mode refuses `tf` writes); sets `crossSessionInbound: accept` and `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` |
+| `.claude/teamflow.json` | teamflow's per-repository config: `forge` (`github`), `remote`, `base`, `tdd`, `teamflow_auto_approve` and the loop bounds. `teamflow-config` prints the effective values and rejects unknown keys with exit 2 |
 | `.claude/settings.local.json` | per-person overrides; gitignored |
-| `CLAUDE.md` | conventions, routing table, loop bounds; loaded by every agent |
+| `CLAUDE.md` | conventions, hard rules, routing table; loaded by every agent |
 | `AGENTS.md` | behavioural rules, Issue filing format, research output format; loaded by every agent |
-| `scripts/gate.sh` | the merge gate the implementer and `code-reviewer` both run |
-| `scripts/review-setup.sh` | builds the `code-reviewer` worktree (fetch, detached checkout, `.env` copy, `uv sync`) |
-| `.manager-state.json` | the manager's loop state; created on first run, see step 5 |
+| `scripts/gate.sh` | the merge gate; the implementer runs it, and CI mirrors it |
+| `.github/workflows/gate.yml` | CI: the job `gate`, the required check |
+| `.github/pull_request_template.md` | the PR body `tf pr create` requires filled in |
+| `scripts/review-setup.sh`, `scripts/open-pr.sh` | a reviewer worktree with `.env` and the toolchain; a PR opener for use outside teamflow |
+| `.manager-state.json` | the manager's loop state; created on first run; gitignored |
 
-Frontmatter fields the stack relies on:
-
-- `tools` is an allowlist. A lead lists the subagents it may spawn as `Agent(name, ...)`; a
-  subagent that must not spawn lists `disallowedTools: Agent` or omits `Agent`. Messaging
-  tools are granted the same way, by name in `tools:`: subagents get `SendMessage` only;
-  leads and the manager also get `ListAgents`. `SubagentHandback` is never listed; the
-  harness injects it in async spawns ([CONTRIBUTING "Messaging"](CONTRIBUTING.md)).
-- `disallowedTools: Edit, Write, MultiEdit` is what makes a role read-only. It is a guard
-  rail, not a wall: any agent with `Bash` can still write. `AGENTS.md` states the rule.
-- `isolation: worktree` gives the subagent its own checkout.
-- `maxTurns` bounds a runaway agent.
+`.claude/teamflow.json` sets `tdd: required`, `teamflow_auto_approve: low`,
+`loop.exit_severity_threshold: medium` and `loop.max_open_issues_to_continue: 0`. There is
+no iteration cap and no human checkpoint key: teamflow removed both, and a config that
+sets either makes every `tf` command exit 2. What the keys mean is in teamflow's
+[docs/setup.md](https://github.com/Ribhu-Labs/teamflow/blob/main/docs/setup.md).
 
 ## 4. Setup
 
@@ -82,8 +81,8 @@ Frontmatter fields the stack relies on:
 ```bash
 git clone git@github.com:MyCookie/tuner.git
 cd tuner
-git fetch origin && git status
-ls .claude/agents          # expect 12 files
+git fetch origin && git status        # on main, clean
+ls .claude/agents                      # expect: No such file or directory
 ```
 
 ### Step 2. Install the toolchain and start the local stack
@@ -95,149 +94,109 @@ docker compose up -d minio minio-init mlflow
 ./scripts/gate.sh          # must be green on a clean main before any agent runs
 ```
 
-Do not start the team on a red `main`. The reviewer will fail the gate on every PR and the
-loop will spin.
+Do not start the team on a red `main`. Every PR's gate would fail and the rounds would spin.
 
-### Step 3. Create the labels
+### Step 3. Enable the plugins
 
-The agents file Issues with these labels and `gh issue create` fails if one is missing.
-The Tuner repo already has them. For a new repo:
-
-```bash
-for l in severity:high severity:medium severity:low \
-         area:architecture area:security area:quality area:docs area:simplicity area:research \
-         type:feature type:bug type:task \
-         needs-discussion review:approved review:changes-requested review:in-progress; do
-  gh label create "$l" 2>/dev/null || true
-done
-```
-
-### Step 4. Enable the plugins
-
-`.claude/settings.json` declares both marketplaces. The first session in a new checkout
+`.claude/settings.json` declares the marketplaces. The first session in a new checkout
 asks you to trust and install them. Accept, or install by hand:
 
 ```
-/plugin marketplace add DietrichGebert/ponytail
-/plugin marketplace add mattpocock/skills
-/plugin install ponytail@ponytail
-/plugin install mattpocock-skills@mattpocock
+/plugin marketplace add Ribhu-Labs/teamflow
+/plugin install teamflow@teamflow
 ```
 
-`simplicity-reviewer` needs `ponytail` (its startup runs `/ponytail ultra`, `/ponytail-audit`
-and `/ponytail-debt`). `mattpocock-skills` supplies `/grilling`, which you can use at intake to
-stress-test a goal before it reaches the manager.
+teamflow depends on `ponytail@ponytail` (the simplicity-reviewer's engine) and
+`mattpocock-skills@mattpocock` and installs both from their own marketplaces; a copy synced
+from claude.ai does not satisfy the dependency. `mattpocock-skills` also supplies `/grilling`,
+which you can use at intake to stress-test a goal before it reaches the manager.
 
-### Step 5. Set the loop bounds
+After a merged change reaches the plugin you need `claude plugin update teamflow@teamflow
+--scope project` and a fresh session: never `--resume` a session from before an update.
 
-Bounds live in two places that must agree: `CLAUDE.md` (the human-readable source) and
-`.manager-state.json` (what the manager reads at runtime). Edit them before the first run.
+### Step 4. Set up the repository for GitHub mode (once, by a human)
 
-```json
-{
-  "goal": "",
-  "phase": "intake",
-  "iteration": 0,
-  "max_iterations": 3,
-  "exit_severity_threshold": "medium",
-  "human_checkpoint": "every_cycle",
-  "max_open_issues_to_continue": 0,
-  "research_tracking_issue": null,
-  "impl_prs": [],
-  "review_issues_per_cycle": [],
-  "sessions_ready": []
-}
-```
-
-The manager creates this file itself if it is missing. It is gitignored.
-
-### Step 6. Start the sessions
-
-One terminal per lead, from the repo root. Start the three working leads first and the
-manager last, so the manager finds them running.
+`tf setup` applies what a plugin cannot: the CI workflow, labels, repository settings (auto-merge,
+delete-branch-on-merge) and the branch ruleset requiring `gate` and `teamflow/code-review` with
+no bypass actors. It is a dry run unless given `--apply`, never overwrites a file, and never
+commits. Run it from a separate worktree on a setup branch, not from the main worktree:
 
 ```bash
-claude --agent research-lead --name research-lead
-claude --agent impl-lead     --name impl-lead
-claude --agent review-lead   --name review-lead
-claude --agent manager       --name manager
+git worktree add ../tuner-setup -b chore/teamflow-setup
+cd ../tuner-setup
+tf setup --forge github               # dry run: read what it would change
+tf setup --forge github --apply       # only after confirming the ruleset with the repository owner
 ```
 
-Start each lead fresh from the repo root. If one was started from the wrong directory,
-exit it and start it again: `claude --resume` restores the session's original working
-directory, so it cannot fix this, and from outside the repo `.claude/agents/` is not
-found and the lead cannot spawn its subagents.
+The ruleset makes merges unforgeable by anything short of an owner-side change, so applying
+it is the owner's decision, not an agent's. This step is tracked in Issue #103; until it is
+done, `tf` checks the `gate` check and the verdict itself before merging, and nothing on
+GitHub enforces them ([spec/10 §9](spec/10-code-review.md)).
 
-If your Claude Code version does not accept `--agent`, start `claude --name <name>` and
-tell the session "You are the <name> defined in `.claude/agents/<name>.md`; follow it."
-Run `claude --help` to see which applies. Subagents are never started by hand; their
-leads spawn them.
+### Step 5. Start the session
 
-### Step 7. Give the manager a goal
+From the repo root, with the main worktree on `main`:
 
-In the `manager` session, state the goal in plain words. It routes per the table in
+```bash
+claude --agent teamflow:manager
+```
+
+Start it fresh from the repo root. `claude --resume` restores the session's original working
+directory, so it cannot repair a session started from the wrong one. If the manager reads
+`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1` it stops at startup, names the variable and spawns
+nothing. The leads and workers are never started by hand.
+
+### Step 6. Give the manager a goal
+
+State the goal in plain words. It routes per the table in
 [CLAUDE.md](../CLAUDE.md#multi-agent-orchestration):
 
 | You say | Goes to |
 | :--- | :--- |
 | a vague goal or feature idea | research |
 | a specific task with no Issue | research |
-| "fix #12, #15" | implementation |
-| "review what we built" | review |
-| "merge-review PR #40" (a PR the implementation team did not open) | review, merge-review mode |
+| "fix #12, #15" | implementation; each PR is then reviewed and merged before the batch is reported |
+| "review what we built" | review, diff-review mode (post-merge; only on request) |
+| "merge-review PR #40" (a PR the implementation team did not open) | review, per-PR mode |
 
-The manager stops for your approval at two points: the `impl-lead` unit plan (before any
-implementer is spawned), and each loop cycle when `human_checkpoint` is `every_cycle`.
+The manager stops for your approval of the `impl-lead` unit plan before any implementer is
+spawned, unless every Issue in the batch is `severity:low` and none is `needs-discussion`
+(`teamflow_auto_approve: low`); the conditions are in the workflow skill.
 
 ## 5. Verify the stack
 
 Run these in order. Each is cheap and each catches a distinct failure.
 
-1. Agent definitions load. In any session, run `/agents`. All 12 names appear, with the
-   models in their frontmatter.
-2. Leads can see each other. In `manager`, use `ListAgents`. The three leads are listed.
-   If they are not, the sessions were started from different directories or the
-   `crossSessionInbound` setting in `.claude/settings.json` is not `accept`.
-3. Read-only roles are read-only. Ask `manager` to edit a source file, such as
-   `CLAUDE.md`. It must refuse. (It does write `.manager-state.json`; that is its job.)
-4. Dry-run the review path. Tell `manager`: "Review what we built, diff-review mode, no PRs
+1. The agents load. In a fresh session, run `/agents`. Only `teamflow:*` agents appear, no
+   unprefixed ones.
+2. The config is valid. From the main worktree, `teamflow-config` prints
+   `"forge": "github"` and the values above, and exits 0; `tf mode` prints `github`. If it
+   exits 2, read the message: an unknown key, or the main worktree is not on `main`.
+3. `gh` works for `tf`. `tf pr list` runs without error.
+4. Dry-run the implementation path on a trivial Issue (a typo in a doc). `impl-lead` must
+   return a plan table and wait for approval (or state why it auto-approved), the implementer
+   must work inside its worktree, the PR must reach exactly one `review-lead` per round that
+   claims it (a pending `teamflow/code-review` status), and the merge must come from
+   review-lead's `APPROVE`, not from the implementer.
+5. Dry-run the review path. Tell the manager: "Review what we built, diff-review mode, no PRs
    listed, stop after the report." A healthy run spawns five reviewers, files no duplicate
    Issues, and reports a count and highest severity.
-5. Dry-run the implementation path on a trivial Issue (a typo in a doc). `impl-lead` must
-   show a plan table and wait for approval, `implementer` must work inside its worktree, and
-   the PR must reach exactly one `code-reviewer`, spawned by a lead, that re-runs
-   `./scripts/gate.sh` itself. The PR carries `review:in-progress` while the reviewer
-   runs and loses it when the verdict lands.
 
-6. Subagent reporting. Have `impl-lead` spawn a named `implementer` probe told to
-   `SendMessage(to: "team-lead")` once and then end. The message (attributed with the probe's
-   name) and the final report must both reach the lead. Repeat with an `isolation: "worktree"` probe: it
-   must `SendMessage(to: "team-lead")` once (attributed) and report as [CONTRIBUTING "Messaging"](CONTRIBUTING.md) says; its final message
-   arrives as a `[Subagent hand-back]`. Neither probe may touch `.env`.
-
-Clean up after steps 5-6: `git worktree list`, then `git worktree remove` for each leftover,
+Clean up after steps 4-5: `git worktree list`, then `git worktree remove` for each leftover,
 delete the merged branch, delete the `worktree-agent-*` branches that `isolation: worktree`
 subagents leave behind (`git branch --list 'worktree-agent-*'`), and confirm `origin/main`
 is still green.
 
-## 6. Known drift
+## 6. Changing the stack
 
-None open. The mismatches found while writing this page (who spawns `code-reviewer`, models,
-messaging tools, labels, the loop-bounds heading, commit format, the cross-session setting, the
-`.manager-state.json` ignore, effort, the `impl-lead` label query) are fixed. If you find new
-drift between an agent file and the docs, record it here until it is fixed.
-
-## 7. Changing the stack
-
-- Change a model: edit the `model:` line in the agent file. Effort is the `effort:`
-  line below it.
-- Add a subagent: create `.claude/agents/<name>.md`, then add `Agent(<name>)` to its
-  lead's `tools:` line and to the lead's prompt. A lead cannot spawn what it does not list.
-  Give it `SendMessage` (not `ListAgents`) in its own `tools:` if it needs a mid-task message ([CONTRIBUTING "Messaging"](CONTRIBUTING.md)).
-- Add a lead: create its file, add it to the manager's phases and to the routing table in
-  `CLAUDE.md`, and start a session for it.
-- After any edit to `.claude/agents/`, restart the affected sessions. A running session keeps
-  the definition it started with.
-- Keep the agent files and the docs in step. A change to a label, a heading or a file name
-  that an agent file references breaks the agent silently, which is how the drift in
-  section 6 happened.
+- The agent definitions ship with the plugin. To change a model, a tool list or a prompt,
+  change teamflow upstream (or fork its marketplace and point `extraKnownMarketplaces` at the
+  fork); do not add a local copy under `.claude/agents/`.
+- Change the config in `.claude/teamflow.json` on a branch. It takes effect only once merged
+  and pulled onto `main`, because `tf` reads it from the main worktree, so a PR under review
+  cannot change the rules its own review runs under.
+- After a plugin update or an edit to `.claude/settings.json`, start a fresh session. A running
+  session keeps what it started with.
+- Keep these docs and `CLAUDE.md` in step with the plugin's behaviour. When they disagree on
+  mechanics (`tf` exit codes, the claim/gate/verdict/merge steps), the plugin's
+  `teamflow:workflow` skill wins; record the mismatch here until it is fixed.

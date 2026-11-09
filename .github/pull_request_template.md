@@ -1,5 +1,5 @@
-<!-- docs/spec/10-code-review.md §3. Everything here is a hint for the reviewer,
-     never evidence — the reviewer re-derives all of it independently. -->
+<!-- docs/spec/10-code-review.md §3. Everything here is a hint for the review team,
+     never evidence — the reviewers re-derive all of it independently. -->
 
 ## Task
 
