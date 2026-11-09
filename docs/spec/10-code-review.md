@@ -65,7 +65,7 @@ The PR body follows [.github/pull_request_template.md](../../.github/pull_reques
 
 ## 4. The gate at review, and running things locally
 
-**The gate is `./scripts/gate.sh`** (ruff, the pickle ban, unit, integration, coverage, the docs and test-ID checks). It stays the single definition of green: the implementer runs it before opening a PR, and `.github/workflows/gate.yml` runs the same checks as the CI job `gate` on every PR. The job id is the check name; the teamflow ruleset requires that context (§9). Tests marked `gpu` or `slow` are excluded from CI, so the local run is the only one that covers them, which is why the implementer's local run stays mandatory.
+**The gate is `./scripts/gate.sh`** (ruff, the pickle ban, unit, integration, coverage, the docs and test-ID checks). It stays the single definition of green: the implementer runs it before opening a PR, and `.github/workflows/gate.yml` runs those checks, plus the secret scans, as the CI job `gate` on every PR. The job id is the check name; the teamflow ruleset requires that context (§9). The local run is mandatory before opening a PR because teamflow's implementer rule requires it and it surfaces a red gate before a review round is spent; it covers no tests that CI skips. Both select `-m 'not e2e and not gpu and not slow'` (`gate.sh` lines 107–110, the `addopts` in `pyproject.toml`, and `gate.yml`), so no PR-time run covers `gpu` tests (run manually in T15) or `slow` tests (the nightly lane).
 
 **At review**, review-lead runs `tf pr checkout <N>` in its own worktree, then `tf pr gate <N>`. On GitHub that waits for CI's required checks on the exact head and does not run the script a second time. Red is a `blocker`; the round continues so the implementer gets the whole picture. A gate that could not run, or whose result is unreadable, is a STOP: no verdict is recorded on an unverified gate. `tf` exit codes are in the workflow skill.
 
@@ -87,7 +87,7 @@ This is a script rather than a list of commands for a reason worth keeping: **no
 
 The compose stack is a **single shared instance** on fixed ports (`9000`/`9001`/`5000`). `docker-compose.yaml` pins `name: tuner`, so commands issued from a worktree address that same project rather than starting a second, port-colliding stack. If the stack is down, bring it up with `docker compose up -d minio minio-init mlflow` — from any directory.
 
-`tf` reads `.claude/teamflow.json` from the **main worktree**, which must stay on `main`; every `tf` command except `tf setup` stops (exit 2) otherwise. All work happens in separate worktrees. A PR that edits `.claude/teamflow.json`, `scripts/gate.sh` or the CI workflow changes the rules its own review runs under only after it merges — review such a PR's diff of those files as the checker changes of §5.
+`tf` reads `.claude/teamflow.json` from the **main worktree**, which must stay on `main`; every `tf` command except `tf setup` stops (exit 2) otherwise. All work happens in separate worktrees. A PR that edits `.claude/teamflow.json` changes the rules its own review runs under only after it merges, because `tf` reads it from `main`. A PR that edits `.github/workflows/` or `scripts/gate.sh` is different: a `pull_request` workflow runs from the PR's own copy (PR #105's head got a `gate` check while `main` still had the old workflow), so its green `gate` was produced by the gate it modified and proves nothing about that change. The reviewer must read the gate change itself, as a checker change under §5, and not rely on the green result.
 
 ## 5. Semantic analysis
 
