@@ -46,7 +46,7 @@ git switch -c <type>/<issue#>-<slug>
 
 # 2. implement the task per 07-build-plan.md; atomic Conventional commits (09 §2–§3)
 
-# 3. the gate — the same script CI's `gate` job mirrors
+# 3. the gate — the checks CI's `gate` job repeats
 ./scripts/gate.sh
 
 # 4. publish — pushes the branch and opens the PR
@@ -87,7 +87,7 @@ This is a script rather than a list of commands for a reason worth keeping: **no
 
 The compose stack is a **single shared instance** on fixed ports (`9000`/`9001`/`5000`). `docker-compose.yaml` pins `name: tuner`, so commands issued from a worktree address that same project rather than starting a second, port-colliding stack. If the stack is down, bring it up with `docker compose up -d minio minio-init mlflow` — from any directory.
 
-`tf` reads `.claude/teamflow.json` from the **main worktree**, which must stay on `main`; every `tf` command except `tf setup` stops (exit 2) otherwise. All work happens in separate worktrees. A PR that edits `.claude/teamflow.json` changes the rules its own review runs under only after it merges, because `tf` reads it from `main`. A PR that edits `.github/workflows/` or `scripts/gate.sh` is different: a `pull_request` workflow runs from the PR's own copy (PR #105's head got a `gate` check while `main` still had the old workflow), so its green `gate` was produced by the gate it modified and proves nothing about that change. The reviewer must read the gate change itself, as a checker change under §5, and not rely on the green result.
+`tf` reads `.claude/teamflow.json` from the **main worktree**, which must stay on `main`; every `tf` command except `tf setup` stops (exit 2) otherwise. All work happens in separate worktrees. A PR that edits `.claude/teamflow.json` changes the rules its own review runs under only after it merges, because `tf` reads it from `main`. A PR that edits `.github/workflows/`, or any script or config a workflow step invokes (read `gate.yml` for the current list; it includes the pytest and coverage settings in `pyproject.toml`), is different: a `pull_request` workflow runs from the PR's own copy and checkout (PR #105's head got a `gate` check while `main` still had the old workflow), so its green `gate` was produced by the gate it modified and proves nothing about that change. The reviewer must read the gate change itself, as a checker change under §5, and not rely on the green result. A change to `scripts/gate.sh` is not in that set: CI does not run `gate.sh`, since `gate.yml` runs the checks itself, so it affects only the local run. Review it by checking it against `gate.yml` for drift.
 
 ## 5. Semantic analysis
 
