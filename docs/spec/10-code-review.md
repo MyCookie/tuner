@@ -8,34 +8,13 @@ Every build task is implemented by one agent and merged by a different one, with
 
 ## 1. Roles
 
-| Role | Context | Owns |
-| :--- | :--- | :--- |
-| **Implementer** (`teamflow:implementer`, spawned by `impl-lead`) | One unit of work, one worktree | The code. Branch, implement, local gate, open the PR with `tf pr create`. Reworks on `REQUEST_CHANGES`. |
-| **review-lead** (`teamflow:review-lead`) | **A fresh instance per PR per round**, spawned by the manager with only the PR number, branch and Issue | The merge. Claims the PR, checks the gate, spawns the five specialists, records the one verdict, arms or runs the merge. |
-| **Specialists** (`teamflow:architect-reviewer`, `security-reviewer`, `quality-reviewer`, `docs-reviewer`, `simplicity-reviewer`) | Five fresh instances per round, each in its own worktree | The findings. Each checks out the PR head, reviews it, and reports graded findings to review-lead. |
-
-**review-lead is the only actor that arms or runs a merge.** The specialists never claim, release, review or merge, and neither do the implementer, `impl-lead` or the manager. The implementer never merges its own PR: not after a green gate, not for a one-line fix, not "to save a round".
+Who does what (implementer, review-lead, the five specialists, the manager), who spawns whom, and that review-lead alone arms or runs a merge: the `teamflow:workflow` skill. Tuner adds one rule: the implementer never merges its own PR, not after a green gate, not for a one-line fix, not "to save a round".
 
 **Reviewers never edit code.** If they fixed what they found, they would be reviewing their own work. A reviewer that wants a change files a finding and rejects. The teamflow review agents withhold Edit and Write for this reason — a guard rail, not a wall: they have `Bash`, and `Bash` can write files. Removing the easy path is not the same as making it impossible, so the rule is what holds the line, exactly as for the server-side enforcement in §9.
 
 ## 2. Lifecycle
 
-```
-implementer:  branch  →  implement  →  ./scripts/gate.sh  →  tf pr create   (pushes the branch, opens the PR)
-                                                                  ↓
-                                   manager spawns a fresh review-lead (per-PR mode)
-                                                                  ↓
-          tf pr claim → tf pr checkout → tf pr gate (CI `gate` check, §4) → five fresh specialists (§5)
-                                                                  ↓
-                                   tf pr review --verdict APPROVE | REQUEST_CHANGES   (one per head, §6)
-                                         ↓                                      ↓
-                  APPROVE: review-lead's review arms auto-merge       impl-lead's implementer fixes on the
-                  (or runs tf pr merge); GitHub merges once           branch and pushes; the manager spawns a
-                  `gate` and `teamflow/code-review` are green (§7)    NEW review-lead for the next round
-                                         ↓                                      ↓
-                              main advances (no local steps)        finding re-argued, spec disputed,
-                                                                    or 5 rounds (§8): stop, PR stays open
-```
+The implementer runs the gate (§4) and opens the PR (§3). The manager then runs one review round per PR as the skill describes ("Handoffs", "Review and merge"): review-lead claims the PR, checks CI's `gate` (§4), has five fresh specialists review it (§5), and records one verdict (§6). `APPROVE` leads to the merge (§7); `REQUEST_CHANGES` leads to a rework and a new round (§8).
 
 ## 3. Implementer steps
 
@@ -59,9 +38,9 @@ EOF_BODY
 
 The PR body follows [.github/pull_request_template.md](../../.github/pull_request_template.md): which task, which suite cases, the red/green record, the gate transcript, any spec decision made along the way, and the areas the implementer most wants scrutinised. It carries `Closes #<n>` for each resolved Issue. Claims in the PR body are *hints* for the reviewers, never evidence — they re-derive everything.
 
-**Red/green.** `.claude/teamflow.json` sets `tdd: required`: for a testable change the implementer writes the test first, keeps the failing output, then makes it pass, and the PR body records per test its name, the command, the red output and that it now passes. A change that cannot be tested (prose, configuration) says so and why. Missing red/green evidence on a testable change is a `major` (§6).
+**Red/green.** `.claude/teamflow.json` sets `tdd: required`; the skill ("Red/green") says what the PR body records. A change that cannot be tested (prose, configuration) says so and why. Missing red/green evidence on a testable change is a `major` (§6).
 
-**Who spawns whom.** The implementer is a subagent of `impl-lead` and cannot spawn reviewers. It opens the PR and reports it; `impl-lead` returns the PR-ready report to the manager, and the manager spawns review-lead. A PR has at most one round in flight: review-lead's `tf pr claim` refuses a second. The prompt review-lead gives each specialist is deliberately bare (PR number, branch, Issue, the pinned head SHA); §9 records why.
+**Who spawns whom.** The implementer cannot spawn agents; it opens the PR and reports it (skill, "Handoffs"). The prompt review-lead gives each specialist is deliberately bare (PR number, branch, Issue, the pinned head SHA); §9 records why.
 
 ## 4. The gate at review, and running things locally
 
@@ -126,7 +105,7 @@ Running the gate proves nothing about a change *to* the gate. Anything that grep
 
 ## 6. Verdict
 
-**Exactly one `tf pr review` per head per round**, made by review-lead after all five specialists have reported, against the full head SHA it pinned after the claim (`tf` refuses a head that moved):
+The verdict is exactly one `tf pr review` per head per round, made by review-lead after all five specialists have reported (skill, "Review and merge"):
 
 ```bash
 tf pr review <N> --verdict APPROVE|REQUEST_CHANGES --sha <full head SHA> --body-file - <<'EOF_BODY'
@@ -134,7 +113,7 @@ tf pr review <N> --verdict APPROVE|REQUEST_CHANGES --sha <full head SHA> --body-
 EOF_BODY
 ```
 
-On GitHub this posts the verdict as a PR comment and sets the `teamflow/code-review` status on that SHA. The first `APPROVE` on a ruleset repository arms auto-merge and the last status per head wins, so a second call, or a call by a specialist, could merge a head nobody fully reviewed — hence one call, by one actor. The body carries the gate result as a table (check · result), each finding with its grade, and what was checked and how. Every round is a full re-review, never a spot-check of the fixes. A review that finds nothing still posts, with an explicit statement of what was checked: "looks good" is not a review.
+The body carries the gate result as a table (check · result), each finding with its grade, and what was checked and how. A review that finds nothing still posts, with an explicit statement of what was checked: "looks good" is not a review.
 
 Each finding:
 
@@ -156,33 +135,25 @@ The body starts with exactly `**Verdict: APPROVE**` or `**Verdict: REQUEST_CHANG
 
 **Findings against documentation use the same ladder**, because the docs here are normative and the next agent executes from them. A doc that states a verifiable falsehood, or prescribes a command that does not work, is a `major`: it will mislead someone who cannot check it. A doc that is merely unclear, incomplete or stale is a `minor`. A documentation `major` blocks the merge; that is intended.
 
-**APPROVE requires zero `blocker` and zero `major` from any specialist, and a green gate.** `minor`/`nit` findings are posted in the comment and not worked on yet; they never hold up a merge on their own. These findings live in the PR, not in Issues. A problem *outside the PR's diff* is filed once by review-lead as an Issue (after merging the specialists' duplicates), labelled per [CLAUDE.md](../../CLAUDE.md).
+**APPROVE requires zero `blocker` and zero `major` from any specialist, and a green gate.** `minor`/`nit` findings are posted in the comment and not worked on yet; they never hold up a merge on their own. These findings live in the PR, not in Issues. A problem *outside the PR's diff* is filed once by review-lead as an Issue (after merging the specialists' duplicates), labelled per the workflow skill.
 
 `**Where:**` takes a section reference when the finding is not about a line of code — `docs/spec/10-code-review.md §9` is a perfectly good anchor. Links in a review body or PR body are rendered by GitHub, not by a file tree: use a repo-root path or plain inline code, never `../`.
 
-The verdict's state is the `teamflow/code-review` status on the head SHA, which is the queryable PR state; there are no review labels.
-
 ## 7. Merging
 
-Only review-lead, only after recording `APPROVE`, and what is left to do depends on the output and exit code of `tf pr review`:
-
-- **With the ruleset in place** (§9), the `APPROVE` itself arms GitHub auto-merge, pinned to the reviewed head; GitHub merges once the required checks pass. review-lead then confirms it: `tf pr gate <N>`, then `tf pr view <N>` for `state: merged`. A PR that is still open — `behind` the base, CI red or unreadable — stays unmerged and is reported to the manager, who escalates or starts a new round. The detail is in the workflow skill ("Queued merge").
-- **Without the ruleset**, `tf pr review` arms nothing and review-lead runs `tf pr merge <N>`, which itself checks the CI `gate` check and the verdict before merging.
-- Exit 4 (verdict recorded, auto-merge not armed) is the one non-zero exit that is not a STOP: run `tf pr merge <N>` once. A stacked PR (one that targets another branch than `main`) is not merged until it targets `main`.
+How `APPROVE` becomes a merge (auto-merge armed by the verdict, `tf pr merge` as the fallback, exit 4, stacked PRs, a queued merge that stays open) is the skill's "Review and merge". Tuner-specific:
 
 The merge is a merge commit (`--merge`), preserving the feature boundary in history, and `tf pr merge` does not delete the branch. `tf setup --apply` turns on the repository's delete-branch-on-merge setting, so once it has run (§9, Issue #103) GitHub deletes merged branches; **until then** the setting is off and a merged branch stays on the remote, so delete it by hand (`git push origin --delete <branch>`). Afterwards anyone with a checkout updates with `git switch main && git pull --ff-only`; if that pull is not a fast-forward, something wrote to `main` outside this workflow — stop and report rather than reconciling.
 
 **Never `--admin`, a direct `git push` to `main`, or a self-approval** to get past a blocked merge: `mergeStateStatus: BLOCKED` means the ruleset is doing its job, or was changed; that decision belongs to the repository owner, not to a reviewer. Stop and report.
 
-A verdict is for one commit: a push after an approval needs a new round, and `tf` refuses to merge a head nobody approved.
-
 ## 8. Rework loop
 
 **A reviewer's `Suggested fix:` is an argument, not a verified patch.** It was written by someone who had just found a defect, not by someone who then tested the remedy — reviewers do not run their own suggestions, and §1 forbids them from applying one. Adopting the wording verbatim is how a reviewer's blind spot becomes the next commit's defect. That is measured, not hypothetical: it happened twice on `docs/merge-authority`, the branch that added this rule — once producing a claim that was false *in the same direction the same review had just rejected*. Check a suggested fix exactly as a reviewer is required to check a claim in the PR body, then write your own.
 
-`REQUEST_CHANGES` ⇒ the implementer (resumed by `impl-lead`) addresses every `blocker` and `major` on the same branch, in atomic commits that reference the finding, re-runs `./scripts/gate.sh`, and pushes. The next round is a **brand-new review-lead and five brand-new specialists** with fresh context, which re-run the entire gate check and the entire checklist. They are never asked to "just re-check the fix" — a targeted re-check inherits the previous round's blind spots, and in practice each fresh pass finds defects its predecessor missed.
+On `REQUEST_CHANGES` the implementer addresses every `blocker` and `major` on the same branch, in atomic commits that reference the finding, re-runs `./scripts/gate.sh`, and pushes. The next round is a brand-new review-lead and five brand-new specialists, which re-run the entire gate check and the entire checklist. They are never asked to "just re-check the fix" — a targeted re-check inherits the previous round's blind spots, and in practice each fresh pass finds defects its predecessor missed.
 
-**The manager stops and escalates to the human when the disagreement stops being about defects:**
+**The manager stops and escalates to the human when the disagreement stops being about defects** (the skill's "Escalate to the human"; the reasoning is Tuner's):
 
 - a round **re-raises a finding already argued** — the implementer explained why it does not hold and the review restates it without new evidence; or
 - a review **disputes what the spec requires**, rather than whether the code matches it; or
@@ -193,8 +164,6 @@ Those are the signals that a human is needed. A round that finds *new, reproduci
 When it stops: the PR stays open with every review attached, nothing is merged, and the report to the human says which of the three conditions fired.
 
 **Being the round that would trigger the stop must not change anyone's grading.** A defect suppressed so something can merge is worse than one more rejection. What the last round *should* do is state, for each finding, whether it genuinely blocks or is something the owner could reasonably accept as-is — that is the judgement the escalation needs, and withholding a finding is not a substitute for making it.
-
-A PR the implementation team did not open (a human's or an external contributor's) gets the same per-PR review, routed by the manager as merge-review. There is no implementer to resume, so a `REQUEST_CHANGES` goes to the human and the author reworks.
 
 ## 9. What enforces this
 

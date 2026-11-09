@@ -70,76 +70,27 @@ re-point its spec case (and any `mirrors <ID>` references). This is enforced in
 the gate.
 
 **7. Green is not done — the review team merges, not you.** Push, open the PR
-(`tf pr create`), and stop. The manager spawns a fresh `review-lead` for it, which
-claims the PR, checks CI's `gate` on the head, has five fresh specialist reviewers review
-it against the specs, and arms or runs the merge on `APPROVE`
-([10-code-review.md](spec/10-code-review.md)). **You never merge your own PR**, and
-never report a review as approval it did not give. The implementer cannot spawn agents;
-`impl-lead` hands each PR to the manager, which spawns review-lead. **CI is the source of
-truth — never merge a red PR**; the branch ruleset enforces it once applied
-([10 §9](spec/10-code-review.md)), and `tf` refuses to merge without the `gate` check
-either way. Never merge-then-fix.
+(`tf pr create`), and stop. Review and merge are [10-code-review.md](spec/10-code-review.md)
+and the plugin's `teamflow:workflow` skill. **You never merge your own PR**, and never
+report a review as approval it did not give. **CI is the source of truth — never merge
+a red PR.** Never merge-then-fix.
 
 **8. Report faithfully.** If tests fail, say so with the output; if a step was
 skipped, say that. A test that looks wrong is a spec question — flag it, never
 weaken it (hard rule 7).
 
-## Team orchestration & handoffs
+## Team orchestration
 
-Roles and routing are summarized in [CLAUDE.md](../CLAUDE.md#multi-agent-orchestration);
-this is the operational detail behind them. A **manager** session
-(`claude --agent teamflow:manager`) coordinates three sub-teams — **research** (files
-Issues), **implementation** (worktrees + PRs), **review** (reviews every PR before it
-merges; diff-reviews merged PRs and files follow-up Issues only when you ask). The full
-rules are the plugin's `teamflow:workflow` skill; this page does not restate them.
-
-**Handoffs.** Every handoff runs through the manager, and agents report by their final
-message, not by `@name` messages.
-- **Research → Implementation.** research-lead's report names the tracking Issue, the
-  Issues filed and the priority order. The manager has impl-lead plan only; after the plan
-  is approved (by you, or automatically for an all-`severity:low` batch) a fresh impl-lead
-  executes exactly that plan.
-- **Implementation ⇄ Review (the PR loop, one per PR).** impl-lead opens a PR and returns
-  a PR-ready report. The manager spawns a fresh review-lead for that PR; on
-  `REQUEST_CHANGES` it resumes impl-lead to rework, then spawns a new review-lead for the
-  next round. On `APPROVE` review-lead arms or runs the merge. The manager counts rounds per
-  PR and escalates to you at the fifth without a merge.
-- **Post-merge review (optional).** Only on request ("review what we built"): review-lead in
-  diff-review mode files new Issues, and the manager's loop check decides whether another
-  iteration runs.
+Roles, routing, handoffs, the review and merge steps, loop bounds, Issue labels and the
+reporting contract are the plugin's `teamflow:workflow` skill; this repo does not restate
+them. Start a session with `claude --agent teamflow:manager`
+([05-agent-team-setup.md](05-agent-team-setup.md)). Loop bounds and other per-repo values
+live only in `.claude/teamflow.json`. Agents file and edit Issues with `tf issue ...`,
+never raw `gh`.
 
 **Worktree ownership.** Each implementer owns only the files its unit lists, and works in
 its own worktree. If a fix needs a file outside that list, or depends on work that has not
 merged, the implementer stops and reports; it does not widen its scope.
-
-**Review claim.** A PR is reviewed by one review-lead per round: `tf pr claim` sets a
-pending `teamflow/code-review` status on the head and refuses a second claim. There are no
-review labels; the status check carries the verdict.
-
-**Loop bounds** live in `.claude/teamflow.json` (`loop.exit_severity_threshold: medium` —
-stop when no open Issue above it remains; `loop.max_open_issues_to_continue: 0` — stop only
-when clean); `tf` reads it from the main worktree, which must stay on `main`. There is no
-iteration cap or human-checkpoint key. The manager keeps its working state in
-`.manager-state.json` (gitignored).
-
-**Issues & labels.** Every Issue carries an `area:` (`architecture`, `security`,
-`quality`, `docs`, `simplicity`, `research`), a `severity:` (`high|medium|low`),
-and a `type:` (`feature|bug|task`). Research Issues use `type:task`; review
-findings use their `area:` label. `needs-discussion` marks a call for a human.
-Agents file and edit them with `tf issue ...`, never raw `gh`.
-
-**Models and permissions.** The plugin defines each agent's model, effort, tools and what it
-may spawn; [05-agent-team-setup.md](05-agent-team-setup.md) §1 lists the roles.
-
-**Messaging.** The reporting contract is the plugin's (`teamflow:workflow`, "Messaging"). In
-short: a subagent reports with its final message — **call `SubagentHandback` if you have it,
-otherwise end your turn** — and in a STOP case the blocker is that final message, saying what
-decision is needed, with no wait for a reply. Any mid-task message goes only to
-`SendMessage(to: "team-lead")`, never `"main"` and never the lead's session name, because
-neither works in both spawn modes. Leads read reports as idle-notification results or
-`[Subagent hand-back]` messages, answer with `SendMessage(to: "<agent ID>")`, which resumes
-the agent, and don't poll. `crossSessionInbound: accept` is set project-wide in
-`.claude/settings.json`.
 
 ## When a unit is finished
 

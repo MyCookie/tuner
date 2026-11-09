@@ -27,41 +27,13 @@ You are building the Enterprise Fine-Tuning Pipeline from the specs in `docs/spe
 - Atomic commits, Conventional Commits format (`feat(cleaner): ...`), code + its tests in the same commit, unit tests passing at every commit.
 - The gate is one command: `./scripts/gate.sh` (ruff, pickle ban, unit, integration, coverage). Red and unfixable this session ⇒ leave the branch, report honestly. Never merge-then-fix, never force-push shared branches.
 - **Review checklist.** Reviewers (`review-lead` and the five specialists) apply [docs/spec/10 §5](docs/spec/10-code-review.md) (items T-a to T-g) in addition to the plugin's own checks, naming coverage (T-d) and data contracts (T-e), which the plugin's split has no counterpart for. The plugin does not read that page, so this pointer is the only thing that reaches them; whether a specialist follows it is not mechanically enforced.
-- **Green is not done.** Push the branch, open a PR with `tf pr create`, and stop. The review team (`review-lead` and five specialist reviewers, from the teamflow plugin) claims the PR, checks CI's `gate` on the head, reviews against the specs, and arms or runs the merge on `APPROVE`. **You never merge your own PR**, and you never report a review as approval it did not give. Keep iterating while each round finds new defects; the manager stops and reports when a finding is re-argued, when the spec itself is disputed, or at five rounds ([docs/spec/10 §8](docs/spec/10-code-review.md)).
+- **Green is not done.** Push the branch, open a PR with `tf pr create`, and stop. The review team reviews it against the specs and merges on `APPROVE` ([spec/10](docs/spec/10-code-review.md)). **You never merge your own PR**, and you never report a review as approval it did not give. Keep iterating while each round finds new defects; when to stop and escalate is [spec/10 §8](docs/spec/10-code-review.md).
 
 ## Multi-agent orchestration
 
-The agents come from the [teamflow](https://github.com/Ribhu-Labs/teamflow) plugin (`teamflow@teamflow`, forge `github`), installed in `.claude/settings.json` and configured in `.claude/teamflow.json`. Start one session with `claude --agent teamflow:manager`; it spawns the leads. Its rules (roles, handoffs, `tf` exit codes, the review and merge steps) are the plugin's `teamflow:workflow` skill and are not restated here. Setup and verification: [docs/05-agent-team-setup.md](docs/05-agent-team-setup.md); handoff and ownership detail for this repo: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
+The agents come from the [teamflow](https://github.com/Ribhu-Labs/teamflow) plugin (`teamflow@teamflow`, forge `github`), installed in `.claude/settings.json` and configured in `.claude/teamflow.json`, which is the only place the loop bounds, `tdd` and auto-approve values live (`teamflow-config` rejects unknown keys and every `tf` command then exits 2). Start one session with `claude --agent teamflow:manager`. Roles, routing, handoffs, the claim/gate/verdict/merge steps, `tf` exit codes, Issue labels and messaging are the plugin's `teamflow:workflow` skill and are **not restated in this repo**; where a repo doc disagrees with it on mechanics, the skill wins. What is specific to Tuner (the gate, the review checklist, verdict format) is [docs/spec/10-code-review.md](docs/spec/10-code-review.md). Setup and verification: [docs/05-agent-team-setup.md](docs/05-agent-team-setup.md); handoff and ownership detail for this repo: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
-**Teams:**
-- **Manager** — intake; routes each goal, runs every handoff (including each PR's review rounds), counts rounds per PR.
-- **Research** — decomposes goals into well-defined Issues and files them; implements nothing.
-- **Implementation** — takes open Issues, one non-overlapping unit per worktree, opens a PR per unit and reworks it on review findings.
-- **Review** — reviews every PR before it merges (per-PR mode: `review-lead` plus five specialists, a fresh set each round); on request, diff-reviews merged PRs and files follow-up Issues. A PR the implementation team did not open gets the same per-PR review (merge-review).
-
-**Manager routing:**
-
-| User input | Route to |
-|---|---|
-| Vague goal / feature idea / open-ended question | Research |
-| Specific task with no existing Issue | Research |
-| Specific Issue number(s) / "fix #N" | Implementation (each PR is then reviewed and merged) |
-| "Review what we built" | Review (post-merge diff-review, optional) |
-| A PR to review and merge that the implementation team did not open | Review (merge-review) |
-
-**Review & merge:**
-- *Per PR (every PR):* `review-lead` is the only actor that claims, records the verdict, and arms or runs the merge; it needs a green `gate` check and zero `blocker`/`major` findings (never self-merge; five-round cap). The `teamflow/code-review` status plus the `gate` check are what the branch ruleset requires. Details: [docs/spec/10-code-review.md](docs/spec/10-code-review.md).
-- *Per cycle (only on request):* `review-lead` diff-reviews the merged changes and files follow-up Issues; the manager's loop check decides whether another iteration runs.
-
-**Loop bounds** live in `.claude/teamflow.json` (`loop.exit_severity_threshold: medium` — stop when no open Issue above it remains; `loop.max_open_issues_to_continue: 0` — stop only when clean). There is no iteration cap or human-checkpoint key, and the file must not grow unknown keys: `teamflow-config` rejects them and every `tf` command then exits 2. `tf` reads the file from the main worktree, which must stay on `main`.
-
-**Issues & labels:** `severity:high|medium|low`, `area:architecture|security|quality|docs|simplicity|research`, `type:feature|bug|task`, plus `needs-discussion`. Research Issues use `type:task`; review findings use their `area:` label. The `teamflow/code-review` status check carries the review verdict; there are no review labels. Every PR body carries `Closes #<n>` for each resolved Issue. Agents use `tf issue ...` and `tf pr ...`, not raw `gh`.
-
-**Models:** the plugin defines each agent's model, effort and tools; don't restate them in docs.
-
-**Messaging:** agents report by their final message; the rule is the plugin's (`teamflow:workflow`, "Messaging"), summarised for this repo in [CONTRIBUTING "Messaging"](docs/CONTRIBUTING.md); lead with status, then detail; don't poll — use idle notifications when waiting on a phase.
-
-**Plugins:** `teamflow@teamflow` (the agent team), `ponytail@ponytail` (the simplicity-reviewer engine) and `mattpocock-skills@mattpocock` (`/grilling` for stress-testing a goal at intake) are declared in `.claude/settings.json`; per-person defaults belong in `.claude/settings.local.json`.
+Agents reach Issues and PRs with `tf issue ...` and `tf pr ...`, not raw `gh`. Every PR body carries `Closes #<n>` for each resolved Issue. The `ponytail@ponytail` (the simplicity-reviewer's engine) and `mattpocock-skills@mattpocock` (`/grilling` for stress-testing a goal at intake) plugins are declared in `.claude/settings.json`; per-person defaults belong in `.claude/settings.local.json`.
 
 ## Tooling (fixed — do not churn)
 
