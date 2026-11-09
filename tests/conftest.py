@@ -17,8 +17,8 @@ from tuner.core.storage import StorageClient
 # and not gpu and not slow'`) ever gets a chance to deselect them -- pytest has to
 # import a module before it can read its markers. Ignored outright when the extra
 # genuinely isn't installed; a `--extra dev --extra train` environment (every
-# reviewer's own review-setup.sh, and this repo's own CI `gate` job) collects them
-# normally, so this is purely an accommodation for the leaner dev-only case, not a
+# reviewer's own worktree, 10-code-review.md §4, and this repo's own CI `gate` job)
+# collects them normally, so this is purely an accommodation for the leaner dev-only case, not a
 # way to silently skip something that should run.
 if importlib.util.find_spec("torch") is None:
     collect_ignore_glob = [

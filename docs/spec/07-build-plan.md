@@ -9,13 +9,13 @@ Every task from **T05** on is done when all ten hold. Steps 6–10 are the revie
 1. Every file in the task's **Files** line exists and is committed.
 2. Every case in the task's **Suite** line is implemented, docstring-tagged with its ID ([08 README](08-test-specs/README.md)), and green — none skipped, none invented.
 3. The task's **Accept** criteria hold and its **Verify** command runs as stated.
-4. `./scripts/gate.sh` is green: ruff check + format, the pickle ban, unit and integration tests, and the ≥ 90 % global branch-coverage gate. It reports the per-module 100 % gate as `skipped` until `scripts/check_coverage.py` exists at T14 — until then, verify the listed modules in the coverage table yourself.
+4. `./scripts/gate.sh` is green: ruff check + format, the pickle ban, unit and integration tests, and the ≥ 90 % global branch-coverage gate. It also runs the secret scans, the traceability and docs checks and the per-module 100 % coverage gate.
 5. Commits are atomic and Conventional ([09 §2–§3](09-git-workflow.md)); code and its tests land in the same commit.
 6. The branch is pushed to `origin` and a PR is open against `main` on the [repo template](../../.github/pull_request_template.md).
-7. A **fresh reviewer agent** has independently re-run the gate on the pushed branch in its own worktree — not trusting the implementer's output. (In a team run a lead spawns it: [10 §3](10-code-review.md).)
-8. That reviewer has posted a review on the PR: verdict, gate transcript, and every finding with a severity and the spec citation explaining why it is required.
-9. The verdict is `APPROVE` — no `blocker` or `major` findings outstanding.
-10. The reviewer merged the PR with a merge commit and deleted the branch; local `main` fast-forwards onto it.
+7. A fresh **review-lead** (spawned by the manager for this PR round, [10 §2](10-code-review.md)) has claimed the PR and read CI's required `gate` check on the exact head with `tf pr gate`. That check runs `./scripts/gate.sh`; nobody re-runs it locally ([10 §4](10-code-review.md)). Five fresh specialists have reviewed the head against the specs ([10 §5](10-code-review.md)).
+8. review-lead has recorded one verdict on the PR with `tf pr review`: the gate result, and every specialist finding with a severity and the spec citation explaining why it is required ([10 §6](10-code-review.md)).
+9. The verdict is `APPROVE` — no `blocker` or `major` findings outstanding ([10 §6](10-code-review.md)).
+10. The PR is merged with a merge commit once `gate` and `teamflow/code-review` are green: review-lead's `APPROVE` arms auto-merge (or review-lead runs `tf pr merge`), and the branch is deleted by the repository's delete-branch-on-merge setting, or by hand until that is on ([10 §7, §9](10-code-review.md)). Local `main` fast-forwards onto it.
 
 A spec ambiguity found along the way is resolved **in the docs**, not in a code comment — the `INF-I-005` footnote in [08 infra.md](08-test-specs/infra.md) is the precedent.
 

@@ -12,24 +12,12 @@ The day-to-day rules (file ownership, handoffs, the review gate) are in
 
 ## 1. What the stack is
 
-One session, started as the manager. The manager spawns three leads as subagents, the
-research and implementation leads spawn their workers, and the review lead spawns five
-specialist reviewers. Every handoff runs through the manager, including each PR's review
-rounds.
-
-| Agent | Spawned by | Spawns | Job |
-| :--- | :--- | :--- | :--- |
-| `teamflow:manager` | you (`claude --agent teamflow:manager`) | the three leads | routes goals, runs every handoff, counts each PR's rounds |
-| `teamflow:research-lead` | manager | `teamflow:researcher` | decomposes goals into Issues; implements nothing |
-| `teamflow:impl-lead` | manager | `teamflow:implementer` | one worktree and PR per non-overlapping unit; reworks on review findings |
-| `teamflow:review-lead` | manager, fresh per PR per round | the five specialists | claims the PR, checks the gate, records one verdict, arms or runs the merge; the only actor that merges |
-| `teamflow:architect-reviewer`, `security-reviewer`, `quality-reviewer`, `docs-reviewer`, `simplicity-reviewer` | review-lead | nothing | review one PR head each round and report graded findings |
-
-Models, effort, tools and spawn limits are defined by the plugin, not by this repo, so they
-are not listed here. A lead can also be started alone (`claude --agent teamflow:impl-lead`)
-and then reports to you; a lone impl-lead has no manager to hand its PRs to, so it reports
-them open and unreviewed. The review and merge steps are in
-[spec/10-code-review.md](spec/10-code-review.md) and the plugin's `teamflow:workflow` skill.
+One session, started as the manager (`claude --agent teamflow:manager`), which spawns the
+research, implementation and review leads; every handoff runs through it. The roles, who
+spawns whom and the handoff rules are the plugin's `teamflow:workflow` skill, and models,
+effort, tools and spawn limits are the plugin's too, so none of them is listed here. A lead
+can also be started alone (`claude --agent teamflow:impl-lead`) and then reports to you; a
+lone impl-lead has no manager to hand its PRs to, so it reports them open and unreviewed.
 
 There are no local agent definitions: `.claude/agents/` does not exist. A local unprefixed
 copy of a teamflow agent would bypass the plugin's spawn hook, which only polices
@@ -60,19 +48,17 @@ Everything is checked in except per-person settings and the manager's state.
 | `.claude/settings.json` | declares the `ponytail`, `mattpocock` and `teamflow` plugin marketplaces and enables all three plugins; allows `Bash(tf *)` (without it auto mode refuses `tf` writes); sets `crossSessionInbound: accept` and `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` |
 | `.claude/teamflow.json` | teamflow's per-repository config: `forge` (`github`), `remote`, `base`, `tdd`, `teamflow_auto_approve` and the loop bounds. `teamflow-config` prints the effective values and rejects unknown keys with exit 2 |
 | `.claude/settings.local.json` | per-person overrides; gitignored |
-| `CLAUDE.md` | conventions, hard rules, routing table; loaded by every agent |
+| `CLAUDE.md` | conventions and hard rules; loaded by every agent |
 | `AGENTS.md` | behavioural rules, Issue filing format, research output format; loaded by every agent |
-| `scripts/gate.sh` | the merge gate; the implementer runs it locally. CI does not run it; see [spec/10 §4](spec/10-code-review.md) |
-| `.github/workflows/gate.yml` | CI: the job `gate`, the required check |
+| `scripts/gate.sh` | the merge gate, the single definition of green; the implementer runs it locally and CI runs it ([spec/10 §4](spec/10-code-review.md)) |
+| `.github/workflows/gate.yml` | CI: the job `gate` (the required check) sets up the environment, then runs `scripts/gate.sh` |
 | `.github/pull_request_template.md` | the PR body `tf pr create` requires filled in |
-| `scripts/review-setup.sh`, `scripts/open-pr.sh` | a reviewer worktree with `.env` and the toolchain; a PR opener for use outside teamflow |
 | `.manager-state.json` | the manager's loop state; created on first run; gitignored |
 
-`.claude/teamflow.json` sets `tdd: required`, `teamflow_auto_approve: low`,
-`loop.exit_severity_threshold: medium` and `loop.max_open_issues_to_continue: 0`. There is
-no iteration cap and no human checkpoint key: teamflow removed both, and a config that
-sets either makes every `tf` command exit 2. What the keys mean is in teamflow's
-[docs/setup.md](https://github.com/Ribhu-Labs/teamflow/blob/main/docs/setup.md).
+The values in `.claude/teamflow.json` (`tdd`, `teamflow_auto_approve`, the loop bounds) are
+stated only there; what the keys mean is in teamflow's
+[docs/setup.md](https://github.com/Ribhu-Labs/teamflow/blob/main/docs/setup.md). The file takes
+no unknown keys: a config that has one makes every `tf` command exit 2.
 
 ## 4. Setup
 
@@ -151,20 +137,10 @@ nothing. The leads and workers are never started by hand.
 
 ### Step 6. Give the manager a goal
 
-State the goal in plain words. It routes per the table in
-[CLAUDE.md](../CLAUDE.md#multi-agent-orchestration):
-
-| You say | Goes to |
-| :--- | :--- |
-| a vague goal or feature idea | research |
-| a specific task with no Issue | research |
-| "fix #12, #15" | implementation; each PR is then reviewed and merged before the batch is reported |
-| "review what we built" | review, diff-review mode (post-merge; only on request) |
-| "merge-review PR #40" (a PR the implementation team did not open) | review, per-PR mode |
-
-The manager stops for your approval of the `impl-lead` unit plan before any implementer is
-spawned, unless every Issue in the batch is `severity:low` and none is `needs-discussion`
-(`teamflow_auto_approve: low`); the conditions are in the workflow skill.
+State the goal in plain words. The manager routes it as the skill's routing table says
+(vague goal to research, "fix #12, #15" to implementation, and so on). It stops for your
+approval of the `impl-lead` unit plan before any implementer is spawned, unless the skill's
+auto-approval conditions hold (`teamflow_auto_approve` in `.claude/teamflow.json`).
 
 ## 5. Verify the stack
 
