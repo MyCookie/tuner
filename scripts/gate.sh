@@ -27,10 +27,6 @@ step() {
     fi
 }
 
-skip() {
-    results+=("$1|skipped — $2")
-}
-
 # -- preflight: fail with an actionable message, not 50 confusing test errors --
 
 # Load .env ourselves rather than telling the caller to export it first. That
@@ -141,25 +137,12 @@ step "unit + integration, coverage" \
     uv run pytest -m 'not e2e and not gpu and not slow' \
     --cov=src/tuner --cov-report=term-missing
 
-# -- T14 scripts, once they exist -------------------------------------------
+# -- spec, coverage and docs checks. Plain steps, no existence guard: CI runs only this
+# script, so a deleted or renamed check must fail the gate, not skip silently. --
 
-if [ -f scripts/check_test_ids.py ]; then
-    step "spec↔test traceability" uv run python scripts/check_test_ids.py
-else
-    skip "spec↔test traceability" "scripts/check_test_ids.py not built until T14"
-fi
-
-if [ -f scripts/check_coverage.py ]; then
-    step "per-module coverage gate" uv run python scripts/check_coverage.py
-else
-    skip "per-module coverage gate" "scripts/check_coverage.py not built until T14"
-fi
-
-if [ -f scripts/check_docs.py ]; then
-    step "docs links & IDs" uv run python scripts/check_docs.py
-else
-    skip "docs links & IDs" "scripts/check_docs.py not built until T14"
-fi
+step "spec↔test traceability" uv run python scripts/check_test_ids.py
+step "per-module coverage gate" uv run python scripts/check_coverage.py
+step "docs links & IDs" uv run python scripts/check_docs.py
 
 # -- transcript: paste this into the PR body / review comment ----------------
 
