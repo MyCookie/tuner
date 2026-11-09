@@ -1,8 +1,8 @@
 name: nightly
 
-# Nightly lane (06-testing.md §6, point 4): pytest -m slow (INF-S cases -- container
+# Nightly lane (06-testing.md §6, "Nightly"): pytest -m slow (INF-S cases -- container
 # structure, scale smoke) + the CPU E2E steel thread. GPU E2E is never run in CI --
-# it's the manual release gate (06 §6 point 5; 09-git-workflow.md §5).
+# it's the manual release gate (06 §6, "GPU E2E"; 09-git-workflow.md §5).
 on:
   schedule:
     - cron: "0 7 * * *" # 07:00 UTC daily
