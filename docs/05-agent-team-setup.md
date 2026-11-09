@@ -65,7 +65,6 @@ Everything is checked in except per-person settings and the manager's state.
 | `scripts/gate.sh` | the merge gate, the single definition of green; the implementer runs it locally and CI runs it ([spec/10 §4](spec/10-code-review.md)) |
 | `.github/workflows/gate.yml` | CI: the job `gate` (the required check) sets up the environment, then runs `scripts/gate.sh` |
 | `.github/pull_request_template.md` | the PR body `tf pr create` requires filled in |
-| `scripts/review-setup.sh`, `scripts/open-pr.sh` | a reviewer worktree with `.env` and the toolchain; a PR opener for use outside teamflow |
 | `.manager-state.json` | the manager's loop state; created on first run; gitignored |
 
 `.claude/teamflow.json` sets `tdd: required`, `teamflow_auto_approve: low`,

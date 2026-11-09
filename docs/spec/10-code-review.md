@@ -55,7 +55,7 @@ tf pr create --title "TNN — <task title>" --body-file - <<'EOF_BODY'
 EOF_BODY
 ```
 
-`tf pr create` refuses a dirty tree, the base branch, a detached HEAD and an unedited template, and pushes the branch first. A human outside a teamflow session can use `./scripts/open-pr.sh "TNN — <task title>" <body-file>` instead: same refusals, same result.
+`tf pr create` refuses a dirty tree, the base branch, a detached HEAD and an unedited template, and pushes the branch first.
 
 The PR body follows [.github/pull_request_template.md](../../.github/pull_request_template.md): which task, which suite cases, the red/green record, the gate transcript, any spec decision made along the way, and the areas the implementer most wants scrutinised. It carries `Closes #<n>` for each resolved Issue. Claims in the PR body are *hints* for the reviewers, never evidence — they re-derive everything.
 
@@ -74,18 +74,15 @@ The local run is mandatory before opening a PR because teamflow's implementer ru
 A specialist that needs to run the suite itself — to re-run a new test against the base branch's code for red/green, to reproduce a failure — does it in its own worktree:
 
 ```bash
-./scripts/review-setup.sh <branch-under-review>
-./scripts/gate.sh
+tf pr checkout <N> && uv sync --extra dev --extra train && ./scripts/gate.sh
 rm -f .env                                  # when you finish
 ```
 
-`review-setup.sh` fetches, checks out `origin/<branch>` **detached** — reviewing origin's copy is what makes this a review of what was published — copies `.env` in from the main worktree, and installs the toolchain with `uv sync --extra dev --extra train`, since `dev` is an extra and a bare `uv sync` uninstalls ruff and pytest, and `train` is needed from T11 on so `tests/integration/test_trainer.py` (which imports torch/peft/accelerate at collection time) doesn't fail the whole run on a collection error. It refuses to run in the main worktree, because detaching the tree someone else is working in would be destructive.
-
-`gate.sh` reads `.env` itself, so there is no export step to forget — and it refuses, naming the missing variables, when credentials are incomplete rather than proceeding on a partial set. Both scripts exit 2 naming the fix when a precondition is unmet. If the main worktree has no `.env`, or the compose stack cannot be brought up, the local run cannot happen: say so and stop. Never invent credentials.
+`tf pr checkout` refuses the main worktree, detaches at the PR head and copies `.env` in from the main worktree. The sync is separate because `dev` is an extra and a bare `uv sync` uninstalls ruff and pytest, and `train` is needed from T11 on so `tests/integration/test_trainer.py` (which imports torch/peft/accelerate at collection time) doesn't fail the whole run on a collection error. `gate.sh` reads `.env` itself, so there is no export step to forget — and it refuses, naming the missing variables, when credentials are incomplete rather than proceeding on a partial set. It exits 2 naming the fix when a precondition is unmet, the toolchain sync included. If the main worktree has no `.env`, or the compose stack cannot be brought up, the local run cannot happen: say so and stop. Never invent credentials.
 
 Delete `.env` when you finish. It is gitignored, so this is not about avoiding a stray commit — it is a real credentials file, and copies left in disposable worktrees are how one eventually outlives its worktree.
 
-This is a script rather than a list of commands for a reason worth keeping: **no shell state persists between an agent's commands** — not variables, and not even the working directory. A runbook that assigns a variable in one step and uses it in the next silently does the wrong thing. A script runs as one command, and `gate.sh` syntax-checks every shell script in `scripts/` — identified by shebang, not by a `*.sh` glob.
+The gate is a script rather than a list of commands for a reason worth keeping: **no shell state persists between an agent's commands** — not variables, and not even the working directory. A runbook that assigns a variable in one step and uses it in the next silently does the wrong thing. A script runs as one command, and `gate.sh` syntax-checks every shell script in `scripts/` — identified by shebang, not by a `*.sh` glob.
 
 The compose stack is a **single shared instance** on fixed ports (`9000`/`9001`/`5000`). `docker-compose.yaml` pins `name: tuner`, so commands issued from a worktree address that same project rather than starting a second, port-colliding stack. If the stack is down, bring it up with `docker compose up -d minio minio-init mlflow` — from any directory.
 

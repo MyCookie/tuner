@@ -74,7 +74,7 @@ CI runs this same script on every PR as the job `gate` ([10 §4](10-code-review.
    ...the filled-in .github/pull_request_template.md...
    EOF_BODY
    ```
-   `tf pr create` pushes the branch and opens the PR, refusing on a dirty tree, on `main`, on a detached HEAD, or on an unedited template. Outside a teamflow session, `./scripts/open-pr.sh "TNN — <task title>" <body-file>` does the same.
+   `tf pr create` pushes the branch and opens the PR, refusing on a dirty tree, on `main`, on a detached HEAD, or on an unedited template.
 5. Stop at the PR. An implementer subagent reports it to `impl-lead`, which returns it to the manager; the manager spawns a **fresh** `review-lead` for the PR, which claims it, checks the gate, has five fresh specialists review the head, records one verdict and arms or runs the merge on `APPROVE` ([10-code-review.md](10-code-review.md)). Do not merge it yourself, and do not summarise the review as approval it did not give.
 6. `REQUEST_CHANGES` ⇒ fix every `blocker` and `major` on the branch, re-run the gate, push; the manager spawns a **new** `review-lead` for the next round. Keep going while each round finds *new* defects and the previous round's findings verify as fixed — that is the process working. The manager stops and reports to the user when a round re-raises an already-argued finding, when a review disputes what the spec requires, or at five rounds ([10 §8](10-code-review.md)).
 7. Merged ⇒ `git switch main && git pull --ff-only`; report the task done with the gate output and the PR URL.
