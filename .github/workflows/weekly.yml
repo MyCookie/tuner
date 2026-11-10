@@ -1,6 +1,6 @@
 name: weekly
 
-# Dependency audit (06-testing.md §6, point 3): on every lockfile change, and weekly
+# Dependency audit (06-testing.md §6, "On lockfile change + weekly"): on every lockfile change, and weekly
 # on schedule regardless -- a dependency can turn out vulnerable long after the PR
 # that pinned it merged.
 on:
