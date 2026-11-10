@@ -15,7 +15,7 @@ Every task from **T05** on is done when all ten hold. Steps 6–10 are the revie
 7. A fresh **review-lead** (spawned by the manager for this PR round, [10 §2](10-code-review.md)) has claimed the PR and read CI's required `gate` check on the exact head with `tf pr gate`. That check runs `./scripts/gate.sh`; nobody re-runs it locally ([10 §4](10-code-review.md)). Five fresh specialists have reviewed the head against the specs ([10 §5](10-code-review.md)).
 8. review-lead has recorded one verdict on the PR with `tf pr review`: the gate result, and every specialist finding with a severity and the spec citation explaining why it is required ([10 §6](10-code-review.md)).
 9. The verdict is `APPROVE` — no `blocker` or `major` findings outstanding ([10 §6](10-code-review.md)).
-10. The PR is merged with a merge commit once `gate` and `teamflow/code-review` are green: review-lead's `APPROVE` arms auto-merge (or review-lead runs `tf pr merge`), and the branch is deleted by the repository's delete-branch-on-merge setting, or by hand until that is on ([10 §7, §9](10-code-review.md)). Local `main` fast-forwards onto it.
+10. The PR is merged with a merge commit once `gate` and `teamflow/code-review` are green: review-lead's `APPROVE` arms auto-merge (or review-lead runs `tf pr merge`), and the branch is deleted by the repository's delete-branch-on-merge setting, or by hand if that setting is ever off ([10 §7, §9](10-code-review.md)). Local `main` fast-forwards onto it.
 
 A spec ambiguity found along the way is resolved **in the docs**, not in a code comment — the `INF-I-005` footnote in [08 infra.md](08-test-specs/infra.md) is the precedent.
 
