@@ -107,7 +107,7 @@ A spec ambiguity found along the way is resolved **in the docs**, not in a code 
 **Verify:** `uv run tuner run --config configs/pipeline.e2e.yaml` completes end-to-end; `uv run tuner registry list` shows the new candidate.
 
 ### T14 — E2E steel thread + CI
-**Files:** `tests/e2e/test_steel_thread.py`, `configs/pipeline.e2e.yaml`, `scripts/check_test_ids.py` + `scripts/check_coverage.py` + `scripts/check_docs.py` ([08 README](08-test-specs/README.md)), CI workflows per [06 §6](06-testing.md) (push, PR with offline-HF cache seeding, weekly audit, nightly slow lane).
+**Files:** `tests/e2e/test_steel_thread.py`, `configs/pipeline.e2e.yaml`, `scripts/check_test_ids.py` + `scripts/check_coverage.py` + `scripts/check_docs.py` ([08 README](08-test-specs/README.md)), CI workflows per [06 §6](06-testing.md) (PR `gate` job, weekly audit, nightly slow lane).
 **Suite:** `E2E-E-001..010` ([08 e2e.md](08-test-specs/e2e.md)); `INF-I-012` ([08 infra.md](08-test-specs/infra.md)).
 **Spec:** [06 §5–§6](06-testing.md), [08 e2e.md](08-test-specs/e2e.md).
 **Verify:** `uv run pytest -m e2e` passes within budget; CI green on a PR.

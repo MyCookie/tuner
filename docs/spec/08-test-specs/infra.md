@@ -36,7 +36,7 @@ Integration cases read MinIO root credentials (`MINIO_ROOT_USER`/`MINIO_ROOT_PAS
 
 ¹ **Scope decision (T09, round 1 review on PR #9):** at T09, no stage CLI calls `load_tokenizer`/`load_base_model` yet — `tuner.models.base.HFAuthError` exists and is tested directly against the adapter methods that raise it, but nothing yet catches it and turns it into "stage exits 2." T09 implements and tests the shared mechanism (the message-translation itself); the CLI-level half of this scenario — a real stage CLI (starting with `tuner tokenize`) catching `HFAuthError` and exiting 2 — is deferred to **T10**, added as a companion case under this same ID once the Tokenizer CLI exists, per the case-ID convention in [08 README](README.md) ("IDs are stable; never renumber, append instead"). This mirrors `INF-I-005`'s own T04→T06 deferral.
 
-## Slow lane (`@pytest.mark.slow` — nightly + T15, not per-push CI)
+## Slow lane (`@pytest.mark.slow` — nightly + T15, not per-PR CI)
 
 | ID | Scenario | Expected |
 | :--- | :--- | :--- |
