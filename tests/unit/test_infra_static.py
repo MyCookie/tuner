@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -62,25 +63,20 @@ def test_env_example_completeness():
         assert not _TOKEN_SHAPED.match(value), f"{name} looks token-shaped: {value!r}"
 
 
-def _published_ports(compose_text: str) -> set[tuple[str, str | None, str]]:
-    """(service, host_ip, published port) for every `ports:` entry, short or long syntax."""
-    published = set()
-    for service, spec in yaml.safe_load(compose_text)["services"].items():
-        for entry in spec.get("ports", []):
-            if isinstance(entry, dict):
-                host_ip, port = entry.get("host_ip"), str(entry.get("published", ""))
-            else:
-                parts = str(entry).rsplit(":", 2)
-                host_ip = parts[0] if len(parts) == 3 else None
-                port = parts[-2] if len(parts) >= 2 else ""
-            published.add((service, host_ip, port))
-    return published
-
-
 def test_compose_config_is_valid():
-    """INF-U-007: `docker compose config -q` succeeds; services/ports/profiles per 05 §1."""
+    """INF-U-007: `docker compose config` succeeds; services/ports/profiles per 05 §1."""
     result = subprocess.run(
-        ["docker", "compose", "config", "-q"],
+        [
+            "docker",
+            "compose",
+            "-f",
+            "docker-compose.yaml",
+            "--profile",
+            "*",
+            "config",
+            "--format",
+            "json",
+        ],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -88,32 +84,58 @@ def test_compose_config_is_valid():
     )
     assert result.returncode == 0, result.stderr
 
-    compose_text = (REPO_ROOT / "docker-compose.yaml").read_text()
-    assert _published_ports(compose_text) == {
+    services = json.loads(result.stdout)["services"]
+    published = {
+        (name, port.get("host_ip"), port["published"])
+        for name, svc in services.items()
+        for port in svc.get("ports", [])
+    }
+    assert published == {
         ("minio", "127.0.0.1", "9000"),
         ("minio", "127.0.0.1", "9001"),
         ("mlflow", "127.0.0.1", "5000"),
         ("mock-judge", "127.0.0.1", "8088"),
     }
+    for name, svc in services.items():
+        assert "expose" not in svc, f"{name} declares expose"
+        assert svc.get("network_mode") != "host", f"{name} uses host networking"
     for stage in ("ingestor", "cleaner", "judge", "tokenizer", "trainer", "smoke"):
-        block = compose_text.split(f"\n  {stage}:")[1].split("\n\n")[0]
-        assert 'profiles: ["pipeline"]' in block
+        assert services[stage]["profiles"] == ["pipeline"]
 
 
-_CREDENTIAL_KEY = re.compile(r"(ACCESS_KEY|SECRET_KEY|PASSWORD|TOKEN|API_KEY)\s*:\s*(.+)$")
+_CREDENTIAL_LITERAL = re.compile(
+    r"[A-Za-z0-9_]*(?:ACCESS_KEY|SECRET_KEY|PASSWORD|TOKEN|API_KEY)[A-Za-z0-9_]*[\"']?\s*[:=]\s*(.*)$"
+)
+_VAR_REF = re.compile(r"\$\{[A-Za-z_][A-Za-z0-9_]*\}")
+
+
+def _credential_literals(compose_text: str) -> list[str]:
+    """Lines setting a credential-named key (`KEY: v` or `- KEY=v`, suffixed or quoted keys
+    included) to anything but exactly `${NAME}`. Raw text: `compose config` interpolates."""
+    bad = []
+    for lineno, line in enumerate(compose_text.splitlines(), start=1):
+        match = _CREDENTIAL_LITERAL.search(line)
+        if match and not _VAR_REF.fullmatch(match.group(1).strip().strip("\"'")):
+            bad.append(f"docker-compose.yaml:{lineno}: {line!r}")
+    return bad
 
 
 def test_compose_defines_no_credential_literal():
     """INF-U-007: no service defines a credential literal — every value is `${VAR}`."""
-    compose_text = (REPO_ROOT / "docker-compose.yaml").read_text()
-    for lineno, line in enumerate(compose_text.splitlines(), start=1):
-        match = _CREDENTIAL_KEY.search(line)
-        if not match:
-            continue
-        value = match.group(2).strip()
-        assert value.startswith("${") and value.endswith("}"), (
-            f"docker-compose.yaml:{lineno} sets a credential-shaped key to a literal: {line!r}"
-        )
+    assert _credential_literals((REPO_ROOT / "docker-compose.yaml").read_text()) == []
+    # The check itself must see both environment forms.
+    assert _credential_literals("      MINIO_ROOT_PASSWORD: hunter2")
+    assert _credential_literals("      - MINIO_ROOT_PASSWORD=hunter2")
+    assert _credential_literals("      AWS_ACCESS_KEY_ID: AKIAEXAMPLE")  # suffixed key
+    assert _credential_literals('      "MINIO_ROOT_PASSWORD": hunter2')  # quoted key
+    assert _credential_literals("      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}")
+    assert _credential_literals("      MINIO_ROOT_PASSWORD: ${A}literal${B}")
+    assert not _credential_literals('      - "MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}"')
+    assert not _credential_literals("      AWS_ACCESS_KEY_ID: ${MLFLOW_S3_ACCESS_KEY}")
+
+
+def _env_ref(name: str) -> re.Pattern[str]:
+    return re.compile(rf"\$\{{\{{\s*env\.{name}\s*\}}\}}")
 
 
 _MINIO_IMAGE = re.compile(r"^ghcr\.io/mycookie/minio:(RELEASE\.[^@\s]+)@sha256:[0-9a-f]{64}$")
@@ -121,7 +143,8 @@ _MINIO_IMAGE = re.compile(r"^ghcr\.io/mycookie/minio:(RELEASE\.[^@\s]+)@sha256:[
 
 def test_minio_image_pin_is_consistent():
     """INF-U-008: compose minio image is GHCR tag+digest; tag matches the workflow's
-    env.IMAGE; the full string is verbatim in the 05 §1 table and the operations guide."""
+    env.IMAGE; Dockerfile ARGs are default-free; the full string is verbatim in the 05 §1 table
+    and the operations guide, and 05 §1 names the workflow's source commit."""
     compose = yaml.safe_load((REPO_ROOT / "docker-compose.yaml").read_text())
     image = compose["services"]["minio"]["image"]
     match = _MINIO_IMAGE.match(image)
@@ -135,13 +158,19 @@ def test_minio_image_pin_is_consistent():
     assert match.group(1) == "RELEASE." + env["VERSION"].replace(":", "-")
     steps = workflow["jobs"]["publish"]["steps"]
     (src,) = [s for s in steps if s.get("with", {}).get("repository") == "MyCookie/minio"]
-    assert src["with"]["ref"] == "${{ env.COMMIT }}"
+    assert _env_ref("COMMIT").fullmatch(src["with"]["ref"])
     (build,) = [s for s in steps if s.get("id") == "build"]
-    assert "VERSION=${{ env.VERSION }}" in build["with"]["build-args"]
-    assert "COMMIT=${{ env.COMMIT }}" in build["with"]["build-args"]
+    assert re.search(rf"^VERSION={_env_ref('VERSION').pattern}$", build["with"]["build-args"], re.M)
+    assert re.search(rf"^COMMIT={_env_ref('COMMIT').pattern}$", build["with"]["build-args"], re.M)
+
+    dockerfile = (REPO_ROOT / "docker/minio.Dockerfile").read_text()
+    for arg in ("VERSION", "COMMIT"):
+        assert re.search(rf"^ARG {arg}$", dockerfile, re.M), f"Dockerfile needs a bare ARG {arg}"
 
     for doc in ("docs/spec/05-infrastructure.md", "docs/04-operations.md"):
         assert image in (REPO_ROOT / doc).read_text(), f"{doc} lacks the compose minio image"
+    source = f"MyCookie/minio@{env['COMMIT']}"
+    assert source in (REPO_ROOT / "docs/spec/05-infrastructure.md").read_text()
 
 
 # --- Hugging Face interaction (built at T09, once tuner.models exists) -------------

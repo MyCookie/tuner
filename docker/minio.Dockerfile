@@ -1,4 +1,5 @@
-# MinIO RELEASE.2025-04-22T22-12-26Z built from source (MyCookie/minio fork).
+# MinIO built from source (MyCookie/minio fork); the pinned release is env.VERSION in
+# .github/workflows/minio-image.yml.
 # Upstream is archived and publishes no binaries or images; see #52.
 # Risk accepted for LOCAL and EPHEMERAL CI USE ONLY. NEVER use in production
 # (production uses cloud object storage, docs/spec/05 §3).
@@ -12,7 +13,7 @@ ARG COMMIT
 ENV GOTOOLCHAIN=local CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH
 WORKDIR /src
 COPY . .
-RUN test -n "$VERSION" && test -n "$COMMIT" && TAG=$(echo "$VERSION" | tr : -) && go build -tags kqueue -trimpath -o /minio -ldflags "-s -w \
+RUN : "${VERSION:?build-arg VERSION required}" "${COMMIT:?build-arg COMMIT required}" && TAG=$(echo "$VERSION" | tr : -) && go build -tags kqueue -trimpath -o /minio -ldflags "-s -w \
  -X github.com/minio/minio/cmd.Version=${VERSION} \
  -X github.com/minio/minio/cmd.CopyrightYear=2025 \
  -X github.com/minio/minio/cmd.ReleaseTag=RELEASE.${TAG} \
