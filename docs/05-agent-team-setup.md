@@ -49,7 +49,6 @@ Everything is checked in except per-person settings and the manager's state.
 | `.claude/teamflow.json` | teamflow's per-repository config: `forge` (`github`), `remote`, `base`, `tdd`, `teamflow_auto_approve` and the loop bounds. `teamflow-config` prints the effective values and rejects unknown keys with exit 2 |
 | `.claude/settings.local.json` | per-person overrides; gitignored |
 | `CLAUDE.md` | conventions and hard rules; loaded by every agent |
-| `AGENTS.md` | behavioural rules, Issue filing format, research output format; loaded by every agent |
 | `scripts/gate.sh` | the merge gate, the single definition of green; the implementer runs it locally and CI runs it ([spec/10 §4](spec/10-code-review.md)) |
 | `.github/workflows/gate.yml` | CI: the job `gate` (the required check) sets up the environment, then runs `scripts/gate.sh` |
 | `.github/pull_request_template.md` | the PR body `tf pr create` requires filled in |
@@ -108,7 +107,7 @@ no bypass actors. It is a dry run unless given `--apply`, never overwrites a fil
 commits. Run it from a separate worktree on a setup branch, not from the main worktree:
 
 ```bash
-git worktree add ../tuner-setup -b chore/103-teamflow-setup
+git worktree add ../tuner-setup -b chore/<issue#>-teamflow-setup   # for this repo the Issue is #103
 cd ../tuner-setup
 tf setup --forge github               # dry run: read what it would change
 tf setup --forge github --apply       # only after confirming the ruleset with the repository owner
@@ -118,9 +117,8 @@ The ruleset makes GitHub refuse a merge without a green `gate` check and a succe
 `teamflow/code-review` status on the current head. It does not tell reviewer from author: every
 agent shares the owner's `gh` login and could set that status or edit the ruleset, so it is a
 process guard, not an access control ([spec/10 §9](spec/10-code-review.md)). Applying it is
-the owner's decision, not an agent's. This step is tracked in Issue #103; until it is
-done, `tf` checks the `gate` check and the verdict itself before merging, and nothing on
-GitHub enforces them ([spec/10 §9](spec/10-code-review.md)).
+the owner's decision, not an agent's. Whether it has been applied yet is stated in
+[spec/10 §9](spec/10-code-review.md).
 
 ### Step 5. Start the session
 
