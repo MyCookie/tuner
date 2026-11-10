@@ -103,18 +103,19 @@ def test_compose_config_is_valid():
         assert services[stage]["profiles"] == ["pipeline"]
 
 
-_CREDENTIAL_LITERAL = re.compile(r"(?:ACCESS_KEY|SECRET_KEY|PASSWORD|TOKEN|API_KEY)\s*[:=]\s*(.+)$")
+_CREDENTIAL_LITERAL = re.compile(
+    r"[A-Za-z0-9_]*(?:ACCESS_KEY|SECRET_KEY|PASSWORD|TOKEN|API_KEY)[A-Za-z0-9_]*[\"']?\s*[:=]\s*(.*)$"
+)
+_VAR_REF = re.compile(r"\$\{[A-Za-z_][A-Za-z0-9_]*\}")
 
 
 def _credential_literals(compose_text: str) -> list[str]:
-    """Lines setting a credential-named key (`KEY: v` or `- KEY=v`) to anything but `${VAR}`."""
+    """Lines setting a credential-named key (`KEY: v` or `- KEY=v`, suffixed or quoted keys
+    included) to anything but exactly `${NAME}`. Raw text: `compose config` interpolates."""
     bad = []
     for lineno, line in enumerate(compose_text.splitlines(), start=1):
         match = _CREDENTIAL_LITERAL.search(line)
-        if not match:
-            continue
-        value = match.group(1).strip().strip("\"'")
-        if not (value.startswith("${") and value.endswith("}")):
+        if match and not _VAR_REF.fullmatch(match.group(1).strip().strip("\"'")):
             bad.append(f"docker-compose.yaml:{lineno}: {line!r}")
     return bad
 
@@ -125,7 +126,12 @@ def test_compose_defines_no_credential_literal():
     # The check itself must see both environment forms.
     assert _credential_literals("      MINIO_ROOT_PASSWORD: hunter2")
     assert _credential_literals("      - MINIO_ROOT_PASSWORD=hunter2")
+    assert _credential_literals("      AWS_ACCESS_KEY_ID: AKIAEXAMPLE")  # suffixed key
+    assert _credential_literals('      "MINIO_ROOT_PASSWORD": hunter2')  # quoted key
+    assert _credential_literals("      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}")
+    assert _credential_literals("      MINIO_ROOT_PASSWORD: ${A}literal${B}")
     assert not _credential_literals('      - "MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}"')
+    assert not _credential_literals("      AWS_ACCESS_KEY_ID: ${MLFLOW_S3_ACCESS_KEY}")
 
 
 def _env_ref(name: str) -> re.Pattern[str]:

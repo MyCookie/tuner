@@ -124,14 +124,16 @@ def _block_mcp_sdk(monkeypatch):
 
 def test_mcp_without_extra_names_the_mcp_extra(monkeypatch):
     """CLI-U-007: `tuner mcp` with the SDK import failing exits 1, and the message
-    names the `mcp` extra and prescribes `uv sync --extra dev --extra train` (never
-    `--extra mcp`, which would uninstall `train`)."""
+    names the `mcp` extra, notes `dev` includes it, and prescribes
+    `uv sync --extra dev --extra train` (never `--extra mcp`, which would uninstall
+    `train`)."""
     _block_mcp_sdk(monkeypatch)
 
     result = CliRunner().invoke(cli, ["mcp"])
 
     assert result.exit_code == 1
     assert "needs the `mcp` extra" in result.output
+    assert "included in `dev`" in result.output
     assert "uv sync --extra dev --extra train" in result.output
     assert "--extra mcp" not in result.output
 
