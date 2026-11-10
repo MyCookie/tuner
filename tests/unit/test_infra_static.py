@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -62,25 +63,20 @@ def test_env_example_completeness():
         assert not _TOKEN_SHAPED.match(value), f"{name} looks token-shaped: {value!r}"
 
 
-def _published_ports(compose_text: str) -> set[tuple[str, str | None, str]]:
-    """(service, host_ip, published port) for every `ports:` entry, short or long syntax."""
-    published = set()
-    for service, spec in yaml.safe_load(compose_text)["services"].items():
-        for entry in spec.get("ports", []):
-            if isinstance(entry, dict):
-                host_ip, port = entry.get("host_ip"), str(entry.get("published", ""))
-            else:
-                parts = str(entry).rsplit(":", 2)
-                host_ip = parts[0] if len(parts) == 3 else None
-                port = parts[-2] if len(parts) >= 2 else ""
-            published.add((service, host_ip, port))
-    return published
-
-
 def test_compose_config_is_valid():
-    """INF-U-007: `docker compose config -q` succeeds; services/ports/profiles per 05 §1."""
+    """INF-U-007: `docker compose config` succeeds; services/ports/profiles per 05 §1."""
     result = subprocess.run(
-        ["docker", "compose", "config", "-q"],
+        [
+            "docker",
+            "compose",
+            "-f",
+            "docker-compose.yaml",
+            "--profile",
+            "*",
+            "config",
+            "--format",
+            "json",
+        ],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -88,32 +84,48 @@ def test_compose_config_is_valid():
     )
     assert result.returncode == 0, result.stderr
 
-    compose_text = (REPO_ROOT / "docker-compose.yaml").read_text()
-    assert _published_ports(compose_text) == {
+    services = json.loads(result.stdout)["services"]
+    published = {
+        (name, port.get("host_ip"), port["published"])
+        for name, svc in services.items()
+        for port in svc.get("ports", [])
+    }
+    assert published == {
         ("minio", "127.0.0.1", "9000"),
         ("minio", "127.0.0.1", "9001"),
         ("mlflow", "127.0.0.1", "5000"),
         ("mock-judge", "127.0.0.1", "8088"),
     }
+    for name, svc in services.items():
+        assert "expose" not in svc, f"{name} declares expose"
+        assert svc.get("network_mode") != "host", f"{name} uses host networking"
     for stage in ("ingestor", "cleaner", "judge", "tokenizer", "trainer", "smoke"):
-        block = compose_text.split(f"\n  {stage}:")[1].split("\n\n")[0]
-        assert 'profiles: ["pipeline"]' in block
+        assert services[stage]["profiles"] == ["pipeline"]
 
 
-_CREDENTIAL_KEY = re.compile(r"(ACCESS_KEY|SECRET_KEY|PASSWORD|TOKEN|API_KEY)\s*:\s*(.+)$")
+_CREDENTIAL_LITERAL = re.compile(r"(?:ACCESS_KEY|SECRET_KEY|PASSWORD|TOKEN|API_KEY)\s*[:=]\s*(.+)$")
+
+
+def _credential_literals(compose_text: str) -> list[str]:
+    """Lines setting a credential-named key (`KEY: v` or `- KEY=v`) to anything but `${VAR}`."""
+    bad = []
+    for lineno, line in enumerate(compose_text.splitlines(), start=1):
+        match = _CREDENTIAL_LITERAL.search(line)
+        if not match:
+            continue
+        value = match.group(1).strip().strip("\"'")
+        if not (value.startswith("${") and value.endswith("}")):
+            bad.append(f"docker-compose.yaml:{lineno}: {line!r}")
+    return bad
 
 
 def test_compose_defines_no_credential_literal():
     """INF-U-007: no service defines a credential literal — every value is `${VAR}`."""
-    compose_text = (REPO_ROOT / "docker-compose.yaml").read_text()
-    for lineno, line in enumerate(compose_text.splitlines(), start=1):
-        match = _CREDENTIAL_KEY.search(line)
-        if not match:
-            continue
-        value = match.group(2).strip()
-        assert value.startswith("${") and value.endswith("}"), (
-            f"docker-compose.yaml:{lineno} sets a credential-shaped key to a literal: {line!r}"
-        )
+    assert _credential_literals((REPO_ROOT / "docker-compose.yaml").read_text()) == []
+    # The check itself must see both environment forms.
+    assert _credential_literals("      MINIO_ROOT_PASSWORD: hunter2")
+    assert _credential_literals("      - MINIO_ROOT_PASSWORD=hunter2")
+    assert not _credential_literals('      - "MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}"')
 
 
 _MINIO_IMAGE = re.compile(r"^ghcr\.io/mycookie/minio:(RELEASE\.[^@\s]+)@sha256:[0-9a-f]{64}$")
