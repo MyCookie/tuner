@@ -34,6 +34,16 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Refuse to overwrite an existing tag
+        run: |
+          # Fail closed: only a registry "not found" lets the build go on; any other error stops it.
+          if out=$(docker buildx imagetools inspect "$IMAGE" 2>&1); then
+            echo "::error::$IMAGE already exists; refusing to re-push a published tag"
+            exit 1
+          elif ! grep -qiE 'not found|manifest unknown|name unknown' <<<"$out"; then
+            echo "$out"
+            exit 1
+          fi
       - id: build
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
@@ -41,7 +51,7 @@ jobs:
           file: docker/minio.Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          provenance: false
+          provenance: mode=max
           build-args: |
             VERSION=${{ env.VERSION }}
             COMMIT=${{ env.COMMIT }}
