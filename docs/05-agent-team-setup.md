@@ -117,7 +117,7 @@ The ruleset makes GitHub refuse a merge without a green `gate` check and a succe
 `teamflow/code-review` status on the current head. It does not tell reviewer from author: every
 agent shares the owner's `gh` login and could set that status or edit the ruleset, so it is a
 process guard, not an access control ([spec/10 §9](spec/10-code-review.md)). Applying it is
-the owner's decision, not an agent's. Whether it has been applied yet is stated in
+the owner's decision, not an agent's. Whether it has been applied is stated in
 [spec/10 §9](spec/10-code-review.md).
 
 ### Step 5. Start the session

@@ -47,7 +47,7 @@ It reads `.env` itself — there is no export step — and runs every check the 
 
 **A green gate is necessary but no longer sufficient.** From T05 on, `main` advances only through a reviewed pull request: push the branch, open the PR, and the review team (run by the teamflow plugin) checks the gate on the exact head, analyses the change against the specs, and merges on `APPROVE`; [10-code-review.md](10-code-review.md) is normative. **The author never merges their own work.** The merge happens on GitHub as a merge commit (`--merge`), which is the same shape `--no-ff` produced; local `main` then fast-forwards with `git pull --ff-only`.
 
-CI runs this same script on every PR as the job `gate` ([10 §4](10-code-review.md)), and the teamflow branch ruleset requires that check plus an approving `teamflow/code-review` status on the head. Whether the ruleset is applied yet, and what that means for enforcement, is stated in [10 §9](10-code-review.md). The local gate stays mandatory regardless; why is in [10 §4](10-code-review.md).
+CI runs this same script on every PR as the job `gate` ([10 §4](10-code-review.md)), and the teamflow branch ruleset requires that check plus an approving `teamflow/code-review` status on the head. Whether the ruleset is applied, and what that means for enforcement, is stated in [10 §9](10-code-review.md). The local gate stays mandatory regardless; why is in [10 §4](10-code-review.md).
 
 ## 5. Releases
 
