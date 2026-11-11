@@ -7,7 +7,7 @@ name: tuner
 services:
   minio:
     # pinned; verify the :9001 console still answers before bumping
-    image: ghcr.io/mycookie/minio:RELEASE.2025-04-22T22-12-26Z@sha256:cb9cd82620b03734ef13b983c2cb479a67babe9e090cfb55499da614d40a0b75
+    image: &minio-image ghcr.io/mycookie/minio:RELEASE.2025-04-22T22-12-26Z@sha256:cb9cd82620b03734ef13b983c2cb479a67babe9e090cfb55499da614d40a0b75
     command: server /data --console-address ":9001"
     ports:
       - "127.0.0.1:9000:9000"
@@ -17,11 +17,24 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
       - minio-data:/data
+    depends_on:
+      minio-data-perms:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # Hands the minio-data volume to the image's non-root minio user (uid 10001, docker/minio.Dockerfile).
+  # Volumes created before that image are root-owned, and minio would exit "file access denied".
+  # Same image as minio (one pin, no extra pull); runs as root only for this chown, then exits.
+  minio-data-perms:
+    image: *minio-image
+    user: "0:0"
+    entrypoint: ["chown", "-R", "10001:10001", "/data"]
+    volumes:
+      - minio-data:/data
 
   minio-init:
     build:
