@@ -1,7 +1,8 @@
 name: nightly
 
 # Nightly lane (06-testing.md §6, "Nightly"): pytest -m slow (INF-S cases -- container
-# structure, scale smoke) + the CPU E2E steel thread. GPU E2E is never run in CI --
+# structure, scale smoke -- and CLI-I-014, the real mini-run moved out of the PR gate
+# in #120) + the CPU E2E steel thread. GPU E2E is never run in CI --
 # it's the manual release gate (06 §6, "GPU E2E"; 09-git-workflow.md §5).
 on:
   schedule:
@@ -24,7 +25,9 @@ jobs:
     # (and its captured-output diagnostics, the whole point of this branch) ever
     # fires (PR #21 review round 1, finding 1). 90 leaves real margin above that
     # ~65min worst case without being loose enough to mask a job that's truly stuck.
-    timeout-minutes: 90
+    # 120 since #120 moved CLI-I-014 (real mini-run, its own 1200s subprocess cap) into
+    # the slow lane: ~65 + 20 = ~85min worst case, too close to 90.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -81,16 +84,6 @@ jobs:
           done
           [ "$code" = "200" ] || { echo "::error::mock-judge's /v1/chat/completions never returned 200 (last: $code)"; docker compose logs mock-judge; exit 1; }
 
-      - name: Slow lane (INF-S cases)
-        # INF-S-020/021 landed in T15 (docs/spec/07-build-plan.md) -- `-m slow` now
-        # selects real tests (tests/slow/test_containers.py, test_scale.py), so this
-        # must fail on any nonzero exit, including pytest's "no tests collected" (5):
-        # a renamed directory, a marker typo, or a conftest import error at the wrong
-        # level would otherwise silently pass this job.
-        run: |
-          set -a; . ./.env; set +a
-          uv run pytest -m slow
-
       - name: Seed the tiny-test HF cache
         # Secondary hardening, not the fix for the timeout above (live verification
         # on this branch found the real bottleneck was CPU training-step throughput,
@@ -100,6 +93,19 @@ jobs:
         # download of tiny-test's weights on every nightly run, same as scripts/gate.sh's own
         # "seed tiny-test HF cache" step already does for the PR gate (INF-I-012).
         run: uv run python scripts/seed_hf_cache.py
+
+      - name: Slow lane (INF-S cases, CLI-I-014)
+        # INF-S-020/021 landed in T15 (docs/spec/07-build-plan.md) -- `-m slow` now
+        # selects real tests (tests/slow/test_containers.py, test_scale.py), so this
+        # must fail on any nonzero exit, including pytest's "no tests collected" (5):
+        # a renamed directory, a marker typo, or a conftest import error at the wrong
+        # level would otherwise silently pass this job. CLI-I-014 (tests/integration/
+        # test_driver.py) carries `slow` too; it needs only what this job already has:
+        # MinIO from .env, the seeded HF cache (the step above), and its own in-process
+        # mock judge.
+        run: |
+          set -a; . ./.env; set +a
+          uv run pytest -m slow
 
       - name: CPU E2E steel thread
         # HF_HUB_OFFLINE=1 scoped to this one step, not blanket for the whole job:
