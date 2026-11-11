@@ -18,6 +18,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -69,3 +71,50 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           grep -q 'linux/amd64' inspect.txt
           grep -q 'linux/arm64' inspect.txt
+
+  smoke:
+    needs: publish
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    # No checkout, so no contents. The package is not known to be public (its visibility is set on
+    # GHCR, not by the repo being public), so log in with the job token, which needs packages: read.
+    permissions:
+      packages: read
+    env:
+      PLATFORM: ${{ matrix.platform }}
+      # The index digest publish just pushed, not the mutable tag.
+      REF: ghcr.io/mycookie/minio@${{ needs.publish.outputs.digest }}
+    steps:
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull the published digest for this platform
+        run: docker pull --platform "$PLATFORM" "$REF"
+      - name: Architecture matches the matrix platform
+        run: |
+          arch=$(docker image inspect --format '{{.Architecture}}' "$REF")
+          echo "image architecture: $arch (want ${PLATFORM#linux/})"
+          test "$arch" = "${PLATFORM#linux/}"
+      - name: Start like compose and wait for /minio/health/live
+        run: |
+          # Dummy literals: an ephemeral CI container, nothing here is a secret.
+          docker run -d --name minio-smoke --platform "$PLATFORM" -p 9000:9000 \
+            -e MINIO_ROOT_USER=smoke-user -e MINIO_ROOT_PASSWORD=smoke-password-1234 \
+            "$REF" server /data --console-address :9001
+          for _ in $(seq 30); do
+            curl -fs http://localhost:9000/minio/health/live && exit 0
+            sleep 2
+          done
+          echo "::error::minio did not answer /minio/health/live within 60 s"
+          docker ps -a
+          docker logs minio-smoke
+          exit 1
