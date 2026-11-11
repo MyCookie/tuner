@@ -31,5 +31,5 @@ requirements-audit.txt
 # Local data / MinIO volumes
 data/
 
-# Local compose overrides (e.g. republishing ports for remote access) are never committed (docs/04)
+# Local compose overrides are never committed (docs/04)
 docker-compose.override.yaml
