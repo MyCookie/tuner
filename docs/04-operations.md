@@ -390,9 +390,11 @@ for production.
 
 1. **Edit the pin.** `VERSION` and `COMMIT` live only in the workflow's `env`
    (they reach the Dockerfile as build-args; it has no defaults and fails
-   without them). Only when bumping MinIO, update them; `IMAGE` already
-   carries `VERSION` in its tag and needs no edit (tag format:
-   [spec 05 §1](spec/05-infrastructure.md)).
+   without them). Update them together with `IMAGE`, a literal whose tag is
+   `RELEASE.` + `VERSION` with `:` written as `-`, then
+   `-hardened-${{ github.run_id }}` (tag format:
+   [spec 05 §1](spec/05-infrastructure.md)). `INF-U-008` fails if `IMAGE`
+   and `VERSION` disagree.
 2. **Run the workflow by hand.** `workflow_dispatch` is human-only, so no agent
    or CI job triggers it. Each run publishes under a new tag and never
    overwrites one: the run refuses to publish if its tag already exists.
@@ -412,9 +414,11 @@ for production.
    public, then check anonymously:
    `docker logout ghcr.io && docker pull <image string from docker-compose.yaml>`.
 
-The `minio` image runs as a non-root user (uid 10001). An existing `minio-data`
-volume needs no manual step: the one-shot `minio-data-perms` service chowns it
-before `minio` starts ([spec 05 §1](spec/05-infrastructure.md)).
+`docker/minio.Dockerfile` builds an image that runs as a non-root user (uid
+10001); the image pinned in compose today (`cb9cd826...`) predates that and runs
+as root until the swap to a hardened build (#138). An existing `minio-data`
+volume needs no manual step either way: the one-shot `minio-data-perms` service
+chowns it before `minio` starts ([spec 05 §1](spec/05-infrastructure.md)).
 
 The digest is not checked against GHCR offline: `INF-U-008` only checks
 consistency. A wrong digest surfaces as a pull failure in the `gate.yml`
