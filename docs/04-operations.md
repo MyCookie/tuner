@@ -412,6 +412,10 @@ for production.
    public, then check anonymously:
    `docker logout ghcr.io && docker pull <image string from docker-compose.yaml>`.
 
+The `minio` image runs as a non-root user (uid 10001). An existing `minio-data`
+volume needs no manual step: the one-shot `minio-data-perms` service chowns it
+before `minio` starts ([spec 05 §1](spec/05-infrastructure.md)).
+
 The digest is not checked against GHCR offline: `INF-U-008` only checks
 consistency. A wrong digest surfaces as a pull failure in the `gate.yml`
 `gate` job, whose `docker compose up` pulls the image.
