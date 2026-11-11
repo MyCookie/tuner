@@ -79,3 +79,22 @@ CI runs this same script on every PR as the job `gate` ([10 §4](10-code-review.
 6. `REQUEST_CHANGES` ⇒ fix every `blocker` and `major` on the branch, re-run the gate, push; a new review round follows. Keep going while each round finds *new* defects and the previous round's findings verify as fixed; when to stop and escalate is [10 §8](10-code-review.md).
 7. Merged ⇒ `git switch main && git pull --ff-only`; report the task done with the gate output and the PR URL.
 8. A test that seems wrong is a spec question: check [08-test-specs](08-test-specs/) and the component spec; if they conflict, flag it and record the resolution **in the docs**, instead of "fixing" the test.
+
+## 8. CI workflow pinning
+
+This section is the one statement of the rule; other docs point here and do not restate it. It applies to every file under `.github/workflows/`.
+
+- **Third-party actions are pinned to a full 40-character commit SHA**, with the version as a trailing comment (`uses: astral-sh/setup-uv@<sha> # v7.6.0`). A mutable tag (`@v7`) or branch is not allowed.
+- **uv is pinned to an exact version** in the `version:` input of `astral-sh/setup-uv` (currently `0.13.7`, in `gate.yml`, `nightly.yml` and `weekly.yml`). No range, no `latest`. Every workflow that pins uv uses the same version.
+- **Least-privilege `permissions`:** declare `permissions:` explicitly (workflow or job level) and grant only what the job needs, normally `contents: read`.
+- **`persist-credentials: false`** on every `actions/checkout` step, so the token is not left in the checkout's git config.
+
+Applying the rule to a workflow that predates it is its own change; this section describes what a workflow must do, not that each one already does. At the time of writing `gate.yml` and `minio-image.yml` follow it fully; `nightly.yml` and `weekly.yml` do not yet set `permissions` or `persist-credentials`.
+
+**Keeping the pins current.** `.github/dependabot.yml` runs Dependabot's `github-actions` ecosystem monthly and opens PRs that bump the action SHAs and their version comments. Dependabot does **not** bump the uv `version:` input, so that is a manual step:
+
+1. Pick the new uv release (check that the pinned `setup-uv` release supports it).
+2. `grep -rnE '^\s+version:' .github/workflows/` to find every workflow that pins uv.
+3. Change all of them to the same new exact version in one PR, and run `./scripts/gate.sh`.
+
+Do not bump uv in some workflows and not others.
