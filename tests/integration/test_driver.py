@@ -278,6 +278,7 @@ def mock_judge_server():
 
 
 @pytest.mark.integration
+@pytest.mark.slow  # nightly lane only (#120): gate.sh excludes `slow`
 def test_real_mini_run_through_actual_driver(storage, tmp_path, monkeypatch, mock_judge_server):
     """CLI-I-014: real mini-run (no mocks): fixtures + mock judge + tiny-test through
     the actual driver -- exit 0, the pre-E2E integration checkpoint."""
