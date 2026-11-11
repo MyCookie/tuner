@@ -17,6 +17,8 @@ Environment story from local dev (MVP) to cloud production (Phase 3). The invari
 | `ingestor`, `cleaner`, `judge`, `tokenizer` | per-stage images (§2) | — | `profiles: [pipeline]` — run on demand via `tuner run` or `docker compose run`, not resident |
 | `trainer`, `smoke` | trainer image | — | `deploy.resources.reservations.devices` for GPU (nvidia runtime) |
 
+**MinIO image tag format (the one statement).** `.github/workflows/minio-image.yml` publishes every build as `ghcr.io/mycookie/minio:RELEASE.<env.VERSION with ":" written "-">-hardened-<github.run_id>`, so each build has a tag that is never reused; the workflow refuses to publish when its tag already exists. The `minio` image pinned in compose has the tag `RELEASE.<...>` alone (the image published before this rule) or that form with `-hardened-<digits>`; the swap to a hardened build (#138) replaces the former. INF-U-008 checks both.
+
 `.env` (git-ignored; `.env.example` committed) holds: MinIO root creds, per-stage keypairs, `TUNER_JUDGE_BASE_URL`, `TUNER_JUDGE_API_KEY`, `HF_TOKEN`. **No credential ever appears in compose files, configs, or code** (SAS §4.2).
 
 A real judge's LLM endpoint is not part of the compose topology: point `TUNER_JUDGE_BASE_URL` at whatever OpenAI-compatible server the team has (host-side Ollama at `http://host.docker.internal:11434`, a lab vLLM box, or a cloud compat endpoint). The `mock-judge` service (above) is the one exception, and only for tests/E2E/CI — never a real environment.

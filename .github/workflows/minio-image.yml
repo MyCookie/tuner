@@ -6,10 +6,11 @@ on: workflow_dispatch
 concurrency: minio-image
 
 env:
-  # Single source of the pin; INF-U-008 checks IMAGE's tag is `RELEASE.` + VERSION with `:` replaced by `-`.
+  # Single source of the pin; INF-U-008 checks IMAGE's tag is `RELEASE.` + VERSION with `:` replaced by `-`,
+  # then `-hardened-` and the run id, so every build gets a tag that is never reused (the guard below refuses an existing one).
   VERSION: "2025-04-22T22:12:26Z"
   COMMIT: 0d7408fc9969caf07de6a8c3a84f9fbb10a6739e
-  IMAGE: ghcr.io/mycookie/minio:RELEASE.2025-04-22T22-12-26Z
+  IMAGE: ghcr.io/mycookie/minio:RELEASE.2025-04-22T22-12-26Z-hardened-${{ github.run_id }}
 
 jobs:
   publish:

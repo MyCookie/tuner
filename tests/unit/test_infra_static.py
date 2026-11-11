@@ -142,9 +142,11 @@ _MINIO_IMAGE = re.compile(r"^ghcr\.io/mycookie/minio:(RELEASE\.[^@\s]+)@sha256:[
 
 
 def test_minio_image_pin_is_consistent():
-    """INF-U-008: compose minio image is GHCR tag+digest; tag matches the workflow's
-    env.IMAGE; Dockerfile ARGs are default-free; the full string is verbatim in the 05 §1 table
-    and the operations guide, and 05 §1 names the workflow's source commit."""
+    """INF-U-008: compose minio image is GHCR tag+digest; its tag is the workflow's release tag
+    (legacy form) or that tag plus `-hardened-<run id>` (the form env.IMAGE publishes);
+    Dockerfile ARGs are default-free, every FROM is digest-pinned and the final stage is non-root;
+    the full string is verbatim in the 05 §1 table and the operations guide, and 05 §1 names the
+    workflow's source commit."""
     compose = yaml.safe_load((REPO_ROOT / "docker-compose.yaml").read_text())
     image = compose["services"]["minio"]["image"]
     match = _MINIO_IMAGE.match(image)
@@ -154,8 +156,14 @@ def test_minio_image_pin_is_consistent():
 
     workflow = yaml.safe_load((REPO_ROOT / ".github/workflows/minio-image.yml").read_text())
     env = workflow["env"]
-    assert env["IMAGE"] == f"ghcr.io/mycookie/minio:{match.group(1)}"
-    assert match.group(1) == "RELEASE." + env["VERSION"].replace(":", "-")
+    release_tag = "RELEASE." + env["VERSION"].replace(":", "-")
+    assert re.fullmatch(
+        rf"ghcr\.io/mycookie/minio:{re.escape(release_tag)}-hardened-\$\{{\{{\s*github\.run_id\s*\}}\}}",
+        env["IMAGE"],
+    ), f"env.IMAGE is not <release tag>-hardened-<run id>: {env['IMAGE']}"
+    assert re.fullmatch(rf"{re.escape(release_tag)}(-hardened-[0-9]+)?", match.group(1)), (
+        f"compose tag {match.group(1)} is neither {release_tag} nor {release_tag}-hardened-<run id>"
+    )
     steps = workflow["jobs"]["publish"]["steps"]
     (src,) = [s for s in steps if s.get("with", {}).get("repository") == "MyCookie/minio"]
     assert _env_ref("COMMIT").fullmatch(src["with"]["ref"])
@@ -166,6 +174,15 @@ def test_minio_image_pin_is_consistent():
     dockerfile = (REPO_ROOT / "docker/minio.Dockerfile").read_text()
     for arg in ("VERSION", "COMMIT"):
         assert re.search(rf"^ARG {arg}$", dockerfile, re.M), f"Dockerfile needs a bare ARG {arg}"
+    froms = re.findall(r"^FROM\s.*$", dockerfile, re.M)
+    assert froms, "Dockerfile has no FROM"
+    for line in froms:
+        assert re.search(r"@sha256:[0-9a-f]{64}(\s|$)", line), f"FROM is not digest-pinned: {line}"
+    final_stage = dockerfile[dockerfile.rindex("\nFROM ") :]
+    users = re.findall(r"^USER\s+(\S+)", final_stage, re.M)
+    assert users and users[-1].split(":")[0] not in ("root", "0"), (
+        f"final stage must end as a non-root USER, got {users}"
+    )
 
     for doc in ("docs/spec/05-infrastructure.md", "docs/04-operations.md"):
         assert image in (REPO_ROOT / doc).read_text(), f"{doc} lacks the compose minio image"

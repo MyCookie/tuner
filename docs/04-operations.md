@@ -390,21 +390,23 @@ for production.
 
 1. **Edit the pin.** `VERSION` and `COMMIT` live only in the workflow's `env`
    (they reach the Dockerfile as build-args; it has no defaults and fails
-   without them). Update them together with `IMAGE`, whose tag is
-   `RELEASE.` + `VERSION` with `:` written as `-` (e.g. `2025-04-22T22:12:26Z`
-   becomes `RELEASE.2025-04-22T22-12-26Z`).
-2. **Run the workflow by hand.** `workflow_dispatch` is human-only: it
-   overwrites the GHCR tag, so no agent or CI job triggers it. Actions →
-   `minio-image` → Run workflow.
-3. **Read the index digest** from the run's step summary ("Index digest:
-   `sha256:...`"). It covers the linux/amd64 and linux/arm64 index.
+   without them). Only when bumping MinIO, update them; `IMAGE` already
+   carries `VERSION` in its tag and needs no edit (tag format:
+   [spec 05 §1](spec/05-infrastructure.md)).
+2. **Run the workflow by hand.** `workflow_dispatch` is human-only, so no agent
+   or CI job triggers it. Each run publishes under a new tag and never
+   overwrites one: the run refuses to publish if its tag already exists.
+   Actions → `minio-image` → Run workflow.
+3. **Read the image tag and index digest** from the run's step summary (the
+   `### <image>` heading and "Index digest: `sha256:...`"). The digest covers
+   the linux/amd64 and linux/arm64 index.
 4. **Paste the new `<tag>@sha256:<digest>` image string everywhere**, verbatim:
    `docker-compose.yaml` (`minio.image`), the table in
    [spec 05 §1](spec/05-infrastructure.md), and the sample `docker compose ps`
    output above. The spec 05 §1 row also names the source commit; update that
    too. Unit test `INF-U-008` fails if the compose image is not GHCR
-   tag+digest, if its tag disagrees with the workflow, or if either doc lacks
-   the exact string.
+   tag+digest, if its tag is not the workflow's release tag (alone, or with
+   `-hardened-<run id>`), or if either doc lacks the exact string.
 5. **Make the package public.** A new GHCR package is private by default.
    In GitHub → Packages → `minio` → Package settings, set visibility to
    public, then check anonymously:
