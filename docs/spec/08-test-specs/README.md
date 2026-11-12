@@ -45,7 +45,7 @@ Tooling: `pytest-cov` (add to the `dev` extra in T01), **branch coverage on**, c
 These run as CI jobs / scheduled lanes rather than one-off suites (wired in [06 §6](../06-testing.md), built in T14):
 
 - **Property-based testing** (`hypothesis`, in the `dev` extra): mandated for two invariants — CLN-U-030 (scrub idempotence) and CORE-U-050 (schema round-trip) — and encouraged for any pure-logic module chasing its 100 % target: a property often covers branches example tables miss.
-- **Dependency audit:** `uvx pip-audit` on every lockfile change and weekly on schedule; a known-vulnerable dependency fails the job.
+- **Dependency audit:** `uvx pip-audit` (version pinned per [09 §8](../09-git-workflow.md#8-ci-workflow-pinning)) on every lockfile change and weekly on schedule; a known-vulnerable dependency fails the job.
 - **Secret scanning:** `gitleaks` (or equivalent grep script) in pre-commit and CI over the full history of the branch being merged; complements the [09 §6](../09-git-workflow.md) rotation rule.
 - **Docs verification:** `scripts/check_docs.py` — relative-link resolution across `docs/` + the ID checks of `check_test_ids.py`; docs are load-bearing in this repo, so broken references are CI failures.
 - **Nightly slow lane:** `pytest -m slow` (INF-S cases) + the CPU E2E run ([06 §5](../06-testing.md)).
