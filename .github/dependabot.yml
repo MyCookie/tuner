@@ -4,3 +4,12 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    commit-message:
+      prefix: chore(ci)
+  # Digest-pinned Dockerfile base images (09 section 8); /docker holds every Dockerfile.
+  - package-ecosystem: docker
+    directory: /docker
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: chore(ci)
