@@ -59,7 +59,7 @@ every other worktree's view of the stack.
 ```
 $ docker compose ps
 NAME                 IMAGE                                                                                                                         SERVICE      STATUS         PORTS
-tuner-minio-1        ghcr.io/mycookie/minio:RELEASE.2025-04-22T22-12-26Z@sha256:cb9cd82620b03734ef13b983c2cb479a67babe9e090cfb55499da614d40a0b75   minio        Up (healthy)   127.0.0.1:9000-9001->9000-9001/tcp
+tuner-minio-1        ghcr.io/mycookie/minio:RELEASE.2025-04-22T22-12-26Z-hardened-43275418982@sha256:099abd65d22f7230031791a0fa32258300595c1c631b40393f57ad6c33e81467   minio        Up (healthy)   127.0.0.1:9000-9001->9000-9001/tcp
 tuner-mlflow-1       tuner-mlflow                                                                                                                  mlflow       Up (healthy)   127.0.0.1:5000->5000/tcp
 tuner-mock-judge-1   tuner-mock-judge                                                                                                              mock-judge   Up (healthy)   127.0.0.1:8088->8088/tcp
 ```
@@ -399,26 +399,36 @@ for production.
    or CI job triggers it. Each run publishes under a new tag and never
    overwrites one: the run refuses to publish if its tag already exists.
    Actions → `minio-image` → Run workflow.
-3. **Read the image tag and index digest** from the run's step summary (the
-   `### <image>` heading and "Index digest: `sha256:...`"). The digest covers
-   the linux/amd64 and linux/arm64 index.
+3. **Confirm both smoke legs are green, then read the image tag and index
+   digest** from the run's step summary (the `### <image>` heading and "Index
+   digest: `sha256:...`"). The digest covers the linux/amd64 and linux/arm64
+   index. The `smoke` job runs after `publish` has already pushed the image, and
+   the step summary appears even when a smoke leg is red, so check the run's
+   `smoke (linux/amd64, ubuntu-latest)` and `smoke (linux/arm64,
+   ubuntu-24.04-arm)` legs before pasting anything. A red leg leaves a
+   published tag that must not be used: dispatch the workflow again to get a new
+   tag. `smoke` depends on the `ubuntu-24.04-arm` runner being available and on
+   a job token that can pull the package; if either is missing the leg fails or
+   never starts, and anything short of green is not a confirmation.
 4. **Paste the new `<tag>@sha256:<digest>` image string everywhere**, verbatim:
    `docker-compose.yaml` (`minio.image`), the table in
    [spec 05 §1](spec/05-infrastructure.md), and the sample `docker compose ps`
    output above. The spec 05 §1 row also names the source commit; update that
    too. Unit test `INF-U-008` fails if the compose image is not GHCR
-   tag+digest, if its tag is not the workflow's release tag (alone, or with
-   `-hardened-<run id>`), or if either doc lacks the exact string.
+   tag+digest, if its tag is not the workflow's release tag followed by
+   `-hardened-<run id>`, or if either doc lacks the exact string.
 5. **Make the package public.** A new GHCR package is private by default.
    In GitHub → Packages → `minio` → Package settings, set visibility to
    public, then check anonymously:
    `docker logout ghcr.io && docker pull <image string from docker-compose.yaml>`.
 
-`docker/minio.Dockerfile` builds an image that runs as a non-root user (uid
-10001); the image pinned in compose today (`cb9cd826...`) predates that and runs
-as root until the swap to a hardened build (#138). An existing `minio-data`
-volume needs no manual step either way: the one-shot `minio-data-perms` service
-chowns it before `minio` starts ([spec 05 §1](spec/05-infrastructure.md)).
+The pinned image runs MinIO as a non-root user (uid 10001,
+`docker/minio.Dockerfile`). An existing `minio-data` volume needs no manual
+step: the one-shot `minio-data-perms` service chowns it to 10001 before `minio`
+starts. It stays on purpose (human decision on #138): volumes created by the
+earlier root image are root-owned, and without the chown the non-root `minio`
+would exit `file access denied`. On a fresh volume it is a no-op
+([spec 05 §1](spec/05-infrastructure.md)).
 
 The digest is not checked against GHCR offline: `INF-U-008` only checks
 consistency. A wrong digest surfaces as a pull failure in the `gate.yml`
