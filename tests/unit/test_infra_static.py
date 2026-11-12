@@ -143,7 +143,7 @@ _MINIO_IMAGE = re.compile(r"^ghcr\.io/mycookie/minio:(RELEASE\.[^@\s]+)@sha256:[
 
 def test_minio_image_pin_is_consistent():
     """INF-U-008: compose minio image is GHCR tag+digest; its tag is the workflow's release tag
-    (legacy form) or that tag plus `-hardened-<run id>` (the form env.IMAGE publishes);
+    plus `-hardened-<run id>` (the form env.IMAGE publishes; the bare release tag is rejected);
     Dockerfile ARGs are default-free, every FROM is digest-pinned and the final stage is non-root;
     the full string is verbatim in the 05 §1 table and the operations guide, and 05 §1 names the
     workflow's source commit."""
@@ -161,8 +161,8 @@ def test_minio_image_pin_is_consistent():
         rf"ghcr\.io/mycookie/minio:{re.escape(release_tag)}-hardened-\$\{{\{{\s*github\.run_id\s*\}}\}}",
         env["IMAGE"],
     ), f"env.IMAGE is not <release tag>-hardened-<run id>: {env['IMAGE']}"
-    assert re.fullmatch(rf"{re.escape(release_tag)}(-hardened-[0-9]+)?", match.group(1)), (
-        f"compose tag {match.group(1)} is neither {release_tag} nor {release_tag}-hardened-<run id>"
+    assert re.fullmatch(rf"{re.escape(release_tag)}-hardened-[0-9]+", match.group(1)), (
+        f"compose tag {match.group(1)} is not {release_tag}-hardened-<run id>"
     )
     steps = workflow["jobs"]["publish"]["steps"]
     (src,) = [s for s in steps if s.get("with", {}).get("repository") == "MyCookie/minio"]

@@ -7,7 +7,7 @@ name: tuner
 services:
   minio:
     # pinned; verify the :9001 console still answers before bumping
-    image: &minio-image ghcr.io/mycookie/minio:RELEASE.2025-04-22T22-12-26Z@sha256:cb9cd82620b03734ef13b983c2cb479a67babe9e090cfb55499da614d40a0b75
+    image: &minio-image ghcr.io/mycookie/minio:RELEASE.2025-04-22T22-12-26Z-hardened-43275418982@sha256:099abd65d22f7230031791a0fa32258300595c1c631b40393f57ad6c33e81467
     command: server /data --console-address ":9001"
     ports:
       - "127.0.0.1:9000:9000"
@@ -27,7 +27,7 @@ services:
       retries: 10
 
   # Hands the minio-data volume to the image's non-root minio user (uid 10001, docker/minio.Dockerfile).
-  # Volumes created before that image are root-owned, and minio would exit "file access denied".
+  # Volumes created by the earlier root image are root-owned, and minio would exit "file access denied".
   # Same image as minio (one pin, no extra pull); runs as root only for this chown, then exits.
   minio-data-perms:
     image: *minio-image
