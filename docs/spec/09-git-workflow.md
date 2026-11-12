@@ -86,13 +86,22 @@ This section is the one statement of the rule; other docs point here and do not 
 
 - **Every action, including `actions/*`, is pinned to a full 40-character commit SHA**, with the version as a trailing comment (`uses: astral-sh/setup-uv@<sha> # v7.6.0`). A mutable tag (`@v7`) or branch is not allowed.
 - **uv is pinned to an exact version** in the `version:` input of `astral-sh/setup-uv`. No range, no `latest`. Every workflow that pins uv uses the same version.
+- **Tools run through `uvx` are pinned to an exact version** (`uvx pip-audit==<version>`, the dependency audit in `weekly.yml`). No unpinned `uvx <tool>`.
 - **Least-privilege `permissions`:** declare `permissions:` explicitly (workflow or job level) and grant only what the job needs, normally `contents: read`.
 - **`persist-credentials: false`** on every `actions/checkout` step, so the token is not left in the checkout's git config.
 
-**Keeping the pins current.** `.github/dependabot.yml` runs Dependabot's `github-actions` ecosystem monthly and opens PRs that bump the action SHAs and their version comments. Dependabot does **not** bump the uv `version:` input, so that is a manual step:
+**Keeping the pins current.** `.github/dependabot.yml` runs Dependabot's `github-actions` ecosystem monthly and opens PRs that bump the action SHAs and their version comments. Dependabot does **not** bump the uv `version:` input or a `uvx <tool>==<version>` pin, so those are manual steps.
+
+**Bumping uv:**
 
 1. Pick the new uv release (check that the pinned `setup-uv` release supports it).
 2. `grep -rnE '^\s+version:' .github/workflows/` to find every workflow that pins uv.
 3. Change all of them to the same new exact version in one PR, and run `./scripts/gate.sh`.
 
 Do not bump uv in some workflows and not others.
+
+**Bumping a `uvx` tool pin** (today `pip-audit`):
+
+1. `grep -rn 'uvx ' .github/workflows/` to find every pinned `uvx` invocation.
+2. Change the `==<version>` to the new release in one PR; if the audit then reports a different finding set, deal with it in that PR (the `--ignore-vuln` entries sit on the same line).
+3. Run `./scripts/gate.sh`.

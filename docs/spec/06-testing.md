@@ -50,7 +50,7 @@ One test module per stage, each following the pattern: seed the input tier by wr
 ## 6. CI (GitHub Actions or equivalent, no GPU)
 
 - Every PR: the `gate` job stands up the compose stack (MinIO, MLflow and the mock judge as service containers) and runs `./scripts/gate.sh`, the single definition of green ([10 §4](10-code-review.md)). The checks are listed in the script; among them are HF access in offline mode with a pre-seeded tiny-model cache (INF-I-012) and the secret scan.
-- On lockfile change + weekly: dependency audit (`uvx pip-audit`).
+- On lockfile change + weekly: dependency audit (`uvx pip-audit`, version pinned per [09 §8](09-git-workflow.md#8-ci-workflow-pinning)).
 - Nightly: `pytest -m slow` (container structure, scale smoke — [08 infra.md](08-test-specs/infra.md)) + CPU E2E.
 - GPU E2E: not in CI; it is the **manual release gate** — run before tagging and record the run ID in the PR/tag description.
 
