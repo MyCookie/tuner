@@ -10,6 +10,7 @@ Rules for all work in this repo, human or agent. The core invariant: **`main` is
   - Bug fixes: `fix/34-cleaner-phone-regex`
   - Docs-only: `docs/41-test-specs`
   - Refactors/chores: `refactor/<issue#>-...`, `chore/<issue#>-...`
+- Dependabot PRs are exempt from this naming rule and the Issue requirement ([§8](#8-ci-workflow-pinning)).
 - Branch from up-to-date `main`, keep branches short-lived (a task-sized branch should live hours-to-days, not weeks). Delete the branch after merge.
 - The existing `draft` branch holds the documentation set; once approved it merges to `main` under the same gate (link check + traceability read in place of pytest).
 
@@ -82,15 +83,16 @@ CI runs this same script on every PR as the job `gate` ([10 §4](10-code-review.
 
 ## 8. CI workflow pinning
 
-This section is the one statement of the rule; other docs point here and do not restate it. It applies to every file under `.github/workflows/`.
+This section is the one statement of the rule; other docs point here and do not restate it. It applies to every file under `.github/workflows/` and to every `FROM` line in `docker/*.Dockerfile`.
 
 - **Every action, including `actions/*`, is pinned to a full 40-character commit SHA**, with the version as a trailing comment (`uses: astral-sh/setup-uv@<sha> # v7.6.0`). A mutable tag (`@v7`) or branch is not allowed.
 - **uv is pinned to an exact version** in the `version:` input of `astral-sh/setup-uv`. No range, no `latest`. Every workflow that pins uv uses the same version.
 - **Tools run through `uvx` are pinned to an exact version** (`uvx pip-audit==<version>`, the dependency audit in `weekly.yml`). No unpinned `uvx <tool>`.
 - **Least-privilege `permissions`:** declare `permissions:` explicitly (workflow or job level) and grant only what the job needs, normally `contents: read`.
 - **`persist-credentials: false`** on every `actions/checkout` step, so the token is not left in the checkout's git config.
+- **Every Dockerfile base image is pinned by digest**: `FROM <image>:<tag>@sha256:<64 hex>`, the tag kept for readability and the digest being the one that counts. For a multi-arch image the digest is the index (manifest list) digest, as printed by `docker buildx imagetools inspect <image>:<tag>`, so one pin serves every platform. A bare tag is not allowed. `docker/minio.Dockerfile` is the existing example.
 
-**Keeping the pins current.** `.github/dependabot.yml` runs Dependabot's `github-actions` ecosystem monthly and opens PRs that bump the action SHAs and their version comments. Dependabot does **not** bump the uv `version:` input or a `uvx <tool>==<version>` pin, so those are manual steps.
+**Keeping the pins current.** `.github/dependabot.yml` runs Dependabot's `github-actions` ecosystem (`/`) and `docker` ecosystem (`/docker`, every Dockerfile there) monthly. Its PRs bump the action SHAs and their version comments, and the Dockerfile tag and digest. Dependabot does **not** bump the uv `version:` input or a `uvx <tool>==<version>` pin, so those are manual steps.
 
 **Bumping uv:**
 
@@ -105,3 +107,5 @@ Do not bump uv in some workflows and not others.
 1. `grep -rn 'uvx ' .github/workflows/` to find every pinned `uvx` invocation.
 2. Change the `==<version>` to the new release in one PR; if the audit then reports a different finding set, deal with it in that PR (the `--ignore-vuln` entries sit on the same line).
 3. Run `./scripts/gate.sh`.
+
+**Dependabot PRs are exempt from the Issue-per-branch rules.** A bot PR has no Issue, sits on a `dependabot/...` branch, and carries no `Refs:` trailer or `Closes` line, so the branch-naming rule of §1 and the `Refs:`/`Closes` requirement of §3 do not apply to it. `commit-message.prefix: chore(ci)` in `.github/dependabot.yml` keeps its titles Conventional Commits. The gate still applies, and a bot PR is never self-merged: the human routes each bot PR to the manager, and a review-lead reviews and merges it in per-PR mode (merge-review of a PR the implementation team did not open).
