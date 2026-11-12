@@ -102,7 +102,7 @@ A spec ambiguity found along the way is resolved **in the docs**, not in a code 
 
 ### T13 — Driver + registry list
 **Files:** `tuner run` implementation in `src/tuner/cli.py`, `src/tuner/registry_ops/cli.py` (`tuner registry list` only, [registry.md MVP scope](03-components/registry.md)).
-**Suite:** `CLI-U-001..004`, `CLI-I-010..014`, `CLI-I-020..022` ([08 cli.md](08-test-specs/cli.md)).
+**Suite:** `CLI-U-001..004`, `CLI-I-010..014` (`CLI-I-014` runs only in the nightly slow lane, #120), `CLI-I-020..022` ([08 cli.md](08-test-specs/cli.md)).
 **Spec:** [01 §2](01-architecture.md).
 **Verify:** `uv run tuner run --config configs/pipeline.e2e.yaml` completes end-to-end; `uv run tuner registry list` shows the new candidate.
 
