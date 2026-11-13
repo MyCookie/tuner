@@ -99,8 +99,15 @@ def test_compose_config_is_valid():
     for name, svc in services.items():
         assert "expose" not in svc, f"{name} declares expose"
         assert svc.get("network_mode") != "host", f"{name} uses host networking"
-    for stage in ("ingestor", "cleaner", "judge", "tokenizer", "trainer", "smoke"):
+    # Hard-coded from the 05 §1 table on purpose (#141, #136): a table change updates this too.
+    stages = ("ingestor", "cleaner", "judge", "tokenizer", "trainer", "smoke")
+    always_on = ("minio", "minio-data-perms", "minio-init", "mlflow")
+    assert set(services) == {*always_on, "mock-judge", *stages}
+    for stage in stages:
         assert services[stage]["profiles"] == ["pipeline"]
+    assert services["mock-judge"]["profiles"] == ["e2e"]
+    for name in always_on:
+        assert "profiles" not in services[name], f"{name} must not be profile-gated"
 
 
 _CREDENTIAL_LITERAL = re.compile(
