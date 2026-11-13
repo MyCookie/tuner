@@ -99,6 +99,9 @@ step "shell scripts parse" shell_syntax
 
 # -- secret scans (08-test-specs/README.md "Secret scanning") --------------
 
+# The CI pinning rule (09-git-workflow.md §8): SHA-pinned actions, persist-credentials, permissions.
+step "workflow pins" uv run python scripts/check_workflow_pins.py
+
 step "secret scan, working tree" uv run python scripts/check_secrets.py
 
 # "Over the full history of the branch being merged": every commit since the merge

@@ -44,7 +44,7 @@ From the feature branch, after rebasing onto latest `main` (`git fetch && git re
 ./scripts/gate.sh
 ```
 
-It reads `.env` itself — there is no export step — and runs every check the merge needs (the script is the list; [10 §4](10-code-review.md)). Every step runs even after an earlier one fails, so one round surfaces the whole picture, and it prints a summary table to paste into the PR. Anything red ⇒ fix on the branch; never merge-then-fix.
+It reads `.env` itself — there is no export step — and runs every check the merge needs (the script is the list, which includes the §8 workflow-pin check; [10 §4](10-code-review.md)). Every step runs even after an earlier one fails, so one round surfaces the whole picture, and it prints a summary table to paste into the PR. Anything red ⇒ fix on the branch; never merge-then-fix.
 
 **A green gate is necessary but no longer sufficient.** From T05 on, `main` advances only through a reviewed pull request: push the branch, open the PR, and the review team (run by the teamflow plugin) checks the gate on the exact head, analyses the change against the specs, and merges on `APPROVE`; [10-code-review.md](10-code-review.md) is normative. **The author never merges their own work.** The merge happens on GitHub as a merge commit (`--merge`), which is the same shape `--no-ff` produced; local `main` then fast-forwards with `git pull --ff-only`.
 
@@ -85,7 +85,7 @@ CI runs this same script on every PR as the job `gate` ([10 §4](10-code-review.
 
 This section is the one statement of the rule; other docs point here and do not restate it. It applies to every file under `.github/workflows/` and to every `FROM` line in `docker/*.Dockerfile`.
 
-- **Every action, including `actions/*`, is pinned to a full 40-character commit SHA**, with the version as a trailing comment (`uses: astral-sh/setup-uv@<sha> # v7.6.0`). A mutable tag (`@v7`) or branch is not allowed.
+- **Every action, including `actions/*`, is pinned to a full 40-character commit SHA**, with the version as a trailing comment (`uses: astral-sh/setup-uv@<sha> # v7.6.0`). A mutable tag (`@v7`) or branch is not allowed. The gate enforces this item, the `permissions:` item and the `persist-credentials: false` item (`scripts/check_workflow_pins.py`, step `workflow pins`); the uv, `uvx` and Dockerfile-digest items are not mechanically checked.
 - **uv is pinned to an exact version** in the `version:` input of `astral-sh/setup-uv`. No range, no `latest`. Every workflow that pins uv uses the same version.
 - **Tools run through `uvx` are pinned to an exact version** (`uvx pip-audit==<version>`, the dependency audit in `weekly.yml`). No unpinned `uvx <tool>`.
 - **Least-privilege `permissions`:** declare `permissions:` explicitly (workflow or job level) and grant only what the job needs, normally `contents: read`.
