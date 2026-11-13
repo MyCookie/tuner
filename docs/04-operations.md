@@ -114,11 +114,14 @@ services:
       - "5000:5000"
 ```
 
-MLflow only answers requests whose `Host` is on its `--allowed-hosts` list
-(`localhost` and `mlflow`, with port 5000): a request under a LAN name or IP
-answers `403 Invalid Host header` even though `/health` returns 200. Add the
-remote hostname to that list with a `command: !override` copy of the `command:`
-list, as the port-conflict row in [Common failure modes](#4-common-failure-modes) does, and see
+MLflow only answers requests whose whole `Host` header, port included, is on its
+`--allowed-hosts` list. The stock list is
+`localhost,localhost:5000,mlflow,mlflow:5000`, so a request under a LAN name or IP
+answers `403 Invalid Host header` even though `/health` returns 200. Add the exact
+Host header the client sends, port included (for example `remote-host:5000`; a bare
+hostname is not enough), to that list with a `command: !override` copy of the
+`command:` list, keeping the four stock entries, as the port-conflict row in
+[Common failure modes](#4-common-failure-modes) does, and see
 [spec 05 §1](spec/05-infrastructure.md) for the constraint itself.
 
 This sits outside the risk acceptance, so never commit it.
