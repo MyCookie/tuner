@@ -21,9 +21,9 @@ Executable-precision test specs for the MVP slice. [06-testing.md](../06-testing
 
 ## Conventions
 
-- **Case IDs:** `<PREFIX>-<U|I|E|G|S>-<NNN>` — `U` unit (no services), `I` integration (compose MinIO ± mock judge ± MLflow), `E` end-to-end, `G` GPU-only (manual, T15), `S` slow (nightly lane: container structure, scale). IDs are stable; never renumber, append instead.
+- **Case IDs:** `<PREFIX>-<U|I|E|G|S>-<NNN>` — `U` unit (no services), `I` integration (compose MinIO ± mock judge ± MLflow), `E` end-to-end, `G` GPU-only (manual, T15), `S` slow (nightly lane: container structure, scale). The letter names a case's category, not its lane: an `I` case may also carry `slow` (`CLI-I-014`), which moves it to the nightly lane. IDs are stable; never renumber, append instead.
 - **Traceability:** the first line of every test function's docstring is its case ID (`"""CLN-U-004: phone regex ignores version strings."""`). `scripts/check_test_ids.py` (built in T14) greps specs vs. code both ways and fails CI on: a spec case with no test, a test with no spec case, or a duplicated *spec-table row*¹.
-- **Markers:** unit tests unmarked; `@pytest.mark.integration`, `@pytest.mark.e2e`, `@pytest.mark.gpu` (real-GPU-only paths; skipped in CI, run in T15), `@pytest.mark.slow` (nightly lane).
+- **Markers:** unit tests unmarked; `@pytest.mark.integration`, `@pytest.mark.e2e`, `@pytest.mark.gpu` (real-GPU-only paths; skipped in CI, run in T15), `@pytest.mark.slow` (nightly lane; `gate.sh` excludes it, so a case carrying it never runs in the PR gate; an `S` case always carries it, and an `I` case may, as `CLI-I-014` does, #120).
 - **Table-driven by default:** cases within one ID that differ only by data use `pytest.mark.parametrize`; the ID covers the whole table.
 - **Determinism:** no network except the in-process mock judge; no wall-clock assertions (inject/freeze time where a timestamp is asserted); integration tests create their own run IDs and clean their prefixes; tests never share state.
 - **Shared fixtures** (`tests/conftest.py`): `storage` (StorageClient against compose MinIO), `run_id` (fresh per test), `seed_tier(tier, records)` (writes records + valid manifest directly, for testing a stage in isolation), `mock_judge` (ASGI app + env pointing at it), `fixture_counts` (parsed `expected_counts.json`), `tiny_adapter` (the `tiny-test` adapter).
@@ -48,7 +48,7 @@ These run as CI jobs / scheduled lanes rather than one-off suites (wired in [06 
 - **Dependency audit:** `uvx pip-audit` (version pinned per [09 §8](../09-git-workflow.md#8-ci-workflow-pinning)) on every lockfile change and weekly on schedule; a known-vulnerable dependency fails the job.
 - **Secret scanning:** `gitleaks` (or equivalent grep script) in pre-commit and CI over the full history of the branch being merged; complements the [09 §6](../09-git-workflow.md) rotation rule.
 - **Docs verification:** `scripts/check_docs.py` — relative-link resolution across `docs/` + the ID checks of `check_test_ids.py`; docs are load-bearing in this repo, so broken references are CI failures.
-- **Nightly slow lane:** `pytest -m slow` (INF-S cases) + the CPU E2E run ([06 §5](../06-testing.md)).
+- **Nightly slow lane:** `pytest -m slow` (INF-S cases plus `CLI-I-014`, #120) + the CPU E2E run ([06 §5](../06-testing.md)).
 
 ## Phase 3+ testing (deferred, so it isn't invented ad hoc later)
 

@@ -25,7 +25,7 @@ Specs under test: [01-architecture.md §2, §4.4](../01-architecture.md), [regis
 | CLI-I-011 | Stage failure (judge recorder exits 1) | Driver stops: tokenize/train/smoke never invoked; driver exits 1 naming the failed stage |
 | CLI-I-012 | Stage exit 3 (zero records) | Driver aborts with a distinct "pipeline empty at <stage>" message, exit 3 |
 | CLI-I-013 | Completion output | Prints run ID, adapter/model URI, transcript URI, MLflow run URL (assert all four present on stdout) |
-| CLI-I-014 | Real mini-run (no mocks): fixtures + mock judge + tiny-test through the actual driver | Exit 0 — the pre-E2E integration checkpoint |
+| CLI-I-014 | Real mini-run (no mocks): fixtures + mock judge + tiny-test through the actual driver | Exit 0 — the pre-E2E integration checkpoint. Nightly-only: carries `slow`, so it is excluded from the PR gate and runs in the nightly slow lane ([06 §6](../06-testing.md), #120) |
 | CLI-I-015 | Unexpected mid-run failure (mocked: `mlflow.get_run` raises after a successful stage loop) | Exit 1 with a `run: ...` message, not a raw traceback |
 | CLI-I-016 | A stage returns a non-canonical exit code (e.g. `-9`, signal-killed) | Normalized to exit 1 (never propagated raw) with a message naming the actual code |
 
