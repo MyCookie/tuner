@@ -151,7 +151,8 @@ _MINIO_IMAGE = re.compile(r"^ghcr\.io/mycookie/minio:(RELEASE\.[^@\s]+)@sha256:[
 def test_minio_image_pin_is_consistent():
     """INF-U-008: compose minio image is GHCR tag+digest; its tag is the workflow's release tag
     plus `-hardened-<run id>` (the form env.IMAGE publishes; the bare release tag is rejected);
-    Dockerfile ARGs are default-free, every FROM is digest-pinned and the final stage is non-root;
+    minio.Dockerfile ARGs are default-free and its final stage is non-root; every FROM in every
+    docker/*.Dockerfile is digest-pinned;
     the full string is verbatim in the 05 §1 table and the operations guide, and 05 §1 names the
     workflow's source commit."""
     compose = yaml.safe_load((REPO_ROOT / "docker-compose.yaml").read_text())
@@ -185,6 +186,11 @@ def test_minio_image_pin_is_consistent():
     assert froms, "Dockerfile has no FROM"
     for line in froms:
         assert re.search(r"@sha256:[0-9a-f]{64}(\s|$)", line), f"FROM is not digest-pinned: {line}"
+    for path in sorted((REPO_ROOT / "docker").glob("*.Dockerfile")):
+        for line in re.findall(r"^FROM\s.*$", path.read_text(), re.M):
+            assert re.search(r"@sha256:[0-9a-f]{64}(\s|$)", line), (
+                f"{path.name}: FROM is not digest-pinned: {line}"
+            )
     final_stage = dockerfile[dockerfile.rindex("\nFROM ") :]
     users = re.findall(r"^USER\s+(\S+)", final_stage, re.M)
     assert users and users[-1].split(":")[0] not in ("root", "0"), (
