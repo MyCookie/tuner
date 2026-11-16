@@ -85,7 +85,7 @@ CI runs this same script on every PR as the job `gate` ([10 §4](10-code-review.
 
 This section is the one statement of the rule; other docs point here and do not restate it. It applies to every file under `.github/workflows/` and to every `FROM` line in `docker/*.Dockerfile`.
 
-- **Every action, including `actions/*`, is pinned to a full 40-character commit SHA**, with the version as a trailing comment (`uses: astral-sh/setup-uv@<sha> # v7.6.0`). A mutable tag (`@v7`) or branch is not allowed. The gate enforces this item, the `permissions:` item and the `persist-credentials: false` item (`scripts/check_workflow_pins.py`, step `workflow pins`); the uv, `uvx` and Dockerfile-digest items are not mechanically checked.
+- **Every action, including `actions/*`, is pinned to a full 40-character commit SHA**, with the version as a trailing comment (`uses: astral-sh/setup-uv@<sha> # v7.6.0`). A mutable tag (`@v7`) or branch is not allowed. The gate enforces this item, the `permissions:` item and the `persist-credentials: false` item (`scripts/check_workflow_pins.py`, step `workflow pins`); the uv and `uvx` items are not mechanically checked, and the Dockerfile-digest item is enforced by INF-U-008 in the unit suite, not by `check_workflow_pins.py`.
 - **uv is pinned to an exact version** in the `version:` input of `astral-sh/setup-uv`. No range, no `latest`. Every workflow that pins uv uses the same version.
 - **Tools run through `uvx` are pinned to an exact version** (`uvx pip-audit==<version>`, the dependency audit in `weekly.yml`). No unpinned `uvx <tool>`.
 - **Least-privilege `permissions`:** declare `permissions:` explicitly (workflow or job level) and grant only what the job needs, normally `contents: read`.
