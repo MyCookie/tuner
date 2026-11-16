@@ -1,7 +1,7 @@
 # Base image for all CPU stages (ingestor, cleaner, judge, tokenizer) and
 # infra tooling (minio-init). 05-infrastructure.md §2. Non-root uid 1000,
 # uv-installed deps, src/tuner installed. Never bakes data or credentials.
-FROM python:3.11-slim
+FROM python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535
 
 RUN useradd --create-home --uid 1000 --shell /usr/sbin/nologin tuner
 

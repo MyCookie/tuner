@@ -4,7 +4,7 @@
 #
 # Ubuntu 24.04's base CUDA runtime satisfies requires-python>=3.11 with its stock
 # python3 (3.12) -- no deadsnakes/PPA needed, unlike the 22.04-based tags.
-FROM nvidia/cuda:12.6.2-runtime-ubuntu24.04
+FROM nvidia/cuda:12.6.2-runtime-ubuntu24.04@sha256:16411bb06f363425265b410810a86fc43da705847ee9721be45b478bc4d0ea26
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \

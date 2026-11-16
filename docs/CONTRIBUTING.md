@@ -54,7 +54,7 @@ one it needs, not off `main`).
 Never commit to `main`. One branch per unit, named `<type>/<issue#>-<slug>`
 (`feat/`, `fix/`, `docs/`, `refactor/`…) — every unit is tracked by an Issue and
 its number is the branch scope. Conventional Commits, code + its tests in the
-same commit. Open a PR that closes its issues (`Closes #NN`).
+same commit. Open a PR that closes its issues (`Closes #NN`). Dependabot PRs are exempt from these rules ([09 §8](spec/09-git-workflow.md#8-ci-workflow-pinning)).
 
 **5. "Done" means the full gate passed — `./scripts/gate.sh`, not just
 `pytest`.** The gate runs ruff, the pickle ban, unit + integration, coverage,

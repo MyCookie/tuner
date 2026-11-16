@@ -23,7 +23,7 @@ You are building the Enterprise Fine-Tuning Pipeline from the specs in `docs/spe
 
 ## Git & review (full rules: [docs/spec/09-git-workflow.md](docs/spec/09-git-workflow.md), [docs/spec/10-code-review.md](docs/spec/10-code-review.md))
 
-- Never commit to `main`. One branch per unit of work, named `<type>/<issue#>-<slug>` (`feat/`, `fix/`, `docs/`, `refactor/`…), branched from up-to-date `main`. Every branch ties to an Issue — build-plan tasks get an Issue too.
+- Never commit to `main`. One branch per unit of work, named `<type>/<issue#>-<slug>` (`feat/`, `fix/`, `docs/`, `refactor/`…), branched from up-to-date `main`. Every branch ties to an Issue — build-plan tasks get an Issue too. Dependabot PRs are exempt from the Issue, branch-naming and `Refs:`/`Closes` rules; the human routes each to the manager for merge-review ([spec/09 §8](docs/spec/09-git-workflow.md#8-ci-workflow-pinning)).
 - Atomic commits, Conventional Commits format (`feat(cleaner): ...`), code + its tests in the same commit, unit tests passing at every commit.
 - The gate is one command: `./scripts/gate.sh` (ruff, pickle ban, unit, integration, coverage). Red and unfixable this session ⇒ leave the branch, report honestly. Never merge-then-fix, never force-push shared branches.
 - **Review checklist.** Reviewers (`review-lead` and the five specialists) apply [docs/spec/10 §5](docs/spec/10-code-review.md) (items T-a to T-g) in addition to the plugin's own checks, naming coverage (T-d) and data contracts (T-e), which the plugin's split has no counterpart for. The plugin does not read that page, so this pointer is the only thing that reaches them; whether a specialist follows it is not mechanically enforced.
