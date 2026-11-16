@@ -20,6 +20,18 @@ model on real GPU hardware) — nothing here is inferred from the spec alone.
 | An NVIDIA GPU + drivers (optional) | only needed for `train`/`smoke` against the real default model, `gemma-e4b`; the fixture-scale path below runs entirely on CPU | — |
 | [Hugging Face](https://huggingface.co) account + [access token](https://huggingface.co/settings/tokens) | generates `HF_TOKEN`; needed by Tokenizer/Trainer/Smoke-test to pull the base model (even public/ungated repositories require authentication) | — |
 
+**Minimum Compose plugin: v2.26.0.** The unit suite (INF-U-007, run by
+`./scripts/gate.sh`) calls `docker compose -f docker-compose.yaml --profile '*'
+config --format json`. Read from the Compose and compose-go sources and release
+notes (not by running old releases): `--profile '*'` comes from compose-go 1.0.0
+(compose-spec/compose-go#175, merged 2021-09-01), which Compose v2.0.0 already
+bundles, and `config --format` has accepted `json` since v2.0.0. Compose v2.25.0
+ignored `--format json` and printed YAML (docker/compose#11627), fixed in v2.26.0
+(docker/compose#11630), hence the floor. The suite was only run on the version in
+the table above and on v5.2.0; on anything older than v2.26.0, or between those
+releases, INF-U-007 is not verified, and an old plugin shows up as a Compose error
+or a JSON parse failure, not a clear message.
+
 You do **not** need a GPU to complete this page. You need one only if you go
 on to fine-tune the real default model (`gemma-e4b`) instead of the tiny
 CPU-sized test model this page uses.
