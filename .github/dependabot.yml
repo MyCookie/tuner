@@ -6,10 +6,20 @@ updates:
       interval: monthly
     commit-message:
       prefix: chore(ci)
-  # Digest-pinned Dockerfile base images (09 section 8); /docker holds every Dockerfile.
+  # Digest-pinned Dockerfile base images (09 section 8). Options:
+  # https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference
   - package-ecosystem: docker
     directory: /docker
     schedule:
       interval: monthly
     commit-message:
       prefix: chore(ci)
+    # minio.Dockerfile is rebuilt by hand with the MinIO image (docs/04-operations.md).
+    exclude-paths:
+      - minio.Dockerfile
+    # Patch and digest updates only; a minor or major tag bump is a manual change.
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
