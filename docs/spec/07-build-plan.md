@@ -115,7 +115,7 @@ A spec ambiguity found along the way is resolved **in the docs**, not in a code 
 ### T15 — MVP hardening pass
 **Goal:** close the gaps a single-task view misses.
 **Suite:** `TRN-G-020` ([08 trainer.md](08-test-specs/trainer.md)); `INF-S-020..021` ([08 infra.md](08-test-specs/infra.md)).
-**Do:** run the full pipeline on the real `gemma-e4b` adapter with fixtures on the GPU box (or host-venv fallback, [05 §3](05-infrastructure.md)) — this covers the `G`-marked cases (TRN-G-020) and every justified coverage pragma; run the slow lane (`pytest -m slow`: INF-S-020..021); review the smoke transcript by hand; verify IAM matrix once more via `check_iam.py`; confirm no `.bin`/pickle artifacts anywhere in MinIO; write `README.md` quick-start (compose up → `tuner run` → MLflow URL).
+**Do:** run the full pipeline on the real `gemma-e4b` adapter with fixtures on the GPU box (or host-venv fallback, [05 §3](05-infrastructure.md)) — this covers the `G`-marked cases (TRN-G-020) and every justified coverage pragma; run the slow lane (`pytest -m slow`: INF-S-020..021 and `CLI-I-014`, the real mini-run, about 18 minutes on CPU, #120); review the smoke transcript by hand; verify IAM matrix once more via `check_iam.py`; confirm no `.bin`/pickle artifacts anywhere in MinIO; write `README.md` quick-start (compose up → `tuner run` → MLflow URL).
 **Accept:** a teammate can go from clone to trained-adapter-with-transcript using only README.md.
 
 ---
