@@ -23,3 +23,24 @@ updates:
         update-types:
           - version-update:semver-minor
           - version-update:semver-major
+  # Python pins in uv.lock (09 section 8).
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: chore(ci)
+    # Transitive pins too: most vulnerable packages in a weekly audit failure are not declared in pyproject.toml.
+    allow:
+      - dependency-type: all
+    # Lock-only bumps; the >= floors in pyproject.toml are never edited.
+    versioning-strategy: lockfile-only
+    # Minor and patch updates arrive as one PR; a major update is its own PR per package (not ignored).
+    groups:
+      python-minor-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
