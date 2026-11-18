@@ -453,6 +453,17 @@ consistency. A wrong digest surfaces as a pull failure in the `gate.yml`
   workflow was never run for this tag, or the pasted digest is wrong. Re-run
   step 2-3 and compare the digest with `docker buildx imagetools inspect <tag>`.
 
+## Bumping the MLflow image
+
+The `mlflow` service is built by `docker/mlflow.Dockerfile` from a pinned
+upstream tag and index digest. After pulling a change that moves that tag, run
+`docker compose up -d --build mlflow`. An existing `mlflow-data` volume needs no
+manual step: the new server upgrades the sqlite schema in place on first start.
+Verified for v3.16.1 to v3.17.2: the runs and artifacts logged under the old
+server read back unchanged. The migration is one way. Starting the older image
+on the upgraded volume exits `1` with `Detected out-of-date database schema`, so
+copy the `mlflow-data` volume first if you may need to roll back.
+
 ## Next steps
 
 This is the last page in the user guide. If something here didn't answer
