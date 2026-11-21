@@ -12,7 +12,7 @@ COPY pyproject.toml uv.lock README.md ./
 COPY src/ src/
 COPY tests/mock_judge/ tests/mock_judge/
 
-RUN pip install --no-cache-dir "uv>=0.4" \
+RUN pip install --no-cache-dir uv==0.13.7 \
     && uv sync --frozen --extra dev \
     && chown -R tuner:tuner /app
 
