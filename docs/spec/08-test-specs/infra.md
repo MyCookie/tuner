@@ -28,7 +28,7 @@ Integration cases read MinIO root credentials (`MINIO_ROOT_USER`/`MINIO_ROOT_PAS
 
 ## CI workflow pin checker (unit)
 
-`scripts/check_workflow_pins.py` (gate step `workflow pins`, enforcing the [09 §8](../09-git-workflow.md#8-ci-workflow-pinning) pinning, `permissions:` and `persist-credentials: false` items) is run as a subprocess by `tests/unit/test_check_workflow_pins.py` against sample workflows written to `tmp_path` and passed as `WORKFLOW_DIR`; the real `.github/workflows/` is never read. The checker's behaviour is what the tests pin: a case that looks wrong is a checker or spec question, not a test to edit.
+`scripts/check_workflow_pins.py` (gate step `workflow pins`, enforcing the [09 §8](../09-git-workflow.md#8-ci-workflow-pinning) pinning, `permissions:` and `persist-credentials: false` items) has its `main()` called in-process (`sys.argv` patched, per the [08 README](README.md) exit-code convention) by `tests/unit/test_check_workflow_pins.py` against sample workflows written to `tmp_path` and passed as `WORKFLOW_DIR`; the real `.github/workflows/` is never read. The checker's behaviour is what the tests pin: a case that looks wrong is a checker or spec question, not a test to edit.
 
 | ID | Scenario | Expected |
 | :--- | :--- | :--- |
