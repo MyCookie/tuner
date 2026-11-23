@@ -232,3 +232,45 @@ def test_empty_workflow_directory_exits_one(tmp_path: Path, run_check) -> None:
     result = run_check(tmp_path)
     assert result.returncode == 1
     assert "no workflow files under" in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("body", "reason"),
+    [
+        pytest.param("on: [push\njobs: {", "invalid YAML", id="unparseable-yaml"),
+        pytest.param("- a\n- b\n", "top level is not a mapping", id="top-level-list"),
+        pytest.param("on: push\njobs: [a, b]\n", "`jobs` is not a mapping", id="jobs-list"),
+        pytest.param("on: push\njobs: build\n", "`jobs` is not a mapping", id="jobs-scalar"),
+        pytest.param(
+            "on: push\npermissions: {}\njobs:\n  a: [x]\n",
+            "job a: body is not a mapping",
+            id="job-body-list",
+        ),
+        pytest.param(
+            "on: push\npermissions: {}\njobs:\n  a: build\n",
+            "job a: body is not a mapping",
+            id="job-body-scalar",
+        ),
+        pytest.param(
+            "on: push\npermissions: {}\njobs:\n  a: {steps: build}\n",
+            "job a: `steps` is not a list of mappings",
+            id="steps-scalar",
+        ),
+        pytest.param(
+            "on: push\npermissions: {}\njobs:\n  a: {steps: [build]}\n",
+            "job a: `steps` is not a list of mappings",
+            id="step-scalar",
+        ),
+    ],
+)
+def test_malformed_workflow_reports_path_and_reason(
+    tmp_path: Path, run_check, body: str, reason: str
+) -> None:
+    """INF-U-018: malformed YAML or structure exits 1 with a `path: reason` line, no traceback."""
+    _workflow(tmp_path, body, "bad.yml")
+    _workflow(tmp_path, _single_job({"run": "echo"}), "good.yml")
+    result = run_check(tmp_path)
+    assert result.returncode == 1
+    assert f"bad.yml: {reason}" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert "good.yml" not in result.stderr

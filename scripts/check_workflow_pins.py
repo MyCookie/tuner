@@ -5,8 +5,8 @@
 (at workflow level, or on every job). Run by scripts/gate.sh.
 
 Usage: check_workflow_pins.py [WORKFLOW_DIR]   (default: .github/workflows)
-Exits 1 on any violation, and also when the directory holds no workflow, so a
-moved directory fails the gate instead of passing it empty.
+Exits 1 on any violation (a malformed file gets a `path: reason` line), and also when the
+directory holds no workflow, so a moved directory fails the gate instead of passing it empty.
 """
 
 from __future__ import annotations
@@ -21,8 +21,21 @@ SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
 def _check(path: Path) -> list[str]:
-    wf = yaml.safe_load(path.read_text()) or {}
+    try:
+        wf = yaml.safe_load(path.read_text()) or {}
+    except yaml.YAMLError as e:
+        return [f"{path}: invalid YAML: {' '.join(str(e).split())}"]
+    if not isinstance(wf, dict):
+        return [f"{path}: top level is not a mapping"]
     jobs = wf.get("jobs") or {}
+    if not isinstance(jobs, dict):
+        return [f"{path}: `jobs` is not a mapping"]
+    for job, body in jobs.items():
+        if not isinstance(body, dict):
+            return [f"{path}: job {job}: body is not a mapping"]
+        steps = body.get("steps") or []
+        if not isinstance(steps, list) or not all(isinstance(s, dict) for s in steps):
+            return [f"{path}: job {job}: `steps` is not a list of mappings"]
     problems: list[str] = []
     if "permissions" not in wf:
         missing = [j for j, body in jobs.items() if "permissions" not in body]
