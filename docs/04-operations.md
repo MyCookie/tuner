@@ -456,7 +456,11 @@ consistency. A wrong digest surfaces as a pull failure in the `gate.yml`
 ## Bumping the MLflow image
 
 The `mlflow` service is built by `docker/mlflow.Dockerfile` from a pinned
-upstream tag and index digest. After pulling a change that moves that tag, run
+upstream tag and index digest. The tag must never be older than the `mlflow`
+client locked in `uv.lock`, so bump the image first or in the same change as a
+client bump; the rule and the check that enforces it are in
+[spec 05 section 1](spec/05-infrastructure.md), MLflow client and server
+versions. After pulling a change that moves that tag, run
 `docker compose up -d --build mlflow`. An existing `mlflow-data` volume needs no
 manual step: the new server upgrades the sqlite schema in place on first start.
 Verified for v3.16.1 to v3.17.2: the runs and artifacts logged under the old

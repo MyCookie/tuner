@@ -6,6 +6,7 @@ import json
 import os
 import re
 import subprocess
+import tomllib
 from pathlib import Path
 
 import httpx
@@ -201,6 +202,73 @@ def test_minio_image_pin_is_consistent():
         assert image in (REPO_ROOT / doc).read_text(), f"{doc} lacks the compose minio image"
     source = f"MyCookie/minio@{env['COMMIT']}"
     assert source in (REPO_ROOT / "docs/spec/05-infrastructure.md").read_text()
+
+
+_MLFLOW_CLIENT_PACKAGES = ("mlflow", "mlflow-skinny", "mlflow-tracing")
+
+
+def _version_tuple(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split("."))
+
+
+def _mlflow_pin_violations(dockerfile: str, lock: str) -> list[str]:
+    """Reasons the server tag in `dockerfile` and the client pins in `lock` break 05 §1."""
+    tags = re.findall(r"^FROM\s+ghcr\.io/mlflow/mlflow:v(\d+(?:\.\d+)*)[@\s]", dockerfile, re.M)
+    if len(tags) != 1:
+        return [f"expected one ghcr.io/mlflow/mlflow:v<version> FROM line, found {len(tags)}"]
+    locked = {p["name"]: p["version"] for p in tomllib.loads(lock).get("package", [])}
+    missing = [name for name in _MLFLOW_CLIENT_PACKAGES if name not in locked]
+    if missing:
+        return [f"uv.lock has no {name}" for name in missing]
+    problems = []
+    if len({locked[name] for name in _MLFLOW_CLIENT_PACKAGES}) != 1:
+        problems.append(
+            "client packages differ: "
+            + ", ".join(f"{name} {locked[name]}" for name in _MLFLOW_CLIENT_PACKAGES)
+        )
+    if _version_tuple(tags[0]) < max(_version_tuple(locked[n]) for n in _MLFLOW_CLIENT_PACKAGES):
+        problems.append(f"server v{tags[0]} is older than the locked client")
+    return problems
+
+
+def _lock(mlflow: str, skinny: str, tracing: str) -> str:
+    return "".join(
+        f'[[package]]\nname = "{name}"\nversion = "{version}"\n\n'
+        for name, version in zip(_MLFLOW_CLIENT_PACKAGES, (mlflow, skinny, tracing), strict=True)
+    )
+
+
+def _mlflow_from(tag: str) -> str:
+    return f"FROM ghcr.io/mlflow/mlflow:v{tag}@sha256:{'0' * 64}\n"
+
+
+def test_mlflow_server_is_not_older_than_locked_client():
+    """INF-U-019: docker/mlflow.Dockerfile's server tag is >= the locked mlflow client, and
+    mlflow, mlflow-skinny and mlflow-tracing are locked at one version (05 §1)."""
+    assert (
+        _mlflow_pin_violations(
+            (REPO_ROOT / "docker/mlflow.Dockerfile").read_text(),
+            (REPO_ROOT / "uv.lock").read_text(),
+        )
+        == []
+    )
+
+    same = _lock("3.18.0", "3.18.0", "3.18.0")
+    for dockerfile, lock, expected in [
+        (_mlflow_from("3.18.0"), same, []),  # server equals client
+        (_mlflow_from("3.19.0"), same, []),  # server ahead is the supported direction
+        (_mlflow_from("3.9.0"), _lock("3.10.0", "3.10.0", "3.10.0"), ["older"]),  # not lexical
+        (_mlflow_from("3.18.0"), _lock("3.18.1", "3.18.1", "3.18.1"), ["older"]),  # patch bump
+        (_mlflow_from("3.18.0"), _lock("3.19.0", "3.19.0", "3.19.0"), ["older"]),  # minor bump
+        (_mlflow_from("3.18.0"), _lock("3.18.0", "3.18.1", "3.18.0"), ["differ", "older"]),
+        (_mlflow_from("3.19.0"), _lock("3.18.0", "3.18.0", "3.18.1"), ["differ"]),
+        (_mlflow_from("3.18.0"), same.split("[[package]]", 1)[0], ["no mlflow"]),
+        (f"FROM python:3.11@sha256:{'0' * 64}\n", same, ["expected one"]),
+    ]:
+        found = "\n".join(_mlflow_pin_violations(dockerfile, lock))
+        assert bool(found) == bool(expected), (dockerfile, lock, found)
+        for word in expected:
+            assert word in found, (dockerfile, lock, found)
 
 
 # --- Hugging Face interaction (built at T09, once tuner.models exists) -------------
