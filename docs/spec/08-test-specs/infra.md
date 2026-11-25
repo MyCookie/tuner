@@ -37,6 +37,7 @@ Integration cases read MinIO root credentials (`MINIO_ROOT_USER`/`MINIO_ROOT_PAS
 | INF-U-015 | No `permissions:` at either level: none anywhere, set on some jobs but not all, a workflow with no jobs | Exit 1; stderr says "no `permissions:` at workflow level or on job(s)" and lists the jobs lacking it (empty list for no jobs) |
 | INF-U-016 | Negative controls, each exits 0 with empty stderr: a full-SHA pin with a trailing version comment; a local action (`uses: ./...`); a step with only `run:`; workflow-level `permissions` with jobs lacking their own; `permissions` on every job (including `{}`) with none at workflow level; a SHA-pinned reusable-workflow call | Exit 0, nothing on stderr |
 | INF-U-017 | Failure propagation over a directory: clean `.yml` and `.yaml` files; one bad `.yaml` among clean files; a directory with no workflow file (only a `.txt`) | Clean tree exits 0; any violation exits 1 and stderr names only the offending file; an empty directory exits 1 with "no workflow files under" |
+| INF-U-018 | Malformed workflow among a clean one, parametrized over: unparseable YAML, a top level that is a list, `jobs` as a list or scalar, a job body as a list or scalar, `steps` as a scalar, a step as a scalar | Exit 1; stderr has a `<path>: <reason>` line naming only the malformed file ("invalid YAML", "top level is not a mapping", "`jobs` is not a mapping", "job <name>: body is not a mapping", "job <name>: `steps` is not a list of mappings"); no traceback |
 
 ## Hugging Face interaction
 
