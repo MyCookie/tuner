@@ -237,7 +237,8 @@ def train(
                         per_device_eval_batch_size=merged["per_device_batch_size"],
                         gradient_accumulation_steps=merged["gradient_accumulation_steps"],
                         learning_rate=merged["learning_rate"],
-                        warmup_ratio=merged["warmup_ratio"],
+                        # transformers>=5.15 dropped warmup_ratio; a float < 1 here is the ratio.
+                        warmup_steps=merged["warmup_ratio"],
                         # Not unconditional: bf16 on a CPU-only device raises
                         # ("doesn't support bf16/gpu") rather than falling back, which
                         # made every method: full run fail on hardware without CUDA --
