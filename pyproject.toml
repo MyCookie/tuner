@@ -54,6 +54,10 @@ line-length = 100
 target-version = "py311"
 src = ["src", "tests"]
 
+[tool.ruff.format]
+# ruff>=0.17 formats Python blocks in Markdown; docs/spec blocks are hand-aligned and normative.
+exclude = ["*.md"]
+
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
